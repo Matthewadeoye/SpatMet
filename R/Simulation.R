@@ -185,7 +185,7 @@ grid()
 #Phase plot
 par(mfrow=c(3,3))
 for(j in 1:n_patches){
-  plot(results[,9+j]/N[j],results[,18+j]/N[j], xlim=c(0,1), ylim=c(0,1), type = "l", xlab = "R", ylab = "I", main = paste("Subpopulation ", j))
+  plot(results[,18+j]/N[j], results[,9+j]/N[j], xlim=c(0,1), ylim=c(0,1), type = "l", xlab = "R", ylab = "I", main = paste("Subpopulation ", j))
 }
 
 
@@ -195,9 +195,10 @@ seg_len <- floor(n_time/3)
 segcolors <- c("blue", "yellow", "red")
 par(mfrow = c(3, 3))
 for (j in 1:n_patches) {
-  R_vals <- results[, 9 + j] / N[j]
-  I_vals <- results[, 18 + j] / N[j]
+  I_vals <- results[, 9 + j] / N[j]
+  R_vals <- results[, 18 + j] / N[j]
   plot(NA, xlim = c(0, 1), ylim = c(0, 1), xlab = "R", ylab = "I", main = paste("Subpopulation", j))
+  grid()
   for (i in 1:(n_time - 1)) {
     segment_color <- if (i <= seg_len) {
       segcolors[1]

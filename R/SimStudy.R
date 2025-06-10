@@ -63,18 +63,13 @@ simulate.SIRS<- function(init.condition, params){
 
 
 library(lhs)
-B0<- seq(0, 500, by=50)
+B0<- seq(0, 1000, by=10)
 
 set.seed(0)
 X <- randomLHS(n = length(B0), k = n_patches)
-Y <- X
-lens <- rep(length(B0), n_patches)
-for (i in 1:n_patches){
-  Y_index <- 1 + floor(Y[,i] * length(B0))
-  Y[,i] <- B0[Y_index]
-}
+N_Mat<- matrix(rep(N, nrow(X)), nrow = nrow(X), ncol = n_patches, byrow = T)
+Y<- X*N_Mat
 colnames(Y)<- paste0("S",1:9)
-Y
 
 Sstdstates<- matrix(NA, nrow = nrow(Y), ncol = n_patches)
 for(i in 1:nrow(Y)){
@@ -82,9 +77,8 @@ for(i in 1:nrow(Y)){
 }
 Sstdstates
 
-N_Mat<- matrix(rep(N, nrow(Sstdstates)), nrow = nrow(Sstdstates), ncol = n_patches, byrow = T)
 Istdstates<- (rho/(gamma+rho))*(N_Mat-Sstdstates)
-Rstdstates<- N_Mat - Sstdstates
+Rstdstates<- N_Mat - Sstdstates - Istdstates
 
 Sstdstates/N_Mat
 Istdstates/N_Mat
@@ -94,6 +88,7 @@ Veccolors<- randomcoloR::randomColor(nrow(Y))
 #Phase plot
 par(mfrow=c(3,3))
 for(j in 1:n_patches){
-  plot(0, type = "n", xlim = c(0, max(Rstdstates)), ylim = c(0, max(Istdstates)), xlab = "R", ylab = "I", main = paste("Subpopulation ", j), cex.lab = 1.7, cex.axis = 1.7, cex.main=2.0)
-  points(Rstdstates[,j],Istdstates[,j], col= Veccolors, pch=3, cex=1)
+  plot(0, type = "n", xlim = c(0, 1), ylim = c(0, 1), xlab = "R", ylab = "I", main = paste("Subpopulation ", j), cex.lab = 1.7, cex.axis = 1.0, cex.main=2.0)
+  points(Rstdstates[,j]/N_Mat[,j],Istdstates[,j]/N_Mat[,j], col= Veccolors, pch=3, cex=1.7)
+  grid()
 }
