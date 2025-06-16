@@ -10,7 +10,7 @@ gdata::lowerTriangle(sim_adjmat, byrow=FALSE) <- uppertriang
 beta<- params[["beta"]]
 gamma<- params[["gamma"]]
 rho<- params[["rho"]]
-epsilon<- params[["epsilon"]]
+pi<- params[["pi"]]
 n_patches<- nrow(sim_adjmat)
 max_time<- params[["max_time"]]
 dt<- params[["dt"]]
@@ -18,7 +18,8 @@ amplitude<- params[["amplitude"]]
 
 set.seed(1234)
 # Initialize state variables
-N <- c(rbind(rpois(5,500), rpois(5,1000)))
+#N <- c(rbind(rpois(5,500), rpois(5,1000)))
+N<- rep(c(500,1000), 5)
 N <- N[-10]
 
 #Obtain steady state conditions

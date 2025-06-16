@@ -19,7 +19,7 @@ amplitude<- params[["amplitude"]]
 #set.seed(1234)
 # Initialize state variables
 #N <- c(rbind(rpois(5,500), rpois(5,1000)))
-N<- rep(1000, 10)
+N<- rep(c(500,1000), 5)
 N <- N[-10]
 
 #Obtain steady state conditions
@@ -46,8 +46,8 @@ S<- c(round(solve(M_matrix) %*% rep(gamma, n_patches)))
 I<- c(round((rho/(gamma+rho))*(N-S)))
 R<- N-S-I
 
-S<- N-1
-I<- rep(1, n_patches)
+S<- N-5
+I<- rep(5, n_patches)
 R<- rep(0, n_patches)
 
 results <- matrix(c(S, I, R, 0), nrow = 1)
@@ -70,7 +70,7 @@ while (time < max_time & any(I > 0)) {
     neighbors<- which(sim_adjmat[p, ] == 1)
     pop_neighbors<- sum(c(S[neighbors],I[neighbors],R[neighbors]))
     if (S[p] > 0 & I[p] > 0 & any(I[neighbors] > 0)) {
-      prob_inf <- 1 - exp(-(beta * (1 + amplitude * sin(2 * pi * (time+dt)/365))) * (((1 - epsilon * length(neighbors)) * I[p] + epsilon * sum(I[neighbors]))/((1 - epsilon * length(neighbors)) * (S[p]+I[p]+R[p]) + epsilon * pop_neighbors)) * dt)
+      prob_inf <- 1 - exp(-(beta * (1 + amplitude * sin(2 * pi * (time+dt)/365))) * (((1 - pi * length(neighbors)) * I[p] + pi * sum(I[neighbors]))/((1 - pi * length(neighbors)) * (S[p]+I[p]+R[p]) + pi * pop_neighbors)) * dt)
       new_infections <- rbinom(1, S[p], prob = min(1, prob_inf))
       dS[p] <- dS[p] - new_infections
       dI[p] <- dI[p] + new_infections
@@ -146,8 +146,8 @@ summingfunction<- function(incidencedata){
   dummy<- 1
   mindex<- numeric(nmonths)
   for(i in 1:nmonths){
-    currentmonth<- i%%12
-    if(currentmonth %in% c(1,3,5,7,8,10,0)){
+    currentmonth<- (i - 1) %% 12 + 1
+    if(currentmonth %in% c(1,3,5,7,8,10,12)){
       monthlength<- 31
     }else if(currentmonth %in% c(4,6,9,11)){
       monthlength<- 30
@@ -162,10 +162,11 @@ summingfunction<- function(incidencedata){
   return(list(summedresult, mindex))
 }
 
-monthlyincidence<- summingfunction(resultsIncidence)[[1]]
-mindex<- summingfunction(resultsIncidence)[[2]]
-noinit<- results[-1,]
-monthlysusceptibles<- noinit[mindex,1:n_patches]
+summed<- summingfunction(resultsIncidence)
+monthlyincidence<- summed[[1]]
+#mindex<- summed[[2]]
+#noinit<- results[-1,]
+#monthlysusceptibles<- noinit[mindex,1:n_patches]
 
 # Plot monthly incidence
 plot(0, type = "n", xlim = c(0, nrow(monthlyincidence)), ylim = c(0, max(monthlyincidence)), xlab = "Time [month]", ylab = "Population", main ="Monthly incidence", cex.lab = 1.7, cex.axis = 1.7, cex.main=2.0)
@@ -221,8 +222,9 @@ for (j in 1:n_patches) {
 
 #Model fitting
 library(DetectOutbreaks)
-y<- t(monthlyincidence[-(1:36),])
-e_it<- t(monthlysusceptibles[-(1:36),])
+y<- t(monthlyincidence[-(1:24),])
+e_it<- matrix(rep(N, ncol(y)), nrow = n_patches, ncol = ncol(y), byrow = F)
+
 #Mod0<- DetectOutbreaks::infer(y=y, e_it = e_it, adjmat = sim_adjmat, Model = 0, verbose = T)
 #Mod1<- DetectOutbreaks::infer(y=y, e_it = e_it, adjmat = sim_adjmat, Model = 1, verbose = T)
 #Mod2<- DetectOutbreaks::infer(y=y, e_it = e_it, adjmat = sim_adjmat, Model = 2, verbose = T)

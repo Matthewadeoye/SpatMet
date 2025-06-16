@@ -18,26 +18,26 @@ amplitude<- params[["amplitude"]]
 set.seed(1234)
 # Initialize state variables
 #N <- c(rbind(rpois(5,500), rpois(5,1000)))
-N<- rep(1000, 10)
+N<- rep(c(500,1000), 5)
 N <- N[-10]
 
 SIRS_constrained <- function(S, M_matrix, N, params) {
   neq <- length(S)
   eq <- numeric(neq)
 
-  S_proj <- pmin(pmax(S, 0), N)
+  S_constrained <- pmin(pmax(S, 0), N)
 
-  I <- N - S_proj
-  R <- N - S_proj - I
+  I <- N - S_constrained
+  R <- N - S_constrained - I
 
   for (i in 1:neq) {
-    eq[i] <- S_proj[i] * params[["rho"]] / (params[["rho"]] + params[["gamma"]]) * (M_matrix[i,] %*% I) -
+    eq[i] <- S_constrained[i] * params[["rho"]] / (params[["rho"]] + params[["gamma"]]) * (M_matrix[i,] %*% I) -
         ((params[["rho"]] * params[["gamma"]]) / (params[["gamma"]] + params[["rho"]]) * I[i])
   }
   return(eq)
 }
 
-solveSteadystate <- function(init.condition, params){
+solveSteadystate <- function(init.condition, params, N, sim_adjmat){
   beta <- params[["beta"]]
   gamma <- params[["gamma"]]
   rho <- params[["rho"]]
@@ -58,9 +58,12 @@ solveSteadystate <- function(init.condition, params){
       }
     }
   }
-
-  chk <- BBsolve(par = init.condition, fn = function(S) SIRS_constrained(S, M_matrix, N, params))
-  return(pmin(pmax(chk$par, 0), N))
+  res <- BBsolve(par = init.condition, fn = function(S) SIRS_constrained(S, M_matrix, N, params))
+  if(res$convergence == 0){
+  return(pmin(pmax(res$par, 0), N))
+  }else{
+    return(N)
+  }
 }
 
 library(lhs)
@@ -74,7 +77,7 @@ colnames(Y)<- paste0("S",1:9)
 
 Sstdstates<- matrix(NA, nrow = nrow(Y), ncol = n_patches)
 for(i in 1:nrow(Y)){
-  Sstdstates[i, ]<- solveSteadystate(Y[i,], params = params)
+  Sstdstates[i, ]<- solveSteadystate(init.condition = Y[i,], params = params, N = N, sim_adjmat = sim_adjmat)
 }
 Sstdstates
 
