@@ -9,7 +9,7 @@ gdata::lowerTriangle(sim_adjmat, byrow=FALSE) <- uppertriang
 beta<- params[["beta"]]
 gamma<- params[["gamma"]]
 rho<- params[["rho"]]
-pi<- params[["pi"]]
+py<- params[["py"]]
 n_patches<- nrow(sim_adjmat)
 max_time<- params[["max_time"]]
 dt<- params[["dt"]]
@@ -41,7 +41,7 @@ solveSteadystate <- function(init.condition, params, N, sim_adjmat){
   beta <- params[["beta"]]
   gamma <- params[["gamma"]]
   rho <- params[["rho"]]
-  pi <- params[["pi"]]
+  py <- params[["py"]]
 
   #transmission matrix M_matrix
   M_matrix <- matrix(0, nrow = n_patches, ncol = n_patches)
@@ -50,11 +50,11 @@ solveSteadystate <- function(init.condition, params, N, sim_adjmat){
     pop_neighbors <- sum(N[neighbors])
     for (j in 1:n_patches) {
       if (i == j) {
-        M_matrix[i, j] <- (beta * (1 - pi * length(neighbors))) /
-          ((1 - pi * length(neighbors)) * N[i] + pi * pop_neighbors)
+        M_matrix[i, j] <- (beta * (1 - py * length(neighbors))) /
+          ((1 - py * length(neighbors)) * N[i] + py * pop_neighbors)
       } else if (j %in% neighbors) {
-        M_matrix[i, j] <- (beta * pi) /
-          ((1 - pi * length(neighbors)) * N[i] + pi * pop_neighbors)
+        M_matrix[i, j] <- (beta * py) /
+          ((1 - py * length(neighbors)) * N[i] + py * pop_neighbors)
       }
     }
   }

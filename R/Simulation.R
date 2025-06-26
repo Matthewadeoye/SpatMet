@@ -10,7 +10,7 @@ gdata::lowerTriangle(sim_adjmat, byrow=FALSE) <- uppertriang
 beta<- params[["beta"]]
 gamma<- params[["gamma"]]
 rho<- params[["rho"]]
-pi<- params[["pi"]]
+py<- params[["py"]]
 n_patches<- nrow(sim_adjmat)
 max_time<- params[["max_time"]]
 dt<- params[["dt"]]
@@ -31,12 +31,12 @@ for (i in 1:n_patches) {
   for (j in 1:n_patches) {
     if (i == j) {
       # Within sub-population transmission
-      M_matrix[i, j] <- (beta * (1 - pi * length(neighbors)) /
-                           ((1 - pi * length(neighbors)) * N[i] + pi * pop_neighbors))
+      M_matrix[i, j] <- (beta * (1 - py * length(neighbors)) /
+                           ((1 - py * length(neighbors)) * N[i] + py * pop_neighbors))
     } else if (j %in% neighbors) {
       # Transmission from neighboring patches
-      M_matrix[i, j] <- (beta * pi  /
-                           ((1 - pi * length(neighbors)) * N[i] + pi * pop_neighbors))
+      M_matrix[i, j] <- (beta * py  /
+                           ((1 - py * length(neighbors)) * N[i] + py * pop_neighbors))
     }
   }
 }
@@ -70,7 +70,7 @@ while (time < max_time & any(I > 0)) {
     neighbors<- which(sim_adjmat[p, ] == 1)
     pop_neighbors<- sum(c(S[neighbors],I[neighbors],R[neighbors]))
     if (S[p] > 0 & I[p] > 0 & any(I[neighbors] > 0)) {
-      prob_inf <- 1 - exp(-(beta * (1 + amplitude * sin(2 * pi * (time+dt)/365))) * (((1 - pi * length(neighbors)) * I[p] + pi * sum(I[neighbors]))/((1 - pi * length(neighbors)) * (S[p]+I[p]+R[p]) + pi * pop_neighbors)) * dt)
+      prob_inf <- 1 - exp(-(beta * (1 + amplitude * sin(2 * pi * (time+dt)/365))) * (((1 - py * length(neighbors)) * I[p] + py * sum(I[neighbors]))/((1 - py * length(neighbors)) * (S[p]+I[p]+R[p]) + py * pop_neighbors)) * dt)
       new_infections <- rbinom(1, S[p], prob = min(1, prob_inf))
       dS[p] <- dS[p] - new_infections
       dI[p] <- dI[p] + new_infections
@@ -222,7 +222,7 @@ for (j in 1:n_patches) {
 
 #Model fitting
 library(DetectOutbreaks)
-y<- t(monthlyincidence[-(1:24),])
+y<- t(monthlyincidence[-(1:36),])
 e_it<- matrix(rep(N, ncol(y)), nrow = n_patches, ncol = ncol(y), byrow = F)
 
 #Mod0<- DetectOutbreaks::infer(y=y, e_it = e_it, adjmat = sim_adjmat, Model = 0, verbose = T)

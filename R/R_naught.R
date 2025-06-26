@@ -10,7 +10,7 @@ gdata::lowerTriangle(sim_adjmat, byrow=FALSE) <- uppertriang
 beta<- params[["beta"]]
 gamma<- params[["gamma"]]
 rho<- params[["rho"]]
-pi<- params[["pi"]]
+py<- params[["py"]]
 n_patches<- nrow(sim_adjmat)
 max_time<- params[["max_time"]]
 dt<- params[["dt"]]
@@ -31,12 +31,12 @@ for (i in 1:n_patches) {
   for (j in 1:n_patches) {
     if (i == j) {
       # Within sub-population transmission
-      M_matrix[i, j] <- (beta * (1 - pi * length(neighbors)) /
-                           ((1 - pi * length(neighbors)) * N[i] + pi * pop_neighbors))
+      M_matrix[i, j] <- (beta * (1 - py * length(neighbors)) /
+                           ((1 - py * length(neighbors)) * N[i] + py * pop_neighbors))
     } else if (j %in% neighbors) {
       # Transmission from neighboring patches
-      M_matrix[i, j] <- (beta * pi  /
-                           ((1 - pi * length(neighbors)) * N[i] + pi * pop_neighbors))
+      M_matrix[i, j] <- (beta * py  /
+                           ((1 - py * length(neighbors)) * N[i] + py * pop_neighbors))
     }
   }
 }
@@ -53,12 +53,12 @@ for (i in 1:n_patches) {
   for (j in 1:n_patches) {
     if (i == j) {
       # Within sub-population transmission
-      T_matrix[i, j] <- beta * (1 - pi * length(neighbors)) * N[i] /
-        ((1 - pi * length(neighbors)) * N[i] + pi * pop_neighbors)
+      T_matrix[i, j] <- beta * (1 - py * length(neighbors)) * N[i] /
+        ((1 - py * length(neighbors)) * N[i] + py * pop_neighbors)
     } else if (j %in% neighbors) {
       # Transmission from neighboring patches
-      T_matrix[i, j] <- beta * pi * N[i] /
-        ((1 - pi * length(neighbors)) * N[i] + pi * pop_neighbors)
+      T_matrix[i, j] <- beta * py * N[i] /
+        ((1 - py * length(neighbors)) * N[i] + py * pop_neighbors)
     }
   }
 }
