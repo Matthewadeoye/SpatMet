@@ -945,15 +945,14 @@ multstrain.backwardsweep<- function(y, e_it, nstrain, r, s, u, Gamma, B, Bits, a
   ndept<- length(u)
   time <- length(r)
   nstate<- 2^nstrain
-  backwardprobs<- matrix(NA, nrow = time, ncol = nstate)
   Allbackwardprobs<- vector("list", ndept)
   JointTPM<- JointTransitionMatrix(gamma = Gamma, K = nstrain)
 
     Allbackwardprob<- vector("list", ndept)
 
     for (i in 1:ndept) {
-      Backwardprob<- matrix(NA, nrow = time, ncol = nstate)
-      Backwardprob[time, ] <- rep(0, nstate)
+      backwardprobs<- matrix(NA, nrow = time, ncol = nstate)
+      backwardprobs[time, ] <- rep(0, nstate)
 
       for (t in (time-1):1) {
           month_index<- t %% 12 + 1

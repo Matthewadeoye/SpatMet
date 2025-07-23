@@ -387,3 +387,28 @@ nchains<- 4
 #                                           init = initials_list, chains = nchains, iter_warmup = 1000,
 #                                           iter_sampling = 1000, parallel_chains = nchains,
 #                                           seed=1234, adapt_delta = 0.90)
+
+
+#y=multmod1[[1]]
+#e_it=multmod1[[2]]
+#nstrain=2
+#r=colMeans(as.data.frame(MultmodfitGPU_1$draws(variables = "r")[,1,]))
+#s=colMeans(as.data.frame(MultmodfitGPU_1$draws(variables = "s")[,1,]))
+#u=colMeans(as.data.frame(MultmodfitGPU_1$draws(variables = "uconstrained")[,1,]))
+#Gamma=G(mean(stack(as.data.frame(MultmodfitGPU_1$draws(variables = "G12")[,1,]))[,1]), mean(stack(as.data.frame(MultmodfitGPU_1$draws(variables = "G21")[,1,]))[,1]))
+#B=colMeans(as.data.frame(MultmodfitGPU_1$draws(variables = "B")[,1,]))
+#Bits=encodeBits(K=2)
+#a_k=colMeans(as.data.frame(MultmodfitGPU_1$draws(variables = "a_k")[,1,]))
+#state=2
+
+#outp4<- multstrain.Decoding(y=multmod1[[1]],
+#                            e_it=multmod1[[2]],
+#                            nstrain=2,
+#                            r=colMeans(as.data.frame(MultmodfitGPU_1$draws(variables = "r")[,1,])),
+#                            s=colMeans(as.data.frame(MultmodfitGPU_1$draws(variables = "s")[,1,])),
+#                            u=colMeans(as.data.frame(MultmodfitGPU_1$draws(variables = "uconstrained")[,1,])),
+#                            Gamma=G(mean(stack(as.data.frame(MultmodfitGPU_1$draws(variables = "G12")[,1,]))[,1]), mean(stack(as.data.frame(MultmodfitGPU_1$draws(variables = "G21")[,1,]))[,1])),
+#                            B=colMeans(as.data.frame(MultmodfitGPU_1$draws(variables = "B")[,1,])),
+#                            Bits=encodeBits(K=2),
+#                            a_k=colMeans(as.data.frame(MultmodfitGPU_1$draws(variables = "a_k")[,1,])),
+#                            state=4)
