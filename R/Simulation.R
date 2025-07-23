@@ -46,9 +46,13 @@ S<- c(round(solve(M_matrix) %*% rep(gamma, n_patches)))
 I<- c(round((rho/(gamma+rho))*(N-S)))
 R<- N-S-I
 
-S<- N-5
-I<- rep(5, n_patches)
-R<- rep(0, n_patches)
+#S<- N-5
+#I<- rep(5, n_patches)
+#R<- rep(0, n_patches)
+
+S<- round(Sstdstates[6, ])
+I<- round(Istdstates[6, ])
+R<- round(Rstdstates[6, ])
 
 results <- matrix(c(S, I, R, 0), nrow = 1)
 colnames(results) <- c(paste0("S", 1:n_patches), paste0("I", 1:n_patches), paste0("R", 1:n_patches), "time")
@@ -224,7 +228,7 @@ for (j in 1:n_patches) {
 library(DetectOutbreaks)
 y<- t(monthlyincidence[-(1:36),])
 e_it<- matrix(rep(N, ncol(y)), nrow = n_patches, ncol = ncol(y), byrow = F)
-
+#DetectOutbreaks::sim.plot(y)
 #Mod0<- DetectOutbreaks::infer(y=y, e_it = e_it, adjmat = sim_adjmat, Model = 0, verbose = T)
 #Mod1<- DetectOutbreaks::infer(y=y, e_it = e_it, adjmat = sim_adjmat, Model = 1, verbose = T)
 #Mod2<- DetectOutbreaks::infer(y=y, e_it = e_it, adjmat = sim_adjmat, Model = 2, verbose = T)
@@ -326,3 +330,60 @@ initials_list <- lapply(1:nchains, function(x) initials)
 #  ISestimates[i]<- DetectOutbreaks::ModelEvidence(y=y, e_it = e_it, adjmat = sim_adjmat, Model = 0,inf.object = cFit, num_samples = 50000)
 #  Bridgeestimates[i]<- ModelEvidence.Bridge3(y=y, e_it = e_it, adjmat = sim_adjmat, Model = 0,inf.object = cFit, num_samples = 50000)
 #}
+
+
+#bigsmallmeanxit<- outp[c(2,4,6,8,1,3,5,7,9), ]
+#image(x=1:60, y=1:9, t(bigsmallmeanxit), main = "", axes=F, ylab = "spatial location", xlab = "Time [month]", cex.lab=1.80)
+#abline(h=4.5, col="black", lty=2)
+#custom Y-axis
+#axis(2, at=seq(1, 4, length.out=4), labels=c("u2", "u4", "u6", "u8"), col = "red", col.axis="red", lwd.ticks = 1, las = 1, lwd=0, cex.axis = 1.8, cex.lab=1.8)
+#axis(2, at=seq(5, 9, length.out=5), labels=c("u1", "u3", "u5", "u7", "u9"), col = "blue", col.axis="blue", lwd.ticks = 1, las = 1, lwd=0, cex.axis = 1.8, cex.lab=1.8)
+#custom X-axis
+#axis(1, cex.axis = 1.8)
+
+
+
+#Multi-strain model fit
+#multmod0<- Multstrain.simulate(Model = 0, time=20, adj.matrix = sim_adjmat)
+#multmod1<- Multstrain.simulate(Model = 1, time=20, adj.matrix = sim_adjmat)
+R<- -1 * sim_adjmat
+diag(R)<- -rowSums(R, na.rm = T)
+rankdef<- nrow(R)-qr(R)$rank
+nstrain<- 2
+nstate<- 2^nstrain
+#y<- multmod1[[1]]
+#e_it<- multmod1[[2]]
+#ndept<- nrow(y[,,1])
+#time<- ncol(y[,,1])
+#Bits<- encodeBits(K=nstrain)
+
+#original.y<- y
+
+#flag missing data for inference
+#y<- ifelse(is.na(y), -1, y)
+
+RW1PrecMat<- matrix(0, nrow=12, ncol=12)
+RW1PrecMat[1, ]<- c(2,-1, rep(0, 12-3), -1)
+RW1PrecMat[2, ]<- c(-1,2,-1, rep(0, 12-3))
+RW1PrecMat[3, ]<- c(0, -1,2,-1, rep(0, 12-4))
+RW1PrecMat[(12-1), ]<- c(rep(0, 12-3), -1,2,-1)
+RW1PrecMat[12, ]<- c(-1, rep(0, 12-3), -1, 2)
+for(i in 3:(12-3)){
+  RW1PrecMat[i+1, ((i):(i+2))]<- c(-1,2,-1)
+}
+strs<- RW1PrecMat
+
+Model<- 1
+nchains<- 4
+
+#initials <- list(G12 = 0.1, G21 = 0.3, u = rep(0, ndept-1), rraw = rep(0, time), sraw = rep(0, 11), kappa_u=20, kappa_r=20, kappa_s=20, B=rep(0.1, nstrain), a_k=rep(-10, nstrain))
+#initials_list <- lapply(1:nchains, function(x) initials)
+
+#multmodel_code <- "C:/Users/Matthew Adeoye/Documents/PhD Statistics/Year 3/SpatMet/inst/stan/multstrain.stan"
+#multmodel<- cmdstan_model(stan_file = multmodel_code, compile = TRUE)
+#cmdstanrfit<- multmodel$sample(data = list(ndept=ndept, time=time, nstate=nstate, rankdef=rankdef,
+#                                           nstrain=nstrain, y=y, e_it=e_it, R=R,
+#                                           SMat = strs, Model = Model, Bits=Bits),
+#                                           init = initials_list, chains = nchains, iter_warmup = 1000,
+#                                           iter_sampling = 1000, parallel_chains = nchains,
+#                                           seed=1234, adapt_delta = 0.90)

@@ -52,6 +52,7 @@ NumericVector state_dist_cpp(double G12, double G21) {
 }
 
 
+
 // Computing log likelihood
 // [[Rcpp::export]]
 double GeneralLoglikelihood_cpp(NumericMatrix y, NumericVector r, NumericVector s, NumericVector u,

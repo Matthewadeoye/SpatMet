@@ -757,3 +757,235 @@ unique_rows<- function(mat, precision=10) {
   unique_count<- length(unique(row_strings))
   return(unique_count)
 }
+
+#Assuming the same TPM for all strains
+JointTransitionMatrix<- function(gamma, K) {
+  S<- 2^K
+  Gamma<- matrix(0, nrow = S, ncol = S)
+  for(a in 0:(S - 1)) {
+    for(b in 0:(S - 1)) {
+      prob<- 1
+      for(k in 1:K) {
+        from_k<- (a %/% 2^(k - 1)) %% 2
+        to_k<- (b %/% 2^(k - 1)) %% 2
+        prob<- prob * gamma[from_k + 1, to_k + 1]
+      }
+      Gamma[a + 1, b + 1]<- prob
+    }
+  }
+  return(Gamma)
+}
+
+#Assuming each strain has its unique TPM
+JointTransitionMatrix_per_strain<- function(gamma_list){
+  K<- length(gamma_list)
+  S<- 2^K
+  Gamma<- matrix(0, nrow = S, ncol = S)
+  for(a in 0:(S - 1)) {
+    for(b in 0:(S - 1)) {
+      prob<- 1
+      for(k in 1:K) {
+        from_k<- (a %/% 2^(k - 1)) %% 2
+        to_k<- (b %/% 2^(k - 1)) %% 2
+        gamma_k<- gamma_list[[k]]
+        prob<- prob * gamma_k[from_k + 1, to_k + 1]
+      }
+      Gamma[a + 1, b + 1]<- prob
+    }
+  }
+  return(Gamma)
+}
+
+encodeBits<- function(K){
+S <- 2^K
+bits<- matrix(0, nrow = S, ncol = K)
+for (i in 0:(S - 1)) {
+  for (k in 1:K) {
+    bits[i + 1, k] <- (i %/% 2^(k - 1)) %% 2
+  }
+}
+bits <- bits[, K:1]
+return(bits)
+}
+
+logspace_vecmatmult<- function(log_v, log_M) {
+  K <- length(log_v)
+  log_result <- numeric(K)
+
+  for (j in 1:K) {
+    log_terms <- log_v + log_M[, j]
+    log_result[j] <- matrixStats::logSumExp(c(log_terms))
+  }
+  return(log_result)
+}
+
+simulateMarkovChain<- function(nstep, TPM){
+  state.space<- 0:(nrow(TPM)-1)
+  initial_state <- 0
+  states <- numeric(nstep)
+  states[1] <- initial_state
+  for(i in 2:nstep) {
+    current_state <- states[i - 1]
+    next_state <- sample(state.space, size = 1, prob = TPM[current_state + 1, ])
+    states[i] <- next_state
+  }
+  return(states)
+}
+
+sim.RW2mean0<- function(time, sd=0.0001, init.r1 = 0, init.r2 = 0){
+  r <- numeric(time)
+
+  r[1] <- init.r1
+  r[2] <- init.r2
+
+  for(t in 3:time){
+    epsilon <- rnorm(1, mean = 0, sd = sd)
+    r[t] <- 2*(r[t - 1]) - r[t - 2] + epsilon
+  }
+  r <- r - mean(r)
+  return(r)
+}
+
+Multstrain.simulate<- function(Model, time, nstrain=2, adj.matrix,
+                               e_it=matrix(c(rep(c(rpois(time, 500000), rpois(time, 1000000)), 4), rpois(time, 500000)),
+                                           byrow = T, ncol = time),
+                               B = c(0.75, 0.20), T.prob = matrix(c(0.9, 0.1, 0.2, 0.8), nrow = 2, byrow = T),
+                               r = sim.RW2mean0(time, sd=0.009), s = DetectOutbreaks:::sim.Seasonals2(Amplitude = 1.4),
+                               u = DetectOutbreaks:::sim.Spatials(adj.matrix)){
+  ndept<- nrow(adj.matrix)
+  y_itk<- array(NA, dim=c(ndept, time, nstrain))
+  EpidemicIndicator<- matrix(NA, ndept, time)
+  JointTPM<- JointTransitionMatrix(T.prob, nstrain)
+  Bits<- encodeBits(K=nstrain)
+
+  if(Model == 0){
+    for(i in 1:ndept){
+      for(t in 1:time){
+        m<- (t - 1) %% 12 + 1
+        for(k in 1:nstrain){
+          a_k<- runif(1, min = -14, max = -12)
+          lograte <- a_k + r[t] + s[m] + u[i]
+          y_itk[i, t, k]<- rpois(1, lambda = e_it[i, t] * exp(lograte))
+        }
+      }
+    }
+    return(list(y_itk, e_it, r, s, u, EpidemicIndicator))
+  }
+  else{
+    for(i in 1:ndept){
+      for(k in 1:nstrain){
+        a_k<- runif(1, min = -14, max = -12)
+        lograte<- a_k + r[1] + s[1] + u[i]
+        y_itk[i, 1, k]<- rpois(1, lambda = e_it[i, 1] * exp(lograte))
+      }
+      EpidemicIndicator[i, ]<- simulateMarkovChain(nstep=time, JointTPM)
+    }
+
+    for(t in 2:time){
+      m<- (t - 1) %% 12 + 1
+      for(i in 1:ndept){
+        for(k in 1:nstrain){
+          a_k<- runif(1, min = -14, max = -12)
+          lograte<- a_k + r[t] + s[m] + u[i] + (B %*% Bits[EpidemicIndicator[i, t]+1, ])
+          y_itk[i, t, k]<- rpois(1, lambda = e_it[i, t] * exp(lograte))
+        }
+      }
+    }
+    return(list(y_itk, e_it, r, s, u, EpidemicIndicator))
+  }
+}
+
+stationarydist <- function(Gamma) {
+  mT <- t(Gamma)
+  eig <- eigen(mT)
+  E_values <- eig$values
+  E_vectors <- eig$vectors
+
+  # Find the eigenvalue closest to 1 and get its index
+  distances <- abs(Re(E_values) - 1)
+  index <- which.min(distances)
+
+  stationary_distribution <- Re(E_vectors[, index])
+  stationary_distribution <- stationary_distribution / sum(stationary_distribution)
+  return(stationary_distribution)
+}
+
+multstrain.forwardfilter<- function(y, e_it, nstrain, r, s, u, Gamma, B, Bits, a_k){
+  ndept<- length(u)
+  time <- length(r)
+  nstate<- 2^nstrain
+  AllForwardprobs<- vector("list", ndept)
+  JointTPM<- JointTransitionMatrix(gamma = Gamma, K = nstrain)
+  loginit.density<- log(stationarydist(JointTPM))
+  for(i in 1:ndept){
+    forwardprobs<- matrix(NA, nrow = time, ncol = nstate)
+    logprodEmission<- rep(0, nstate)
+  for(n in 1:nstate){
+    for(k in 1:nstrain){
+      logprodEmission[n]<- logprodEmission[n] + dpois(y[i, 1, k], lambda = e_it[i, 1] * exp(a_k[k] + r[1] + s[1] + u[i] + B%*%Bits[n, ]), log = TRUE)
+    }
+  }
+  forwardprobs[1, ]<- logprodEmission + loginit.density
+  for(t in 2:time){
+    month_index<- (t-1) %% 12 + 1
+    logprodEmission<- rep(0, nstate)
+    for(n in 1:nstate){
+      for(k in 1:nstrain){
+        logprodEmission[n]<- logprodEmission[n] + dpois(y[i, t, k], lambda = e_it[i, 1] * exp(a_k[k] + r[t] + s[month_index] + u[i] + B%*%Bits[n, ]), log = TRUE)
+      }
+    }
+    forwardprobs[t, ]<- logspace_vecmatmult(forwardprobs[t-1, ], log(JointTPM)) + logprodEmission
+  }
+  AllForwardprobs[[i]]<- forwardprobs
+  }
+  return(AllForwardprobs)
+}
+
+multstrain.backwardsweep<- function(y, e_it, nstrain, r, s, u, Gamma, B, Bits, a_k){
+  ndept<- length(u)
+  time <- length(r)
+  nstate<- 2^nstrain
+  backwardprobs<- matrix(NA, nrow = time, ncol = nstate)
+  Allbackwardprobs<- vector("list", ndept)
+  JointTPM<- JointTransitionMatrix(gamma = Gamma, K = nstrain)
+
+    Allbackwardprob<- vector("list", ndept)
+
+    for (i in 1:ndept) {
+      Backwardprob<- matrix(NA, nrow = time, ncol = nstate)
+      Backwardprob[time, ] <- rep(0, nstate)
+
+      for (t in (time-1):1) {
+          month_index<- t %% 12 + 1
+          logprodEmission<- rep(0, nstate)
+          for(n in 1:nstate){
+            for(k in 1:nstrain){
+              logprodEmission[n]<- logprodEmission[n] + dpois(y[i, t+1, k], lambda = e_it[i, t+1] * exp(a_k[k] + r[t+1] + s[month_index] + u[i] + B%*%Bits[n, ]), log = TRUE)
+            }
+          }
+          backwardprobs[t, ]<- logspace_vecmatmult(logprodEmission, log(JointTPM)) + backwardprobs[t+1, ]
+      }
+      Allbackwardprob[[i]] <- backwardprobs
+    }
+    return(Allbackwardprob)
+}
+
+multstrain.Decoding <- function(y, e_it, nstrain, r, s, u, Gamma, B, Bits, a_k, state) {
+  ndept<- length(u)
+  time <- length(r)
+  nstate<- 2^nstrain
+    Allforwardprobs<- multstrain.forwardfilter(y, e_it, nstrain, r, s, u, Gamma, B, Bits, a_k)
+    Allbackwardprobs<- multstrain.backwardsweep(y, e_it, nstrain, r, s, u, Gamma, B, Bits, a_k)
+    Res<- matrix(NA, ndept, time)
+    Pall<- c()
+    for(i in 1:ndept){
+      for(j in 1:time){
+        for(s in 1:nstate){
+          Pall<- c(Pall, Allforwardprobs[[i]][j,s] + Allbackwardprobs[[i]][j,s])
+        }
+        Pstate<- Allforwardprobs[[i]][j,state] + Allbackwardprobs[[i]][j,state]
+        Res[i,j]<- exp(Pstate - logSumExp_cpp(c(Pall)))
+      }
+    }
+    return(Res)
+}
