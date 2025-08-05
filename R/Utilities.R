@@ -989,7 +989,7 @@ multstrain.Decoding <- function(y, e_it, nstrain, r, s, u, Gamma, B, Bits, a_k, 
     return(Res)
 }
 
-multstrainLoglikelihood<- function(y, e_it, nstrain, r, s, u, Gamma, B, Bits, a_k, Model){
+multstrainLoglikelihood<- function(y, e_it, nstrain, r, s, u, Gamma, B, Bits, a_k, Model, independentChains=FALSE){
   ndept<- length(u)
   time <- length(r)
   if(Model == 0){
@@ -1003,6 +1003,34 @@ multstrainLoglikelihood<- function(y, e_it, nstrain, r, s, u, Gamma, B, Bits, a_
       }
     }
     return(loglike)
+  }else{
+    if(independentChains){
+      nstate<- ncol(Gamma)
+      AllForwardprobs<- numeric(ndept)
+      loginit.density<- log(stationarydist(Gamma))
+      for(i in 1:ndept){
+        forwardprobs<- matrix(NA, nrow = time, ncol = nstate)
+        logprodEmission<- rep(0, nstate)
+        for(n in 1:nstate){
+          for(k in 1:nstrain){
+            logprodEmission[n]<- logprodEmission[n] + dpois(y[i, 1, k], lambda = e_it[i, 1] * exp(a_k[k] + r[1] + s[1] + u[i] + B[k] * (n-1)), log = TRUE)
+          }
+        }
+        forwardprobs[1, ]<- logprodEmission + loginit.density
+        for(t in 2:time){
+          month_index<- (t-1) %% 12 + 1
+          logprodEmission<- rep(0, nstate)
+          for(n in 1:nstate){
+            for(k in 1:nstrain){
+              logprodEmission[n]<- logprodEmission[n] + dpois(y[i, t, k], lambda = e_it[i, t] * exp(a_k[k] + r[t] + s[month_index] + u[i] + B[k] * (n-1)), log = TRUE)
+            }
+          }
+          forwardprobs[t, ]<- logspace_vecmatmult(forwardprobs[t-1, ], log(Gamma)) + logprodEmission
+        }
+        AllForwardprobs[i]<- logSumExp_cpp(forwardprobs[time, ])
+        #print(AllForwardprobs[[i]])
+      }
+      return(sum(AllForwardprobs))
   }else{
   nstate<- 2^nstrain
   AllForwardprobs<- numeric(ndept)
@@ -1031,5 +1059,6 @@ multstrainLoglikelihood<- function(y, e_it, nstrain, r, s, u, Gamma, B, Bits, a_
     #print(AllForwardprobs[[i]])
   }
   return(sum(AllForwardprobs))
+   }
   }
 }

@@ -130,11 +130,14 @@ functions{
   int nstate = intPower(2, nstrain);
   matrix[nstate, nstate] jointTPM = JointTransitionMatrix(gamma, nstrain);
   matrix[time, nstate] Alpha;
-  vector[nstate] prodEmission;
   vector[nstate] init_density = stationarydist(jointTPM);
   vector[ndept] log_forwards;
 
   for (i in 1:ndept){
+    vector[nstate] prodEmission;
+    for(m in 1:nstate){
+      prodEmission[m] = 0;
+    }
   // Initialization of the first time step for each department
   for(n in 1:nstate){
   for(k in 1:nstrain){
@@ -174,6 +177,9 @@ else{
   vector[ndept] log_forwards;
 
   for (i in 1:ndept){
+    for(m in 1:nstate){
+      prodEmission[m] = 0;
+    }
     // Initialization of the first time step for each department
     for(n in 1:nstate){
     for(k in 1:nstrain){

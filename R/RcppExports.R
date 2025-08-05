@@ -37,7 +37,7 @@ GeneralLoglikelihood_cpp2 <- function(y, r, s, u, Gamma, e_it, B, model, z_it, z
     .Call(`_SpatMet_GeneralLoglikelihood_cpp2`, y, r, s, u, Gamma, e_it, B, model, z_it, z_it2)
 }
 
-multGeneralLoglikelihood_cpp2 <- function(y, ndept, time, nstrain, a_k, r, s, u, Gamma, e_it, B, model, Bits) {
-    .Call(`_SpatMet_multGeneralLoglikelihood_cpp2`, y, ndept, time, nstrain, a_k, r, s, u, Gamma, e_it, B, model, Bits)
+multGeneralLoglikelihood_cpp2 <- function(y, ndept, time, nstrain, a_k, r, s, u, Gamma, e_it, B, model, Bits, independentChains) {
+    .Call(`_SpatMet_multGeneralLoglikelihood_cpp2`, y, ndept, time, nstrain, a_k, r, s, u, Gamma, e_it, B, model, Bits, independentChains)
 }
 

@@ -134,8 +134,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // multGeneralLoglikelihood_cpp2
-double multGeneralLoglikelihood_cpp2(IntegerVector y, int ndept, int time, int nstrain, NumericVector a_k, NumericVector r, NumericVector s, NumericVector u, NumericMatrix Gamma, NumericMatrix e_it, NumericVector B, int model, NumericMatrix Bits);
-RcppExport SEXP _SpatMet_multGeneralLoglikelihood_cpp2(SEXP ySEXP, SEXP ndeptSEXP, SEXP timeSEXP, SEXP nstrainSEXP, SEXP a_kSEXP, SEXP rSEXP, SEXP sSEXP, SEXP uSEXP, SEXP GammaSEXP, SEXP e_itSEXP, SEXP BSEXP, SEXP modelSEXP, SEXP BitsSEXP) {
+double multGeneralLoglikelihood_cpp2(IntegerVector y, int ndept, int time, int nstrain, NumericVector a_k, NumericVector r, NumericVector s, NumericVector u, NumericMatrix Gamma, NumericMatrix e_it, NumericVector B, int model, NumericMatrix Bits, int independentChains);
+RcppExport SEXP _SpatMet_multGeneralLoglikelihood_cpp2(SEXP ySEXP, SEXP ndeptSEXP, SEXP timeSEXP, SEXP nstrainSEXP, SEXP a_kSEXP, SEXP rSEXP, SEXP sSEXP, SEXP uSEXP, SEXP GammaSEXP, SEXP e_itSEXP, SEXP BSEXP, SEXP modelSEXP, SEXP BitsSEXP, SEXP independentChainsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -152,7 +152,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< NumericVector >::type B(BSEXP);
     Rcpp::traits::input_parameter< int >::type model(modelSEXP);
     Rcpp::traits::input_parameter< NumericMatrix >::type Bits(BitsSEXP);
-    rcpp_result_gen = Rcpp::wrap(multGeneralLoglikelihood_cpp2(y, ndept, time, nstrain, a_k, r, s, u, Gamma, e_it, B, model, Bits));
+    Rcpp::traits::input_parameter< int >::type independentChains(independentChainsSEXP);
+    rcpp_result_gen = Rcpp::wrap(multGeneralLoglikelihood_cpp2(y, ndept, time, nstrain, a_k, r, s, u, Gamma, e_it, B, model, Bits, independentChains));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -167,7 +168,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_SpatMet_state_dist_cpp", (DL_FUNC) &_SpatMet_state_dist_cpp, 2},
     {"_SpatMet_GeneralLoglikelihood_cpp", (DL_FUNC) &_SpatMet_GeneralLoglikelihood_cpp, 10},
     {"_SpatMet_GeneralLoglikelihood_cpp2", (DL_FUNC) &_SpatMet_GeneralLoglikelihood_cpp2, 10},
-    {"_SpatMet_multGeneralLoglikelihood_cpp2", (DL_FUNC) &_SpatMet_multGeneralLoglikelihood_cpp2, 13},
+    {"_SpatMet_multGeneralLoglikelihood_cpp2", (DL_FUNC) &_SpatMet_multGeneralLoglikelihood_cpp2, 14},
     {NULL, NULL, 0}
 };
 

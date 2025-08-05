@@ -443,7 +443,8 @@ double GeneralLoglikelihood_cpp2(NumericMatrix y, NumericVector r, NumericVector
 // [[Rcpp::export]]
 double multGeneralLoglikelihood_cpp2(IntegerVector y, int ndept, int time, int nstrain, NumericVector a_k,
                                      NumericVector r, NumericVector s, NumericVector u, NumericMatrix Gamma,
-                                     NumericMatrix e_it, NumericVector B, int model, NumericMatrix Bits){
+                                     NumericMatrix e_it, NumericVector B, int model, NumericMatrix Bits,
+                                     int independentChains){
  // Rcpp::Rcout << "Model selected: " << model << std::endl;
   // Model 0
   if(model == 0) {
@@ -464,20 +465,24 @@ double multGeneralLoglikelihood_cpp2(IntegerVector y, int ndept, int time, int n
   }
   // Model 1
   if(model == 1){
+    if(independentChains == 0){
     int nstate = intPower(2, nstrain);
     NumericMatrix jointTPM = JointTransitionMatrix_cpp(Gamma, nstrain);
     NumericVector init_density = state_dist_cpp2(jointTPM);
-    NumericMatrix log_forward_probs(ndept, nstate);
     NumericVector rowlogsumexp(ndept);
     for(int i = 0; i < ndept; ++i) {
       NumericMatrix Alpha(time, nstate);
       NumericMatrix prodEmission(time, nstate);
       for(int n = 0; n < nstate; ++n){
         for(int k = 0; k < nstrain; ++k){
+          if(y[k * ndept * time + i * time + 0] == -1){
+            prodEmission(0, n) += 0;
+          }else{
             prodEmission(0, n) = prodEmission(0, n) + R::dpois(y[k * ndept * time + i * time + 0], e_it(i, 0) * exp(a_k[k] + r[0] + s[0] + u[i] + dot_product(B, Bits(n, _))), true);
          // Rcpp::Rcout << "DotProd" << dot_product(B, Bits(n, _)) << std::endl;
           }
         }
+      }
       for (int n = 0; n < nstate; ++n){
         Alpha(0, n) = log(init_density[n]) + prodEmission(0, n);
       }
@@ -485,10 +490,14 @@ double multGeneralLoglikelihood_cpp2(IntegerVector y, int ndept, int time, int n
         int month_index = t % 12;
         for(int n = 0; n < nstate; ++n){
           for(int k = 0; k < nstrain; ++k){
+            if(y[k * ndept * time + i * time + t] == -1){
+              prodEmission(t, n) += 0;
+            }else{
               prodEmission(t, n) = prodEmission(t, n) + R::dpois(y[k * ndept * time + i * time + t], e_it(i, t) * exp(a_k[k] + r[t] + s[month_index] + u[i] + dot_product(B, Bits(n, _))), true);
            // Rcpp::Rcout << "DotProd" << dot_product(B, Bits(n, _)) << std::endl;
             }
           }
+        }
         NumericVector temp = logVecMatMult(Alpha(t-1, _), jointTPM);
         for (int j = 0; j < nstate; ++j){
           Alpha(t, j) = temp[j] + prodEmission(t, j);
@@ -498,6 +507,47 @@ double multGeneralLoglikelihood_cpp2(IntegerVector y, int ndept, int time, int n
     }
     double full_log_likelihood = sum(rowlogsumexp);
     return full_log_likelihood;
+    }else{
+      //Independent chains
+      int nstate = Gamma.ncol();
+      NumericVector init_density = state_dist_cpp2(Gamma);
+      NumericVector rowlogsumexp(ndept);
+      for(int i = 0; i < ndept; ++i) {
+        NumericMatrix Alpha(time, nstate);
+        NumericMatrix prodEmission(time, nstate);
+        for(int n = 0; n < nstate; ++n){
+          for(int k = 0; k < nstrain; ++k){
+            if(y[k * ndept * time + i * time + 0] == -1){
+              prodEmission(0, n) += 0;
+            }else{
+              prodEmission(0, n) = prodEmission(0, n) + R::dpois(y[k * ndept * time + i * time + 0], e_it(i, 0) * exp(a_k[k] + r[0] + s[0] + u[i] + B[k] * n), true);
+            }
+          }
+        }
+        for (int n = 0; n < nstate; ++n){
+          Alpha(0, n) = log(init_density[n]) + prodEmission(0, n);
+        }
+        for(int t = 1; t < time; ++t){
+          int month_index = t % 12;
+          for(int n = 0; n < nstate; ++n){
+            for(int k = 0; k < nstrain; ++k){
+              if(y[k * ndept * time + i * time + t] == -1){
+                prodEmission(t, n) += 0;
+              }else{
+                prodEmission(t, n) = prodEmission(t, n) + R::dpois(y[k * ndept * time + i * time + t], e_it(i, t) * exp(a_k[k] + r[t] + s[month_index] + u[i] + B[k] * n), true);
+              }
+            }
+          }
+          NumericVector temp = logVecMatMult(Alpha(t-1, _), Gamma);
+          for (int j = 0; j < nstate; ++j){
+            Alpha(t, j) = temp[j] + prodEmission(t, j);
+          }
+        }
+        rowlogsumexp[i] = logSumExp_cpp(Alpha(time-1, _));
+      }
+      double full_log_likelihood = sum(rowlogsumexp);
+      return full_log_likelihood;
+    }
   }
   return R_NegInf;
 }
