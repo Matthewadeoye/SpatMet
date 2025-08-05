@@ -13,6 +13,98 @@ double logSumExp_cpp(NumericVector x) {
 }
 
 // [[Rcpp::export]]
+double dot_product(NumericVector v1, NumericVector v2) {
+  int lengthV1 = v1.size();
+  double result = 0;
+  for (int i = 0; i < lengthV1 ; ++i) {
+    result += v1[i] * v2[i];
+  }
+  return result;
+}
+
+// [[Rcpp::export]]
+int intPower(int a, int b){
+  int res = 1;
+  for (int i = 0; i < b; ++i) {
+    res = a * res;
+  }
+  return res;
+}
+
+// [[Rcpp::export]]
+NumericVector logVecMatMult(NumericVector logV, NumericMatrix M) {
+  int S = logV.size();
+  NumericVector res(S);
+  for (int p = 0; p < S; ++p) {
+    NumericVector temp(S);
+    for (int s = 0; s < S; ++s) {
+      temp[s] = logV[s] + log(M(s, p));
+    }
+    res[p] = logSumExp_cpp(temp);
+  }
+  return res;
+}
+
+// [[Rcpp::export]]
+NumericMatrix JointTransitionMatrix_cpp(NumericMatrix gamma, int K) {
+  int S = intPower(2, K);
+  NumericMatrix jointGamma(S, S);
+  for (int a = 0; a < S; ++a) {
+    for (int b = 0; b < S; ++b) {
+      double prob = 1.0;
+      for (int k = 0; k < K; ++k) {
+        int from_k = (a / intPower(2, k)) % 2;
+        int to_k   = (b / intPower(2, k)) % 2;
+        prob *= gamma(from_k, to_k);
+      }
+      jointGamma(a, b) = prob;
+    }
+  }
+  return jointGamma;
+}
+
+// [[Rcpp::export]]
+NumericVector state_dist_cpp2(NumericMatrix Gamma) {
+  int n = Gamma.ncol();
+  Eigen::MatrixXd m(n, n);
+  for (int i = 0; i < n; ++i) {
+    for (int j = 0; j < n; ++j) {
+      m(i, j) = Gamma(i, j);
+    }
+  }
+
+  Eigen::MatrixXd mT = m.transpose();
+
+  // Eigen decomposition
+  Eigen::EigenSolver<Eigen::MatrixXd> es(mT);
+  Eigen::VectorXd eigenvalues = es.eigenvalues().real();
+  Eigen::MatrixXd eigenvectors = es.eigenvectors().real();
+
+  // Index of eigenvalue close to 1
+  int index = 0;
+  double min_diff = std::abs(eigenvalues(0) - 1.0);
+  for (int i = 1; i < eigenvalues.size(); ++i) {
+    double diff = std::abs(eigenvalues(i) - 1.0);
+    if (diff < min_diff) {
+      min_diff = diff;
+      index = i;
+    }
+  }
+
+  // corresponding eigenvector
+  Eigen::VectorXd stationary_distribution = eigenvectors.col(index);
+
+  // Normalize stationary distribution
+  stationary_distribution = stationary_distribution / stationary_distribution.sum();
+
+  // Convert result to NumericVector
+  NumericVector result(stationary_distribution.data(),
+                       stationary_distribution.data() + stationary_distribution.size());
+
+  return result;
+}
+
+// [[Rcpp::export]]
 NumericVector state_dist_cpp(double G12, double G21) {
   Eigen::MatrixXd m(2, 2);
   m(0, 0) = 1 - G12;
@@ -50,8 +142,6 @@ NumericVector state_dist_cpp(double G12, double G21) {
 
   return result;
 }
-
-
 
 // Computing log likelihood
 // [[Rcpp::export]]
@@ -346,5 +436,68 @@ double GeneralLoglikelihood_cpp2(NumericMatrix y, NumericVector r, NumericVector
     return full_log_likelihood;
   }
 
+  return R_NegInf;
+}
+
+// Computing multi-type log likelihood using cyclic seasonal components
+// [[Rcpp::export]]
+double multGeneralLoglikelihood_cpp2(IntegerVector y, int ndept, int time, int nstrain, NumericVector a_k,
+                                     NumericVector r, NumericVector s, NumericVector u, NumericMatrix Gamma,
+                                     NumericMatrix e_it, NumericVector B, int model, NumericMatrix Bits){
+ // Rcpp::Rcout << "Model selected: " << model << std::endl;
+  // Model 0
+  if(model == 0) {
+    double full_log_likelihood = 0;
+    for(int i = 0; i < ndept; ++i) {
+      for(int t = 0; t < time; ++t) {
+        int month_index = t % 12;
+        for(int k = 0; k < nstrain; ++k){
+          if(y[k * ndept * time + i * time + t] == -1){
+            full_log_likelihood += 0;
+          }else{
+            full_log_likelihood += R::dpois(y[k * ndept * time + i * time + t], e_it(i, t) * exp(a_k[k] + r[t] + s[month_index] + u[i]), true);
+          }
+        }
+      }
+    }
+    return full_log_likelihood;
+  }
+  // Model 1
+  if(model == 1){
+    int nstate = intPower(2, nstrain);
+    NumericMatrix jointTPM = JointTransitionMatrix_cpp(Gamma, nstrain);
+    NumericVector init_density = state_dist_cpp2(jointTPM);
+    NumericMatrix log_forward_probs(ndept, nstate);
+    NumericVector rowlogsumexp(ndept);
+    for(int i = 0; i < ndept; ++i) {
+      NumericMatrix Alpha(time, nstate);
+      NumericMatrix prodEmission(time, nstate);
+      for(int n = 0; n < nstate; ++n){
+        for(int k = 0; k < nstrain; ++k){
+            prodEmission(0, n) = prodEmission(0, n) + R::dpois(y[k * ndept * time + i * time + 0], e_it(i, 0) * exp(a_k[k] + r[0] + s[0] + u[i] + dot_product(B, Bits(n, _))), true);
+         // Rcpp::Rcout << "DotProd" << dot_product(B, Bits(n, _)) << std::endl;
+          }
+        }
+      for (int n = 0; n < nstate; ++n){
+        Alpha(0, n) = log(init_density[n]) + prodEmission(0, n);
+      }
+      for(int t = 1; t < time; ++t){
+        int month_index = t % 12;
+        for(int n = 0; n < nstate; ++n){
+          for(int k = 0; k < nstrain; ++k){
+              prodEmission(t, n) = prodEmission(t, n) + R::dpois(y[k * ndept * time + i * time + t], e_it(i, t) * exp(a_k[k] + r[t] + s[month_index] + u[i] + dot_product(B, Bits(n, _))), true);
+           // Rcpp::Rcout << "DotProd" << dot_product(B, Bits(n, _)) << std::endl;
+            }
+          }
+        NumericVector temp = logVecMatMult(Alpha(t-1, _), jointTPM);
+        for (int j = 0; j < nstate; ++j){
+          Alpha(t, j) = temp[j] + prodEmission(t, j);
+        }
+      }
+          rowlogsumexp[i] = logSumExp_cpp(Alpha(time-1, _));
+    }
+    double full_log_likelihood = sum(rowlogsumexp);
+    return full_log_likelihood;
+  }
   return R_NegInf;
 }

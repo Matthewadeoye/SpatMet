@@ -66,37 +66,37 @@ solveSteadystate <- function(init.condition, params, N, sim_adjmat){
   }
 }
 
-library(lhs)
-B0<- seq(0, 1000, by=10)
+#library(lhs)
+#B0<- seq(0, 1000, by=10)
 
-set.seed(0)
-X <- randomLHS(n = length(B0), k = n_patches)
-N_Mat<- matrix(rep(N, nrow(X)), nrow = nrow(X), ncol = n_patches, byrow = T)
-Y<- X*N_Mat
-colnames(Y)<- paste0("S",1:9)
+#set.seed(0)
+#X <- randomLHS(n = length(B0), k = n_patches)
+#N_Mat<- matrix(rep(N, nrow(X)), nrow = nrow(X), ncol = n_patches, byrow = T)
+#Y<- X*N_Mat
+#colnames(Y)<- paste0("S",1:9)
 
-Sstdstates<- matrix(NA, nrow = nrow(Y), ncol = n_patches)
-for(i in 1:nrow(Y)){
-  Sstdstates[i, ]<- solveSteadystate(init.condition = Y[i,], params = params, N = N, sim_adjmat = sim_adjmat)
-}
-Sstdstates
+#Sstdstates<- matrix(NA, nrow = nrow(Y), ncol = n_patches)
+#for(i in 1:nrow(Y)){
+#  Sstdstates[i, ]<- solveSteadystate(init.condition = Y[i,], params = params, N = N, sim_adjmat = sim_adjmat)
+#}
+#Sstdstates
 
-Istdstates<- (rho/(gamma+rho))*(N_Mat-Sstdstates)
-Rstdstates<- N_Mat - Sstdstates - Istdstates
+#Istdstates<- (rho/(gamma+rho))*(N_Mat-Sstdstates)
+#Rstdstates<- N_Mat - Sstdstates - Istdstates
 
-Sstdstates/N_Mat
-Istdstates/N_Mat
-Rstdstates/N_Mat
-Sstdstates
-Istdstates
-Rstdstates
+#Sstdstates/N_Mat
+#Istdstates/N_Mat
+#Rstdstates/N_Mat
+#Sstdstates
+#Istdstates
+#Rstdstates
 #Veccolors<- randomcoloR::randomColor(nrow(Y))
-Veccolors<- rainbow(10)
+#Veccolors<- rainbow(10)
 
 #Phase plot
-par(mfrow=c(3,3))
-for(j in 1:n_patches){
-  plot(0, type = "n", xlim = c(0, 1), ylim = c(0, 1), xlab = "R", ylab = "I", main = paste("Subpopulation ", j), cex.lab = 1.7, cex.axis = 1.0, cex.main=2.0)
-  points(Rstdstates[,j]/N_Mat[,j],Istdstates[,j]/N_Mat[,j], col= Veccolors, pch=3, cex=1.7)
-  grid()
-}
+#par(mfrow=c(3,3))
+#for(j in 1:n_patches){
+#  plot(0, type = "n", xlim = c(0, 1), ylim = c(0, 1), xlab = "R", ylab = "I", main = paste("Subpopulation ", j), cex.lab = 1.7, cex.axis = 1.0, cex.main=2.0)
+#  points(Rstdstates[,j]/N_Mat[,j],Istdstates[,j]/N_Mat[,j], col= Veccolors, pch=3, cex=1.7)
+#  grid()
+#}

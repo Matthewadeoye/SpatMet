@@ -101,8 +101,8 @@ functions{
     return m;
   }
 
-  //loglikelihood via forward filtering
-  real Stan_Loglikelihood(array[,,] int y, vector a_k, vector r, vector s, vector u, matrix gamma, matrix e_it, vector B, int Model, matrix Bits){
+  //multi-strain loglikelihood via forward filtering
+  real Stan_Loglikelihood(array[,,] int y, vector a_k, vector r, vector s, vector u, matrix gamma, matrix e_it, vector B, int Model, matrix Bits, int independentChains){
   int ndept = dims(y)[1];
   int time = dims(y)[2];
   int nstrain = dims(a_k)[1];
@@ -126,48 +126,86 @@ functions{
 
  //If Model specification is not Model 0.
   else{
+    if(independentChains==0){
   int nstate = intPower(2, nstrain);
   matrix[nstate, nstate] jointTPM = JointTransitionMatrix(gamma, nstrain);
-  matrix[time, nstate] logEmission;
   matrix[time, nstate] Alpha;
   vector[nstate] prodEmission;
   vector[nstate] init_density = stationarydist(jointTPM);
+  vector[ndept] log_forwards;
 
   for (i in 1:ndept){
   // Initialization of the first time step for each department
+  for(n in 1:nstate){
   for(k in 1:nstrain){
   if(y[i, 1, k] == -1){
-    Alpha[1] = transpose(log(init_density));
+    prodEmission[n] += 0;
     }else{
-    for(n in 1:nstate){
-    prodEmission[n] = 0;
     prodEmission[n] += poisson_lpmf(y[i, 1, k] | e_it[i, 1] * exp(a_k[k] + r[1] + s[1] + u[i] + dot_product(B, Bits[n, ])));
     }
-  //logEmission[1] = transpose(prodEmission);
-  Alpha[1] = transpose(log(init_density) + prodEmission);
   }
 }
+  Alpha[1] = transpose(log(init_density) + prodEmission);
+
   // Dynamic programming loop for the remaining time steps
       for(t in 2:time) {
+        int month_index = (t - 1) % 12 + 1;
         for(n in 1:nstate){
-          prodEmission[n] = 0;
         for(k in 1:nstrain){
         if(y[i, t, k] == -1){
           prodEmission[n] += 0;
           }else{
-        int month_index = (t - 1) % 12 + 1;
          prodEmission[n] += poisson_lpmf(y[i, t, k] | e_it[i, t] * exp(a_k[k] + r[t] + s[month_index] + u[i] + dot_product(B, Bits[n, ])));
          }
         }
       }
-        //logEmission[t] = transpose(prodEmission);
         Alpha[t] = transpose(logVecMatMult(transpose(Alpha[t-1, ]), log(jointTPM)) + prodEmission);
     }
+        log_forwards[i] = log_sum_exp(Alpha[time, ]);
   }
-      real fullLogLikelihood = log_sum_exp(Alpha[time, ]);
+      real fullLogLikelihood = sum(log_forwards);
       return fullLogLikelihood;
+    }//If independent Markov chains.
+else{
+  int nstate = 2;
+  matrix[time, nstate] Alpha;
+  vector[nstate] prodEmission;
+  vector[nstate] init_density = stationarydist(gamma);
+  vector[ndept] log_forwards;
+
+  for (i in 1:ndept){
+    // Initialization of the first time step for each department
+    for(n in 1:nstate){
+    for(k in 1:nstrain){
+      if(y[i, 1, k] == -1){
+        prodEmission[n] += 0;
+      }else{
+          prodEmission[n] += poisson_lpmf(y[i, 1, k] | e_it[i, 1] * exp(a_k[k] + r[1] + s[1] + u[i] + B[k] * (n-1)));
+        }
     }
+  }
+     Alpha[1] = transpose(log(init_density) + prodEmission);
+    // Dynamic programming loop for the remaining time steps
+    for(t in 2:time) {
+      int month_index = (t - 1) % 12 + 1;
+      for(n in 1:nstate){
+        for(k in 1:nstrain){
+          if(y[i, t, k] == -1){
+            prodEmission[n] += 0;
+          }else{
+            prodEmission[n] += poisson_lpmf(y[i, t, k] | e_it[i, t] * exp(a_k[k] + r[t] + s[month_index] + u[i] + B[k] * (n-1)));
+          }
+        }
+      }
+      Alpha[t] = transpose(logVecMatMult(transpose(Alpha[t-1, ]), log(gamma)) + prodEmission);
+    }
+    log_forwards[i] = log_sum_exp(Alpha[time, ]);
+  }
+  real fullLogLikelihood = sum(log_forwards);
+  return fullLogLikelihood;
+}
    return 0;
+    }
   }
 }
 
@@ -182,7 +220,8 @@ data {
   matrix[ndept, ndept] R;             // Structure matrix (IGMRF1)
   int<lower=0, upper=1> Model;        // Model's functional form
   matrix[12, 12] SMat;                //Structure matrix (seasonal_comp)
-  matrix[nstate, nstrain] Bits;        //Bits matrix
+  matrix[nstate, nstrain] Bits;       //Bits matrix
+  int<lower=0> independentChains;     // 0=> False, 1=> True
 }
 
 parameters {
@@ -207,29 +246,13 @@ transformed parameters {
   s = append_row(sraw[1:11], -sumS);
 
   vector[time] r;
-  real MeanR = mean(rraw)
+  real MeanR = mean(rraw);
   for(i in 1:time){
   r[i] = rraw[i] - MeanR;
   }
 }
 
 model {
-  // Priors
-  //G12 ~ beta(2, 2);
-  //G21 ~ beta(2, 2);
-  //kappa_u ~ gamma(1, 0.01);
-  //kappa_r ~ gamma(1, 0.0001);
-  //kappa_s ~ gamma(1, (time / 12.0) * 0.001);
-
-  //if(Model==1 || Model==2 || Model==4 || Model==5 || Model==7){
-  //  B[1] ~ gamma(2, 2);
-  //}
-
-  //if(Model==3 || Model==6){
-  //  B[1] ~ gamma(2, 2);
-  //  B[2] ~ gamma(2, 2);
-  //}
-
   target += beta_lpdf(G12 | 2, 2);
   target += beta_lpdf(G12 | 2, 2);
   target += gamma_lpdf(kappa_u | 1, 0.01);
@@ -243,11 +266,11 @@ model {
   target += seasonalComp(s, kappa_s, SMat);
 
   // Likelihood
-  target += Stan_Loglikelihood(y, a_k, r, s, uconstrained, G(G12, G21), e_it, B, Model, Bits);
+  target += Stan_Loglikelihood(y, a_k, r, s, uconstrained, G(G12, G21), e_it, B, Model, Bits, independentChains);
 }
 
 generated quantities{
-  real log_lik = Stan_Loglikelihood(y, a_k, r, s, uconstrained, G(G12, G21), e_it, B, Model, Bits);
+  real log_lik = Stan_Loglikelihood(y, a_k, r, s, uconstrained, G(G12, G21), e_it, B, Model, Bits, independentChains);
   real state1_stationary_dist = stationarydist(G(G12, G21))[2];
   vector[nstate] stationaryDistribution = stationarydist(JointTransitionMatrix(G(G12, G21), nstrain));
 }

@@ -42,17 +42,17 @@ for (i in 1:n_patches) {
 }
 
 
-S<- c(round(solve(M_matrix) %*% rep(gamma, n_patches)))
-I<- c(round((rho/(gamma+rho))*(N-S)))
-R<- N-S-I
+#S<- c(round(solve(M_matrix) %*% rep(gamma, n_patches)))
+#I<- c(round((rho/(gamma+rho))*(N-S)))
+#R<- N-S-I
 
-#S<- N-5
-#I<- rep(5, n_patches)
-#R<- rep(0, n_patches)
+S<- N-5
+I<- rep(5, n_patches)
+R<- rep(0, n_patches)
 
-S<- round(Sstdstates[6, ])
-I<- round(Istdstates[6, ])
-R<- round(Rstdstates[6, ])
+#S<- round(Sstdstates[6, ])
+#I<- round(Istdstates[6, ])
+#R<- round(Rstdstates[6, ])
 
 results <- matrix(c(S, I, R, 0), nrow = 1)
 colnames(results) <- c(paste0("S", 1:n_patches), paste0("I", 1:n_patches), paste0("R", 1:n_patches), "time")
@@ -346,6 +346,7 @@ initials_list <- lapply(1:nchains, function(x) initials)
 #Multi-strain model fit
 #multmod0<- Multstrain.simulate(Model = 0, time=20, adj.matrix = sim_adjmat)
 #multmod1<- Multstrain.simulate(Model = 1, time=20, adj.matrix = sim_adjmat)
+#set.seed(77);multmod1<- Multstrain.simulate(Model = 1, time=60, adj.matrix = sim_adjmat)
 R<- -1 * sim_adjmat
 diag(R)<- -rowSums(R, na.rm = T)
 rankdef<- nrow(R)-qr(R)$rank
@@ -383,7 +384,7 @@ nchains<- 4
 #multmodel<- cmdstan_model(stan_file = multmodel_code, compile = TRUE)
 #cmdstanrfit<- multmodel$sample(data = list(ndept=ndept, time=time, nstate=nstate, rankdef=rankdef,
 #                                           nstrain=nstrain, y=y, e_it=e_it, R=R,
-#                                           SMat = strs, Model = Model, Bits=Bits),
+#                                           SMat = strs, Model = Model, Bits=Bits, independentChains=1),
 #                                           init = initials_list, chains = nchains, iter_warmup = 1000,
 #                                           iter_sampling = 1000, parallel_chains = nchains,
 #                                           seed=1234, adapt_delta = 0.90)
@@ -412,3 +413,8 @@ nchains<- 4
 #                            Bits=encodeBits(K=2),
 #                            a_k=colMeans(as.data.frame(MultmodfitGPU_1$draws(variables = "a_k")[,1,])),
 #                            state=4)
+
+#vinf<- multmodel$variational(data = list(ndept=ndept, time=time, nstate=nstate, rankdef=rankdef,nstrain=nstrain, y=y, e_it=e_it, R=R,SMat = strs, Model = Model, Bits=Bits, independentChains=1),init = list(initials),seed=1234)
+
+#multGeneralLoglikelihood_cpp2(y=as.numeric(aperm(y, c(2,1,3))), ndept=9,time=60,nstrain=2, a_k = c(-14,-13.8), r=multmod1[[3]], s=multmod1[[4]], u=multmod1[[5]],Gamma = G(0.4,0.1),e_it=e_it,B=c(0.86,0.92), model=1 ,Bits=Bits)
+#multstrainLoglikelihood(y=y, nstrain=2, a_k = c(-14,-13.8), r=multmod1[[3]], s=multmod1[[4]], u=multmod1[[5]],Gamma = G(0.4,0.1),e_it=e_it,B=c(0.86,0.92),Bits=Bits, Model=1)

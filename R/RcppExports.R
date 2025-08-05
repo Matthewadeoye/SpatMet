@@ -5,6 +5,26 @@ logSumExp_cpp <- function(x) {
     .Call(`_SpatMet_logSumExp_cpp`, x)
 }
 
+dot_product <- function(v1, v2) {
+    .Call(`_SpatMet_dot_product`, v1, v2)
+}
+
+intPower <- function(a, b) {
+    .Call(`_SpatMet_intPower`, a, b)
+}
+
+logVecMatMult <- function(logV, M) {
+    .Call(`_SpatMet_logVecMatMult`, logV, M)
+}
+
+JointTransitionMatrix_cpp <- function(gamma, K) {
+    .Call(`_SpatMet_JointTransitionMatrix_cpp`, gamma, K)
+}
+
+state_dist_cpp2 <- function(Gamma) {
+    .Call(`_SpatMet_state_dist_cpp2`, Gamma)
+}
+
 state_dist_cpp <- function(G12, G21) {
     .Call(`_SpatMet_state_dist_cpp`, G12, G21)
 }
@@ -15,5 +35,9 @@ GeneralLoglikelihood_cpp <- function(y, r, s, u, Gamma, e_it, B, model, z_it, z_
 
 GeneralLoglikelihood_cpp2 <- function(y, r, s, u, Gamma, e_it, B, model, z_it, z_it2) {
     .Call(`_SpatMet_GeneralLoglikelihood_cpp2`, y, r, s, u, Gamma, e_it, B, model, z_it, z_it2)
+}
+
+multGeneralLoglikelihood_cpp2 <- function(y, ndept, time, nstrain, a_k, r, s, u, Gamma, e_it, B, model, Bits) {
+    .Call(`_SpatMet_multGeneralLoglikelihood_cpp2`, y, ndept, time, nstrain, a_k, r, s, u, Gamma, e_it, B, model, Bits)
 }
 

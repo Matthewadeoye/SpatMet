@@ -22,6 +22,65 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// dot_product
+double dot_product(NumericVector v1, NumericVector v2);
+RcppExport SEXP _SpatMet_dot_product(SEXP v1SEXP, SEXP v2SEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericVector >::type v1(v1SEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type v2(v2SEXP);
+    rcpp_result_gen = Rcpp::wrap(dot_product(v1, v2));
+    return rcpp_result_gen;
+END_RCPP
+}
+// intPower
+int intPower(int a, int b);
+RcppExport SEXP _SpatMet_intPower(SEXP aSEXP, SEXP bSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< int >::type a(aSEXP);
+    Rcpp::traits::input_parameter< int >::type b(bSEXP);
+    rcpp_result_gen = Rcpp::wrap(intPower(a, b));
+    return rcpp_result_gen;
+END_RCPP
+}
+// logVecMatMult
+NumericVector logVecMatMult(NumericVector logV, NumericMatrix M);
+RcppExport SEXP _SpatMet_logVecMatMult(SEXP logVSEXP, SEXP MSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericVector >::type logV(logVSEXP);
+    Rcpp::traits::input_parameter< NumericMatrix >::type M(MSEXP);
+    rcpp_result_gen = Rcpp::wrap(logVecMatMult(logV, M));
+    return rcpp_result_gen;
+END_RCPP
+}
+// JointTransitionMatrix_cpp
+NumericMatrix JointTransitionMatrix_cpp(NumericMatrix gamma, int K);
+RcppExport SEXP _SpatMet_JointTransitionMatrix_cpp(SEXP gammaSEXP, SEXP KSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericMatrix >::type gamma(gammaSEXP);
+    Rcpp::traits::input_parameter< int >::type K(KSEXP);
+    rcpp_result_gen = Rcpp::wrap(JointTransitionMatrix_cpp(gamma, K));
+    return rcpp_result_gen;
+END_RCPP
+}
+// state_dist_cpp2
+NumericVector state_dist_cpp2(NumericMatrix Gamma);
+RcppExport SEXP _SpatMet_state_dist_cpp2(SEXP GammaSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericMatrix >::type Gamma(GammaSEXP);
+    rcpp_result_gen = Rcpp::wrap(state_dist_cpp2(Gamma));
+    return rcpp_result_gen;
+END_RCPP
+}
 // state_dist_cpp
 NumericVector state_dist_cpp(double G12, double G21);
 RcppExport SEXP _SpatMet_state_dist_cpp(SEXP G12SEXP, SEXP G21SEXP) {
@@ -74,12 +133,41 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// multGeneralLoglikelihood_cpp2
+double multGeneralLoglikelihood_cpp2(IntegerVector y, int ndept, int time, int nstrain, NumericVector a_k, NumericVector r, NumericVector s, NumericVector u, NumericMatrix Gamma, NumericMatrix e_it, NumericVector B, int model, NumericMatrix Bits);
+RcppExport SEXP _SpatMet_multGeneralLoglikelihood_cpp2(SEXP ySEXP, SEXP ndeptSEXP, SEXP timeSEXP, SEXP nstrainSEXP, SEXP a_kSEXP, SEXP rSEXP, SEXP sSEXP, SEXP uSEXP, SEXP GammaSEXP, SEXP e_itSEXP, SEXP BSEXP, SEXP modelSEXP, SEXP BitsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type y(ySEXP);
+    Rcpp::traits::input_parameter< int >::type ndept(ndeptSEXP);
+    Rcpp::traits::input_parameter< int >::type time(timeSEXP);
+    Rcpp::traits::input_parameter< int >::type nstrain(nstrainSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type a_k(a_kSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type r(rSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type s(sSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type u(uSEXP);
+    Rcpp::traits::input_parameter< NumericMatrix >::type Gamma(GammaSEXP);
+    Rcpp::traits::input_parameter< NumericMatrix >::type e_it(e_itSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type B(BSEXP);
+    Rcpp::traits::input_parameter< int >::type model(modelSEXP);
+    Rcpp::traits::input_parameter< NumericMatrix >::type Bits(BitsSEXP);
+    rcpp_result_gen = Rcpp::wrap(multGeneralLoglikelihood_cpp2(y, ndept, time, nstrain, a_k, r, s, u, Gamma, e_it, B, model, Bits));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_SpatMet_logSumExp_cpp", (DL_FUNC) &_SpatMet_logSumExp_cpp, 1},
+    {"_SpatMet_dot_product", (DL_FUNC) &_SpatMet_dot_product, 2},
+    {"_SpatMet_intPower", (DL_FUNC) &_SpatMet_intPower, 2},
+    {"_SpatMet_logVecMatMult", (DL_FUNC) &_SpatMet_logVecMatMult, 2},
+    {"_SpatMet_JointTransitionMatrix_cpp", (DL_FUNC) &_SpatMet_JointTransitionMatrix_cpp, 2},
+    {"_SpatMet_state_dist_cpp2", (DL_FUNC) &_SpatMet_state_dist_cpp2, 1},
     {"_SpatMet_state_dist_cpp", (DL_FUNC) &_SpatMet_state_dist_cpp, 2},
     {"_SpatMet_GeneralLoglikelihood_cpp", (DL_FUNC) &_SpatMet_GeneralLoglikelihood_cpp, 10},
     {"_SpatMet_GeneralLoglikelihood_cpp2", (DL_FUNC) &_SpatMet_GeneralLoglikelihood_cpp2, 10},
+    {"_SpatMet_multGeneralLoglikelihood_cpp2", (DL_FUNC) &_SpatMet_multGeneralLoglikelihood_cpp2, 13},
     {NULL, NULL, 0}
 };
 

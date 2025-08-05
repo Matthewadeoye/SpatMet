@@ -849,7 +849,7 @@ sim.RW2mean0<- function(time, sd=0.0001, init.r1 = 0, init.r2 = 0){
 Multstrain.simulate<- function(Model, time, nstrain=2, adj.matrix,
                                e_it=matrix(c(rep(c(rpois(time, 500000), rpois(time, 1000000)), 4), rpois(time, 500000)),
                                            byrow = T, ncol = time),
-                               B = c(0.75, 0.20), T.prob = matrix(c(0.9, 0.1, 0.2, 0.8), nrow = 2, byrow = T),
+                               B = c(0.86, 0.92), T.prob = matrix(c(0.9, 0.1, 0.2, 0.8), nrow = 2, byrow = T),
                                r = sim.RW2mean0(time, sd=0.009), s = DetectOutbreaks:::sim.Seasonals2(Amplitude = 1.4),
                                u = DetectOutbreaks:::sim.Spatials(adj.matrix)){
   ndept<- nrow(adj.matrix)
@@ -931,7 +931,7 @@ multstrain.forwardfilter<- function(y, e_it, nstrain, r, s, u, Gamma, B, Bits, a
     logprodEmission<- rep(0, nstate)
     for(n in 1:nstate){
       for(k in 1:nstrain){
-        logprodEmission[n]<- logprodEmission[n] + dpois(y[i, t, k], lambda = e_it[i, 1] * exp(a_k[k] + r[t] + s[month_index] + u[i] + B%*%Bits[n, ]), log = TRUE)
+        logprodEmission[n]<- logprodEmission[n] + dpois(y[i, t, k], lambda = e_it[i, t] * exp(a_k[k] + r[t] + s[month_index] + u[i] + B%*%Bits[n, ]), log = TRUE)
       }
     }
     forwardprobs[t, ]<- logspace_vecmatmult(forwardprobs[t-1, ], log(JointTPM)) + logprodEmission
@@ -987,4 +987,49 @@ multstrain.Decoding <- function(y, e_it, nstrain, r, s, u, Gamma, B, Bits, a_k, 
       }
     }
     return(Res)
+}
+
+multstrainLoglikelihood<- function(y, e_it, nstrain, r, s, u, Gamma, B, Bits, a_k, Model){
+  ndept<- length(u)
+  time <- length(r)
+  if(Model == 0){
+    loglike<- 0
+    for(i in 1:ndept){
+      for(t in 1:time){
+        month_index<- (t-1) %% 12 + 1
+        for(k in 1:nstrain){
+          loglike<- loglike + dpois(y[i, t, k], lambda = e_it[i, t] * exp(a_k[k] + r[t] + s[month_index] + u[i]), log = TRUE)
+        }
+      }
+    }
+    return(loglike)
+  }else{
+  nstate<- 2^nstrain
+  AllForwardprobs<- numeric(ndept)
+  JointTPM<- JointTransitionMatrix(gamma = Gamma, K = nstrain)
+  loginit.density<- log(stationarydist(JointTPM))
+  for(i in 1:ndept){
+    forwardprobs<- matrix(NA, nrow = time, ncol = nstate)
+    logprodEmission<- rep(0, nstate)
+    for(n in 1:nstate){
+      for(k in 1:nstrain){
+        logprodEmission[n]<- logprodEmission[n] + dpois(y[i, 1, k], lambda = e_it[i, 1] * exp(a_k[k] + r[1] + s[1] + u[i] + B%*%Bits[n, ]), log = TRUE)
+      }
+    }
+    forwardprobs[1, ]<- logprodEmission + loginit.density
+    for(t in 2:time){
+      month_index<- (t-1) %% 12 + 1
+      logprodEmission<- rep(0, nstate)
+      for(n in 1:nstate){
+        for(k in 1:nstrain){
+          logprodEmission[n]<- logprodEmission[n] + dpois(y[i, t, k], lambda = e_it[i, t] * exp(a_k[k] + r[t] + s[month_index] + u[i] + B%*%Bits[n, ]), log = TRUE)
+        }
+      }
+      forwardprobs[t, ]<- logspace_vecmatmult(forwardprobs[t-1, ], log(JointTPM)) + logprodEmission
+    }
+    AllForwardprobs[i]<- logSumExp_cpp(forwardprobs[time, ])
+    #print(AllForwardprobs[[i]])
+  }
+  return(sum(AllForwardprobs))
+  }
 }
