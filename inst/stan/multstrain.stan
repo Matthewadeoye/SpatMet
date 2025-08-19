@@ -101,22 +101,25 @@ functions{
     return m;
   }
 
+  real my_dpois(int y, real lambda){
+  real res = -lambda + y * log(lambda) - log(tgamma(y+1));
+  return res;
+}
+
   //multi-strain loglikelihood via forward filtering
-  real Stan_Loglikelihood(array[,,] int y, vector a_k, vector r, vector s, vector u, matrix gamma, matrix e_it, vector B, int Model, matrix Bits, int independentChains){
-  int ndept = dims(y)[1];
-  int time = dims(y)[2];
-  int nstrain = dims(a_k)[1];
+  real Stan_Loglikelihood(array[] int y, int ndept, int time, int nstrain, vector a_k, vector r, vector s, vector u, matrix gamma, matrix e_it, vector B, int Model, matrix Bits, int independentChains){
+
     //Model0
   if(Model == 0){
     real allLoglikelihood = 0;
   for(i in 1:ndept) {
     for(t in 1:time) {
+      int month_index = (t - 1) % 12 + 1;
       for(k in 1:nstrain){
-      if(y[i, t, k] == -1){
+      if(y[(k-1) * ndept * time + (i-1) * time + t] == -1){
         allLoglikelihood += 0;
       }else{
-      int month_index = (t - 1) % 12 + 1;
-        allLoglikelihood += poisson_lpmf(y[i, t, k] | e_it[i, t] * exp(a_k[k] + r[t] + s[month_index] + u[i]));
+        allLoglikelihood += my_dpois(y[(k-1) * ndept * time + (i-1) * time + t], e_it[i, t] * exp(a_k[k] + r[t] + s[month_index] + u[i]));
         }
       }
     }
@@ -135,16 +138,14 @@ functions{
 
   for (i in 1:ndept){
     vector[nstate] prodEmission;
-    for(m in 1:nstate){
-      prodEmission[m] = 0;
-    }
   // Initialization of the first time step for each department
   for(n in 1:nstate){
+    prodEmission[n] = 0;
   for(k in 1:nstrain){
-  if(y[i, 1, k] == -1){
+  if(y[(k-1) * ndept * time + (i-1) * time + 1] == -1){
     prodEmission[n] += 0;
     }else{
-    prodEmission[n] += poisson_lpmf(y[i, 1, k] | e_it[i, 1] * exp(a_k[k] + r[1] + s[1] + u[i] + dot_product(B, Bits[n, ])));
+    prodEmission[n] += my_dpois(y[(k-1) * ndept * time + (i-1) * time + 1], e_it[i, 1] * exp(a_k[k] + r[1] + s[1] + u[i] + dot_product(B, Bits[n, ])));
     }
   }
 }
@@ -154,11 +155,12 @@ functions{
       for(t in 2:time) {
         int month_index = (t - 1) % 12 + 1;
         for(n in 1:nstate){
+          prodEmission[n] = 0;
         for(k in 1:nstrain){
-        if(y[i, t, k] == -1){
+        if(y[(k-1) * ndept * time + (i-1) * time + t] == -1){
           prodEmission[n] += 0;
           }else{
-         prodEmission[n] += poisson_lpmf(y[i, t, k] | e_it[i, t] * exp(a_k[k] + r[t] + s[month_index] + u[i] + dot_product(B, Bits[n, ])));
+         prodEmission[n] += my_dpois(y[(k-1) * ndept * time + (i-1) * time + t], e_it[i, t] * exp(a_k[k] + r[t] + s[month_index] + u[i] + dot_product(B, Bits[n, ])));
          }
         }
       }
@@ -177,16 +179,14 @@ else{
   vector[ndept] log_forwards;
 
   for (i in 1:ndept){
-    for(m in 1:nstate){
-      prodEmission[m] = 0;
-    }
     // Initialization of the first time step for each department
     for(n in 1:nstate){
+      prodEmission[n] = 0;
     for(k in 1:nstrain){
-      if(y[i, 1, k] == -1){
+      if(y[(k-1) * ndept * time + (i-1) * time + 1] == -1){
         prodEmission[n] += 0;
       }else{
-          prodEmission[n] += poisson_lpmf(y[i, 1, k] | e_it[i, 1] * exp(a_k[k] + r[1] + s[1] + u[i] + B[k] * (n-1)));
+          prodEmission[n] += my_dpois(y[(k-1) * ndept * time + (i-1) * time + 1], e_it[i, 1] * exp(a_k[k] + r[1] + s[1] + u[i] + B[k] * (n-1)));
         }
     }
   }
@@ -195,11 +195,12 @@ else{
     for(t in 2:time) {
       int month_index = (t - 1) % 12 + 1;
       for(n in 1:nstate){
+        prodEmission[n] = 0;
         for(k in 1:nstrain){
-          if(y[i, t, k] == -1){
+          if(y[(k-1) * ndept * time + (i-1) * time + t] == -1){
             prodEmission[n] += 0;
           }else{
-            prodEmission[n] += poisson_lpmf(y[i, t, k] | e_it[i, t] * exp(a_k[k] + r[t] + s[month_index] + u[i] + B[k] * (n-1)));
+            prodEmission[n] += my_dpois(y[(k-1) * ndept * time + (i-1) * time + t], e_it[i, t] * exp(a_k[k] + r[t] + s[month_index] + u[i] + B[k] * (n-1)));
           }
         }
       }
@@ -221,7 +222,8 @@ data {
   int<lower=1> nstate;                // Number of states
   int<lower=1> rankdef;               // Rank deficiency of structure matrix (R)
   int<lower=1> nstrain;               // Number of strains
-  array[ndept, time, nstrain] int y;  // data matrix
+  int<lower=0> npar;                  // Number of regression parameters
+  array[ndept*time*nstrain] int y;  // data matrix
   matrix[ndept, time] e_it;           // initial Susceptibles
   matrix[ndept, ndept] R;             // Structure matrix (IGMRF1)
   int<lower=0, upper=1> Model;        // Model's functional form
@@ -239,7 +241,7 @@ parameters {
   vector[ndept-1] u;                     // Spatial components
   vector[time] rraw;                     // Trend components
   vector[11] sraw;                       // cyclic seasonal components
-  vector<lower=0>[nstrain] B;            // autoregressive parameters
+  vector<lower=0>[npar] B;            // autoregressive parameters
   vector[nstrain] a_k;                   // background intercepts
 }
 
@@ -272,11 +274,11 @@ model {
   target += seasonalComp(s, kappa_s, SMat);
 
   // Likelihood
-  target += Stan_Loglikelihood(y, a_k, r, s, uconstrained, G(G12, G21), e_it, B, Model, Bits, independentChains);
+  target += Stan_Loglikelihood(y, ndept, time, nstrain, a_k, r, s, uconstrained, G(G12, G21), e_it, B, Model, Bits, independentChains);
 }
 
 generated quantities{
-  real log_lik = Stan_Loglikelihood(y, a_k, r, s, uconstrained, G(G12, G21), e_it, B, Model, Bits, independentChains);
+  real log_lik = Stan_Loglikelihood(y, ndept, time, nstrain, a_k, r, s, uconstrained, G(G12, G21), e_it, B, Model, Bits, independentChains);
   real state1_stationary_dist = stationarydist(G(G12, G21))[2];
   vector[nstate] stationaryDistribution = stationarydist(JointTransitionMatrix(G(G12, G21), nstrain));
 }

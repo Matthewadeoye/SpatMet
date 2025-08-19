@@ -989,16 +989,21 @@ multstrain.Decoding <- function(y, e_it, nstrain, r, s, u, Gamma, B, Bits, a_k, 
     return(Res)
 }
 
+R_dpois<- function(y, lambda){
+  res <- (y * log(lambda)) -lambda -log(factorial(y))
+  return(res)
+}
+
 multstrainLoglikelihood<- function(y, e_it, nstrain, r, s, u, Gamma, B, Bits, a_k, Model, independentChains=FALSE){
-  ndept<- length(u)
-  time <- length(r)
+  ndept<- nrow(y[,,1])
+  time <- ncol(y[,,1])
   if(Model == 0){
     loglike<- 0
     for(i in 1:ndept){
       for(t in 1:time){
         month_index<- (t-1) %% 12 + 1
         for(k in 1:nstrain){
-          loglike<- loglike + dpois(y[i, t, k], lambda = e_it[i, t] * exp(a_k[k] + r[t] + s[month_index] + u[i]), log = TRUE)
+          loglike<- loglike + R_dpois(y=y[i, t, k], lambda = e_it[i, t] * exp(a_k[k] + r[t] + s[month_index] + u[i]))
         }
       }
     }
@@ -1013,7 +1018,7 @@ multstrainLoglikelihood<- function(y, e_it, nstrain, r, s, u, Gamma, B, Bits, a_
         logprodEmission<- rep(0, nstate)
         for(n in 1:nstate){
           for(k in 1:nstrain){
-            logprodEmission[n]<- logprodEmission[n] + dpois(y[i, 1, k], lambda = e_it[i, 1] * exp(a_k[k] + r[1] + s[1] + u[i] + B[k] * (n-1)), log = TRUE)
+            logprodEmission[n]<- logprodEmission[n] + R_dpois(y[i, 1, k], lambda = e_it[i, 1] * exp(a_k[k] + r[1] + s[1] + u[i] + B[k] * (n-1)))
           }
         }
         forwardprobs[1, ]<- logprodEmission + loginit.density
@@ -1022,7 +1027,7 @@ multstrainLoglikelihood<- function(y, e_it, nstrain, r, s, u, Gamma, B, Bits, a_
           logprodEmission<- rep(0, nstate)
           for(n in 1:nstate){
             for(k in 1:nstrain){
-              logprodEmission[n]<- logprodEmission[n] + dpois(y[i, t, k], lambda = e_it[i, t] * exp(a_k[k] + r[t] + s[month_index] + u[i] + B[k] * (n-1)), log = TRUE)
+              logprodEmission[n]<- logprodEmission[n] + R_dpois(y[i, t, k], lambda = e_it[i, t] * exp(a_k[k] + r[t] + s[month_index] + u[i] + B[k] * (n-1)))
             }
           }
           forwardprobs[t, ]<- logspace_vecmatmult(forwardprobs[t-1, ], log(Gamma)) + logprodEmission
@@ -1041,7 +1046,7 @@ multstrainLoglikelihood<- function(y, e_it, nstrain, r, s, u, Gamma, B, Bits, a_
     logprodEmission<- rep(0, nstate)
     for(n in 1:nstate){
       for(k in 1:nstrain){
-        logprodEmission[n]<- logprodEmission[n] + dpois(y[i, 1, k], lambda = e_it[i, 1] * exp(a_k[k] + r[1] + s[1] + u[i] + B%*%Bits[n, ]), log = TRUE)
+        logprodEmission[n]<- logprodEmission[n] + R_dpois(y[i, 1, k], lambda = e_it[i, 1] * exp(a_k[k] + r[1] + s[1] + u[i] + as.numeric(B%*%Bits[n, ])))
       }
     }
     forwardprobs[1, ]<- logprodEmission + loginit.density
@@ -1050,7 +1055,7 @@ multstrainLoglikelihood<- function(y, e_it, nstrain, r, s, u, Gamma, B, Bits, a_
       logprodEmission<- rep(0, nstate)
       for(n in 1:nstate){
         for(k in 1:nstrain){
-          logprodEmission[n]<- logprodEmission[n] + dpois(y[i, t, k], lambda = e_it[i, t] * exp(a_k[k] + r[t] + s[month_index] + u[i] + B%*%Bits[n, ]), log = TRUE)
+          logprodEmission[n]<- logprodEmission[n] + R_dpois(y[i, t, k], lambda = e_it[i, t] * exp(a_k[k] + r[t] + s[month_index] + u[i] + as.numeric(B%*%Bits[n, ])))
         }
       }
       forwardprobs[t, ]<- logspace_vecmatmult(forwardprobs[t-1, ], log(JointTPM)) + logprodEmission
@@ -1060,5 +1065,43 @@ multstrainLoglikelihood<- function(y, e_it, nstrain, r, s, u, Gamma, B, Bits, a_
   }
   return(sum(AllForwardprobs))
    }
+  }
+}
+
+mcmc.plot2<- function(inf.object){
+
+  if(is.data.frame(inf.object)){
+
+    # par(mfrow=c(3, 3))
+    #  for (i in 1:ncol(inf.object)) {
+    #    hist(inf.object[-(1:2000), i], main = colnames(inf.object)[i], xlab ="", col = "white", border = "black")
+    # }
+
+    par(mfrow=c(3, 3))
+    for (i in 1:ncol(inf.object)) {
+      plot(inf.object[, i], type = "l", main = colnames(inf.object)[i], xlab ="MCMC iterations", ylab = "", col = "purple")
+      grid()
+    }
+  }else{
+    cond<- checkB(inf.object)
+    if(cond){
+      inf.object<- inf.object$draws(variables = c("G12", "G21", "kappa_r", "kappa_s", "kappa_u", "r", "s", "uconstrained", "B", "a_k", "state1_stationary_dist", "stationaryDistribution", "log_lik"))
+    }else{
+      inf.object<- inf.object$draws(variables = c("G12", "G21", "kappa_r", "kappa_s", "kappa_u", "r", "s", "uconstrained", "a_k", "state1_stationary_dist", "log_lik"))
+    }
+    inf.object<- inf.object[,1,]
+    inf.object<- as.data.frame(inf.object)
+    colnames(inf.object) <- gsub("^1.", "", colnames(inf.object))
+
+    par(mfrow=c(3, 3))
+    for (i in 1:ncol(inf.object)) {
+      hist(inf.object[, i], main = colnames(inf.object)[i], xlab ="", col = "white", border = "black")
+    }
+
+    par(mfrow=c(3, 3))
+    for (i in 1:ncol(inf.object)) {
+      plot(inf.object[, i], type = "l", main = colnames(inf.object)[i], xlab ="HMC iterations", ylab = "", col = "red")
+      grid()
+    }
   }
 }

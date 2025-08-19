@@ -5,10 +5,6 @@ logSumExp_cpp <- function(x) {
     .Call(`_SpatMet_logSumExp_cpp`, x)
 }
 
-dot_product <- function(v1, v2) {
-    .Call(`_SpatMet_dot_product`, v1, v2)
-}
-
 intPower <- function(a, b) {
     .Call(`_SpatMet_intPower`, a, b)
 }
@@ -29,6 +25,30 @@ state_dist_cpp <- function(G12, G21) {
     .Call(`_SpatMet_state_dist_cpp`, G12, G21)
 }
 
+randomwalk2_cpp <- function(componentR, PrecisionR) {
+    .Call(`_SpatMet_randomwalk2_cpp`, componentR, PrecisionR)
+}
+
+dotproduct_cpp <- function(v1, v2) {
+    .Call(`_SpatMet_dotproduct_cpp`, v1, v2)
+}
+
+quadform_cpp <- function(v1, z) {
+    .Call(`_SpatMet_quadform_cpp`, v1, z)
+}
+
+seasonalComp2_cpp <- function(x, y, z) {
+    .Call(`_SpatMet_seasonalComp2_cpp`, x, y, z)
+}
+
+logIGMRF1_cpp <- function(x, y, z, rankdef) {
+    .Call(`_SpatMet_logIGMRF1_cpp`, x, y, z, rankdef)
+}
+
+dpois_cpp <- function(y, lambda) {
+    .Call(`_SpatMet_dpois_cpp`, y, lambda)
+}
+
 GeneralLoglikelihood_cpp <- function(y, r, s, u, Gamma, e_it, B, model, z_it, z_it2) {
     .Call(`_SpatMet_GeneralLoglikelihood_cpp`, y, r, s, u, Gamma, e_it, B, model, z_it, z_it2)
 }
@@ -39,5 +59,61 @@ GeneralLoglikelihood_cpp2 <- function(y, r, s, u, Gamma, e_it, B, model, z_it, z
 
 multGeneralLoglikelihood_cpp2 <- function(y, ndept, time, nstrain, a_k, r, s, u, Gamma, e_it, B, model, Bits, independentChains) {
     .Call(`_SpatMet_multGeneralLoglikelihood_cpp2`, y, ndept, time, nstrain, a_k, r, s, u, Gamma, e_it, B, model, Bits, independentChains)
+}
+
+hardconstraint_cpp <- function(x) {
+    .Call(`_SpatMet_hardconstraint_cpp`, x)
+}
+
+rcpp_rmvn <- function(n, v, m) {
+    .Call(`_SpatMet_rcpp_rmvn`, n, v, m)
+}
+
+rcpp_dmvn <- function(x, u, m) {
+    .Call(`_SpatMet_rcpp_dmvn`, x, u, m)
+}
+
+rcpp_updateCov <- function(C, x, n, xbar) {
+    .Call(`_SpatMet_rcpp_updateCov`, C, x, n, xbar)
+}
+
+makematrix_cpp <- function(g12, g21) {
+    .Call(`_SpatMet_makematrix_cpp`, g12, g21)
+}
+
+tcrossprod_cpp <- function(x) {
+    .Call(`_SpatMet_tcrossprod_cpp`, x)
+}
+
+ColMeans_cpp <- function(M) {
+    .Call(`_SpatMet_ColMeans_cpp`, M)
+}
+
+makeDiagMat_cpp <- function(epsilonS, n) {
+    .Call(`_SpatMet_makeDiagMat_cpp`, epsilonS, n)
+}
+
+cov_cpp <- function(X) {
+    .Call(`_SpatMet_cov_cpp`, X)
+}
+
+add2matrices_cpp <- function(A, B) {
+    .Call(`_SpatMet_add2matrices_cpp`, A, B)
+}
+
+subtract2matrices_cpp <- function(A, B) {
+    .Call(`_SpatMet_subtract2matrices_cpp`, A, B)
+}
+
+multiply2matrices_cpp <- function(A, B) {
+    .Call(`_SpatMet_multiply2matrices_cpp`, A, B)
+}
+
+inv_cpp <- function(x) {
+    .Call(`_SpatMet_inv_cpp`, x)
+}
+
+multInfer_cpp <- function(y, e_it, nstrain, Model, Bits, CrudeR, CrudeS, CrudeU, RW2PrecMat, RW1PrecMat, R, rankdef, independentChains, num_iteration, meanR, SumYk_vec) {
+    .Call(`_SpatMet_multInfer_cpp`, y, e_it, nstrain, Model, Bits, CrudeR, CrudeS, CrudeU, RW2PrecMat, RW1PrecMat, R, rankdef, independentChains, num_iteration, meanR, SumYk_vec)
 }
 

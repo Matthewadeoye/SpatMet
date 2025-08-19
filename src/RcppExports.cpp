@@ -22,18 +22,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// dot_product
-double dot_product(NumericVector v1, NumericVector v2);
-RcppExport SEXP _SpatMet_dot_product(SEXP v1SEXP, SEXP v2SEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< NumericVector >::type v1(v1SEXP);
-    Rcpp::traits::input_parameter< NumericVector >::type v2(v2SEXP);
-    rcpp_result_gen = Rcpp::wrap(dot_product(v1, v2));
-    return rcpp_result_gen;
-END_RCPP
-}
 // intPower
 int intPower(int a, int b);
 RcppExport SEXP _SpatMet_intPower(SEXP aSEXP, SEXP bSEXP) {
@@ -90,6 +78,81 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< double >::type G12(G12SEXP);
     Rcpp::traits::input_parameter< double >::type G21(G21SEXP);
     rcpp_result_gen = Rcpp::wrap(state_dist_cpp(G12, G21));
+    return rcpp_result_gen;
+END_RCPP
+}
+// randomwalk2_cpp
+double randomwalk2_cpp(NumericVector componentR, double PrecisionR);
+RcppExport SEXP _SpatMet_randomwalk2_cpp(SEXP componentRSEXP, SEXP PrecisionRSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericVector >::type componentR(componentRSEXP);
+    Rcpp::traits::input_parameter< double >::type PrecisionR(PrecisionRSEXP);
+    rcpp_result_gen = Rcpp::wrap(randomwalk2_cpp(componentR, PrecisionR));
+    return rcpp_result_gen;
+END_RCPP
+}
+// dotproduct_cpp
+double dotproduct_cpp(NumericVector v1, NumericVector v2);
+RcppExport SEXP _SpatMet_dotproduct_cpp(SEXP v1SEXP, SEXP v2SEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericVector >::type v1(v1SEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type v2(v2SEXP);
+    rcpp_result_gen = Rcpp::wrap(dotproduct_cpp(v1, v2));
+    return rcpp_result_gen;
+END_RCPP
+}
+// quadform_cpp
+double quadform_cpp(NumericVector v1, NumericMatrix z);
+RcppExport SEXP _SpatMet_quadform_cpp(SEXP v1SEXP, SEXP zSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericVector >::type v1(v1SEXP);
+    Rcpp::traits::input_parameter< NumericMatrix >::type z(zSEXP);
+    rcpp_result_gen = Rcpp::wrap(quadform_cpp(v1, z));
+    return rcpp_result_gen;
+END_RCPP
+}
+// seasonalComp2_cpp
+double seasonalComp2_cpp(NumericVector x, double y, NumericMatrix z);
+RcppExport SEXP _SpatMet_seasonalComp2_cpp(SEXP xSEXP, SEXP ySEXP, SEXP zSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericVector >::type x(xSEXP);
+    Rcpp::traits::input_parameter< double >::type y(ySEXP);
+    Rcpp::traits::input_parameter< NumericMatrix >::type z(zSEXP);
+    rcpp_result_gen = Rcpp::wrap(seasonalComp2_cpp(x, y, z));
+    return rcpp_result_gen;
+END_RCPP
+}
+// logIGMRF1_cpp
+double logIGMRF1_cpp(NumericVector x, double y, NumericMatrix z, int rankdef);
+RcppExport SEXP _SpatMet_logIGMRF1_cpp(SEXP xSEXP, SEXP ySEXP, SEXP zSEXP, SEXP rankdefSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericVector >::type x(xSEXP);
+    Rcpp::traits::input_parameter< double >::type y(ySEXP);
+    Rcpp::traits::input_parameter< NumericMatrix >::type z(zSEXP);
+    Rcpp::traits::input_parameter< int >::type rankdef(rankdefSEXP);
+    rcpp_result_gen = Rcpp::wrap(logIGMRF1_cpp(x, y, z, rankdef));
+    return rcpp_result_gen;
+END_RCPP
+}
+// dpois_cpp
+double dpois_cpp(int y, double lambda);
+RcppExport SEXP _SpatMet_dpois_cpp(SEXP ySEXP, SEXP lambdaSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< int >::type y(ySEXP);
+    Rcpp::traits::input_parameter< double >::type lambda(lambdaSEXP);
+    rcpp_result_gen = Rcpp::wrap(dpois_cpp(y, lambda));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -157,18 +220,218 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// hardconstraint_cpp
+NumericVector hardconstraint_cpp(NumericVector x);
+RcppExport SEXP _SpatMet_hardconstraint_cpp(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericVector >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(hardconstraint_cpp(x));
+    return rcpp_result_gen;
+END_RCPP
+}
+// rcpp_rmvn
+NumericVector rcpp_rmvn(int n, NumericVector v, NumericMatrix m);
+RcppExport SEXP _SpatMet_rcpp_rmvn(SEXP nSEXP, SEXP vSEXP, SEXP mSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< int >::type n(nSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type v(vSEXP);
+    Rcpp::traits::input_parameter< NumericMatrix >::type m(mSEXP);
+    rcpp_result_gen = Rcpp::wrap(rcpp_rmvn(n, v, m));
+    return rcpp_result_gen;
+END_RCPP
+}
+// rcpp_dmvn
+double rcpp_dmvn(NumericVector x, NumericVector u, NumericMatrix m);
+RcppExport SEXP _SpatMet_rcpp_dmvn(SEXP xSEXP, SEXP uSEXP, SEXP mSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericVector >::type x(xSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type u(uSEXP);
+    Rcpp::traits::input_parameter< NumericMatrix >::type m(mSEXP);
+    rcpp_result_gen = Rcpp::wrap(rcpp_dmvn(x, u, m));
+    return rcpp_result_gen;
+END_RCPP
+}
+// rcpp_updateCov
+NumericMatrix rcpp_updateCov(NumericMatrix C, NumericVector x, int n, NumericVector xbar);
+RcppExport SEXP _SpatMet_rcpp_updateCov(SEXP CSEXP, SEXP xSEXP, SEXP nSEXP, SEXP xbarSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericMatrix >::type C(CSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type x(xSEXP);
+    Rcpp::traits::input_parameter< int >::type n(nSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type xbar(xbarSEXP);
+    rcpp_result_gen = Rcpp::wrap(rcpp_updateCov(C, x, n, xbar));
+    return rcpp_result_gen;
+END_RCPP
+}
+// makematrix_cpp
+NumericMatrix makematrix_cpp(double g12, double g21);
+RcppExport SEXP _SpatMet_makematrix_cpp(SEXP g12SEXP, SEXP g21SEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< double >::type g12(g12SEXP);
+    Rcpp::traits::input_parameter< double >::type g21(g21SEXP);
+    rcpp_result_gen = Rcpp::wrap(makematrix_cpp(g12, g21));
+    return rcpp_result_gen;
+END_RCPP
+}
+// tcrossprod_cpp
+NumericMatrix tcrossprod_cpp(NumericVector x);
+RcppExport SEXP _SpatMet_tcrossprod_cpp(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericVector >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(tcrossprod_cpp(x));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ColMeans_cpp
+NumericVector ColMeans_cpp(NumericMatrix M);
+RcppExport SEXP _SpatMet_ColMeans_cpp(SEXP MSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericMatrix >::type M(MSEXP);
+    rcpp_result_gen = Rcpp::wrap(ColMeans_cpp(M));
+    return rcpp_result_gen;
+END_RCPP
+}
+// makeDiagMat_cpp
+NumericMatrix makeDiagMat_cpp(double epsilonS, int n);
+RcppExport SEXP _SpatMet_makeDiagMat_cpp(SEXP epsilonSSEXP, SEXP nSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< double >::type epsilonS(epsilonSSEXP);
+    Rcpp::traits::input_parameter< int >::type n(nSEXP);
+    rcpp_result_gen = Rcpp::wrap(makeDiagMat_cpp(epsilonS, n));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cov_cpp
+NumericMatrix cov_cpp(NumericMatrix X);
+RcppExport SEXP _SpatMet_cov_cpp(SEXP XSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericMatrix >::type X(XSEXP);
+    rcpp_result_gen = Rcpp::wrap(cov_cpp(X));
+    return rcpp_result_gen;
+END_RCPP
+}
+// add2matrices_cpp
+NumericMatrix add2matrices_cpp(NumericMatrix A, NumericMatrix B);
+RcppExport SEXP _SpatMet_add2matrices_cpp(SEXP ASEXP, SEXP BSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericMatrix >::type A(ASEXP);
+    Rcpp::traits::input_parameter< NumericMatrix >::type B(BSEXP);
+    rcpp_result_gen = Rcpp::wrap(add2matrices_cpp(A, B));
+    return rcpp_result_gen;
+END_RCPP
+}
+// subtract2matrices_cpp
+NumericMatrix subtract2matrices_cpp(NumericMatrix A, NumericMatrix B);
+RcppExport SEXP _SpatMet_subtract2matrices_cpp(SEXP ASEXP, SEXP BSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericMatrix >::type A(ASEXP);
+    Rcpp::traits::input_parameter< NumericMatrix >::type B(BSEXP);
+    rcpp_result_gen = Rcpp::wrap(subtract2matrices_cpp(A, B));
+    return rcpp_result_gen;
+END_RCPP
+}
+// multiply2matrices_cpp
+NumericMatrix multiply2matrices_cpp(NumericMatrix A, NumericMatrix B);
+RcppExport SEXP _SpatMet_multiply2matrices_cpp(SEXP ASEXP, SEXP BSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericMatrix >::type A(ASEXP);
+    Rcpp::traits::input_parameter< NumericMatrix >::type B(BSEXP);
+    rcpp_result_gen = Rcpp::wrap(multiply2matrices_cpp(A, B));
+    return rcpp_result_gen;
+END_RCPP
+}
+// inv_cpp
+NumericMatrix inv_cpp(NumericMatrix x);
+RcppExport SEXP _SpatMet_inv_cpp(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericMatrix >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(inv_cpp(x));
+    return rcpp_result_gen;
+END_RCPP
+}
+// multInfer_cpp
+NumericMatrix multInfer_cpp(IntegerVector y, NumericMatrix e_it, int nstrain, int Model, NumericMatrix Bits, NumericVector CrudeR, NumericVector CrudeS, NumericVector CrudeU, NumericMatrix RW2PrecMat, NumericMatrix RW1PrecMat, NumericMatrix R, int rankdef, int independentChains, int num_iteration, double meanR, NumericVector SumYk_vec);
+RcppExport SEXP _SpatMet_multInfer_cpp(SEXP ySEXP, SEXP e_itSEXP, SEXP nstrainSEXP, SEXP ModelSEXP, SEXP BitsSEXP, SEXP CrudeRSEXP, SEXP CrudeSSEXP, SEXP CrudeUSEXP, SEXP RW2PrecMatSEXP, SEXP RW1PrecMatSEXP, SEXP RSEXP, SEXP rankdefSEXP, SEXP independentChainsSEXP, SEXP num_iterationSEXP, SEXP meanRSEXP, SEXP SumYk_vecSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type y(ySEXP);
+    Rcpp::traits::input_parameter< NumericMatrix >::type e_it(e_itSEXP);
+    Rcpp::traits::input_parameter< int >::type nstrain(nstrainSEXP);
+    Rcpp::traits::input_parameter< int >::type Model(ModelSEXP);
+    Rcpp::traits::input_parameter< NumericMatrix >::type Bits(BitsSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type CrudeR(CrudeRSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type CrudeS(CrudeSSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type CrudeU(CrudeUSEXP);
+    Rcpp::traits::input_parameter< NumericMatrix >::type RW2PrecMat(RW2PrecMatSEXP);
+    Rcpp::traits::input_parameter< NumericMatrix >::type RW1PrecMat(RW1PrecMatSEXP);
+    Rcpp::traits::input_parameter< NumericMatrix >::type R(RSEXP);
+    Rcpp::traits::input_parameter< int >::type rankdef(rankdefSEXP);
+    Rcpp::traits::input_parameter< int >::type independentChains(independentChainsSEXP);
+    Rcpp::traits::input_parameter< int >::type num_iteration(num_iterationSEXP);
+    Rcpp::traits::input_parameter< double >::type meanR(meanRSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type SumYk_vec(SumYk_vecSEXP);
+    rcpp_result_gen = Rcpp::wrap(multInfer_cpp(y, e_it, nstrain, Model, Bits, CrudeR, CrudeS, CrudeU, RW2PrecMat, RW1PrecMat, R, rankdef, independentChains, num_iteration, meanR, SumYk_vec));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_SpatMet_logSumExp_cpp", (DL_FUNC) &_SpatMet_logSumExp_cpp, 1},
-    {"_SpatMet_dot_product", (DL_FUNC) &_SpatMet_dot_product, 2},
     {"_SpatMet_intPower", (DL_FUNC) &_SpatMet_intPower, 2},
     {"_SpatMet_logVecMatMult", (DL_FUNC) &_SpatMet_logVecMatMult, 2},
     {"_SpatMet_JointTransitionMatrix_cpp", (DL_FUNC) &_SpatMet_JointTransitionMatrix_cpp, 2},
     {"_SpatMet_state_dist_cpp2", (DL_FUNC) &_SpatMet_state_dist_cpp2, 1},
     {"_SpatMet_state_dist_cpp", (DL_FUNC) &_SpatMet_state_dist_cpp, 2},
+    {"_SpatMet_randomwalk2_cpp", (DL_FUNC) &_SpatMet_randomwalk2_cpp, 2},
+    {"_SpatMet_dotproduct_cpp", (DL_FUNC) &_SpatMet_dotproduct_cpp, 2},
+    {"_SpatMet_quadform_cpp", (DL_FUNC) &_SpatMet_quadform_cpp, 2},
+    {"_SpatMet_seasonalComp2_cpp", (DL_FUNC) &_SpatMet_seasonalComp2_cpp, 3},
+    {"_SpatMet_logIGMRF1_cpp", (DL_FUNC) &_SpatMet_logIGMRF1_cpp, 4},
+    {"_SpatMet_dpois_cpp", (DL_FUNC) &_SpatMet_dpois_cpp, 2},
     {"_SpatMet_GeneralLoglikelihood_cpp", (DL_FUNC) &_SpatMet_GeneralLoglikelihood_cpp, 10},
     {"_SpatMet_GeneralLoglikelihood_cpp2", (DL_FUNC) &_SpatMet_GeneralLoglikelihood_cpp2, 10},
     {"_SpatMet_multGeneralLoglikelihood_cpp2", (DL_FUNC) &_SpatMet_multGeneralLoglikelihood_cpp2, 14},
+    {"_SpatMet_hardconstraint_cpp", (DL_FUNC) &_SpatMet_hardconstraint_cpp, 1},
+    {"_SpatMet_rcpp_rmvn", (DL_FUNC) &_SpatMet_rcpp_rmvn, 3},
+    {"_SpatMet_rcpp_dmvn", (DL_FUNC) &_SpatMet_rcpp_dmvn, 3},
+    {"_SpatMet_rcpp_updateCov", (DL_FUNC) &_SpatMet_rcpp_updateCov, 4},
+    {"_SpatMet_makematrix_cpp", (DL_FUNC) &_SpatMet_makematrix_cpp, 2},
+    {"_SpatMet_tcrossprod_cpp", (DL_FUNC) &_SpatMet_tcrossprod_cpp, 1},
+    {"_SpatMet_ColMeans_cpp", (DL_FUNC) &_SpatMet_ColMeans_cpp, 1},
+    {"_SpatMet_makeDiagMat_cpp", (DL_FUNC) &_SpatMet_makeDiagMat_cpp, 2},
+    {"_SpatMet_cov_cpp", (DL_FUNC) &_SpatMet_cov_cpp, 1},
+    {"_SpatMet_add2matrices_cpp", (DL_FUNC) &_SpatMet_add2matrices_cpp, 2},
+    {"_SpatMet_subtract2matrices_cpp", (DL_FUNC) &_SpatMet_subtract2matrices_cpp, 2},
+    {"_SpatMet_multiply2matrices_cpp", (DL_FUNC) &_SpatMet_multiply2matrices_cpp, 2},
+    {"_SpatMet_inv_cpp", (DL_FUNC) &_SpatMet_inv_cpp, 1},
+    {"_SpatMet_multInfer_cpp", (DL_FUNC) &_SpatMet_multInfer_cpp, 16},
     {NULL, NULL, 0}
 };
 

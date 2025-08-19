@@ -418,3 +418,7 @@ nchains<- 4
 
 #multGeneralLoglikelihood_cpp2(y=as.numeric(aperm(y, c(2,1,3))), ndept=9,time=60,nstrain=2, a_k = c(-14,-13.8), r=multmod1[[3]], s=multmod1[[4]], u=multmod1[[5]],Gamma = G(0.4,0.1),e_it=e_it,B=c(0.86,0.92), model=1 ,Bits=Bits)
 #multstrainLoglikelihood(y=y, nstrain=2, a_k = c(-14,-13.8), r=multmod1[[3]], s=multmod1[[4]], u=multmod1[[5]],Gamma = G(0.4,0.1),e_it=e_it,B=c(0.86,0.92),Bits=Bits, Model=1)
+
+#chkmcmcMult<- multstrainInfer(y=multmod1[[1]], e_it=multmod1[[2]], nstrain=2, Model=0, adjmat=sim_adjmat, independentChains=0, num_iteration = 1000, Stan = FALSE, GPU = FALSE, nchains = 4,iter = 4000, seed = NULL, verbose = F, ModEvid = F, OutbreakProb = F, adaptdelta = 0.90, Burn.in = 1000)
+
+#multGeneralLoglikelihood_cpp2(y=as.numeric(aperm(multmod1[[1]], c(2,1,3))),ndept=9,time=60,nstrain=2,a_k=chkmcmcMult[5, 5+time+12+ndept+nstrain+(1:nstrain)], r=chkmcmcMult[5,5+(1:time)], s=chkmcmcMult[5,5+time+(1:12)], u=chkmcmcMult[5, 5+time+12+(1:ndept)], Gamma=G(chkmcmcMult[5,1],chkmcmcMult[5,2]),e_it=e_it, B=chkmcmcMult[5, 5+time+12+ndept+(1:nstrain)], Bits=Bits, model=0, independentChains=0)
