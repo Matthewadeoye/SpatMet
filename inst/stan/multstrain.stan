@@ -119,7 +119,7 @@ functions{
       if(y[(k-1) * ndept * time + (i-1) * time + t] == -1){
         allLoglikelihood += 0;
       }else{
-        allLoglikelihood += my_dpois(y[(k-1) * ndept * time + (i-1) * time + t], e_it[i, t] * exp(a_k[k] + r[t] + s[month_index] + u[i]));
+        allLoglikelihood += poisson_lpmf(y[(k-1) * ndept * time + (i-1) * time + t] | e_it[i, t] * exp(a_k[k] + r[t] + s[month_index] + u[i]));
         }
       }
     }
@@ -145,7 +145,7 @@ functions{
   if(y[(k-1) * ndept * time + (i-1) * time + 1] == -1){
     prodEmission[n] += 0;
     }else{
-    prodEmission[n] += my_dpois(y[(k-1) * ndept * time + (i-1) * time + 1], e_it[i, 1] * exp(a_k[k] + r[1] + s[1] + u[i] + dot_product(B, Bits[n, ])));
+    prodEmission[n] += poisson_lpmf(y[(k-1) * ndept * time + (i-1) * time + 1] | e_it[i, 1] * exp(a_k[k] + r[1] + s[1] + u[i] + dot_product(B, Bits[n, ])));
     }
   }
 }
@@ -160,7 +160,7 @@ functions{
         if(y[(k-1) * ndept * time + (i-1) * time + t] == -1){
           prodEmission[n] += 0;
           }else{
-         prodEmission[n] += my_dpois(y[(k-1) * ndept * time + (i-1) * time + t], e_it[i, t] * exp(a_k[k] + r[t] + s[month_index] + u[i] + dot_product(B, Bits[n, ])));
+         prodEmission[n] += poisson_lpmf(y[(k-1) * ndept * time + (i-1) * time + t] | e_it[i, t] * exp(a_k[k] + r[t] + s[month_index] + u[i] + dot_product(B, Bits[n, ])));
          }
         }
       }
@@ -186,7 +186,7 @@ else{
       if(y[(k-1) * ndept * time + (i-1) * time + 1] == -1){
         prodEmission[n] += 0;
       }else{
-          prodEmission[n] += my_dpois(y[(k-1) * ndept * time + (i-1) * time + 1], e_it[i, 1] * exp(a_k[k] + r[1] + s[1] + u[i] + B[k] * (n-1)));
+          prodEmission[n] += poisson_lpmf(y[(k-1) * ndept * time + (i-1) * time + 1] | e_it[i, 1] * exp(a_k[k] + r[1] + s[1] + u[i] + B[k] * (n-1)));
         }
     }
   }
@@ -200,7 +200,7 @@ else{
           if(y[(k-1) * ndept * time + (i-1) * time + t] == -1){
             prodEmission[n] += 0;
           }else{
-            prodEmission[n] += my_dpois(y[(k-1) * ndept * time + (i-1) * time + t], e_it[i, t] * exp(a_k[k] + r[t] + s[month_index] + u[i] + B[k] * (n-1)));
+            prodEmission[n] += poisson_lpmf(y[(k-1) * ndept * time + (i-1) * time + t] | e_it[i, t] * exp(a_k[k] + r[t] + s[month_index] + u[i] + B[k] * (n-1)));
           }
         }
       }

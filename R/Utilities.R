@@ -849,33 +849,37 @@ sim.RW2mean0<- function(time, sd=0.0001, init.r1 = 0, init.r2 = 0){
 Multstrain.simulate<- function(Model, time, nstrain=2, adj.matrix,
                                e_it=matrix(c(rep(c(rpois(time, 500000), rpois(time, 1000000)), 4), rpois(time, 500000)),
                                            byrow = T, ncol = time),
-                               B = c(0.86, 0.92), T.prob = matrix(c(0.9, 0.1, 0.2, 0.8), nrow = 2, byrow = T),
+                               B = runif(nstrain), T.prob = matrix(c(0.9, 0.1, 0.2, 0.8), nrow = 2, byrow = T),
                                r = sim.RW2mean0(time, sd=0.009), s = DetectOutbreaks:::sim.Seasonals2(Amplitude = 1.4),
                                u = DetectOutbreaks:::sim.Spatials(adj.matrix)){
   ndept<- nrow(adj.matrix)
   y_itk<- array(NA, dim=c(ndept, time, nstrain))
   EpidemicIndicator<- matrix(NA, ndept, time)
   JointTPM<- JointTransitionMatrix(T.prob, nstrain)
+  Jointstates<- 2^nstrain
   Bits<- encodeBits(K=nstrain)
+  aVec<- numeric(nstrain)
+  for(k in 1:nstrain){
+    a_k<- runif(1, min = -14, max = -12)
+    aVec[k]<- a_k
+  }
 
   if(Model == 0){
     for(i in 1:ndept){
       for(t in 1:time){
         m<- (t - 1) %% 12 + 1
         for(k in 1:nstrain){
-          a_k<- runif(1, min = -14, max = -12)
-          lograte <- a_k + r[t] + s[m] + u[i]
+          lograte <- aVec[k] + r[t] + s[m] + u[i]
           y_itk[i, t, k]<- rpois(1, lambda = e_it[i, t] * exp(lograte))
         }
       }
     }
-    return(list(y_itk, e_it, r, s, u, EpidemicIndicator))
+    return(list("y" =y_itk, "e_it"=e_it, "r"=r, "s"=s, "u"=u, "states"=EpidemicIndicator, "a_k"=aVec))
   }
   else{
     for(i in 1:ndept){
       for(k in 1:nstrain){
-        a_k<- runif(1, min = -14, max = -12)
-        lograte<- a_k + r[1] + s[1] + u[i]
+        lograte<- aVec[k] + r[1] + s[1] + u[i]
         y_itk[i, 1, k]<- rpois(1, lambda = e_it[i, 1] * exp(lograte))
       }
       EpidemicIndicator[i, ]<- simulateMarkovChain(nstep=time, JointTPM)
@@ -885,13 +889,12 @@ Multstrain.simulate<- function(Model, time, nstrain=2, adj.matrix,
       m<- (t - 1) %% 12 + 1
       for(i in 1:ndept){
         for(k in 1:nstrain){
-          a_k<- runif(1, min = -14, max = -12)
-          lograte<- a_k + r[t] + s[m] + u[i] + (B %*% Bits[EpidemicIndicator[i, t]+1, ])
+          lograte<- aVec[k] + r[t] + s[m] + u[i] + (B %*% Bits[EpidemicIndicator[i, t]+1, ])
           y_itk[i, t, k]<- rpois(1, lambda = e_it[i, t] * exp(lograte))
         }
       }
     }
-    return(list(y_itk, e_it, r, s, u, EpidemicIndicator))
+    return(list("y" =y_itk, "e_it"=e_it, "r"=r, "s"=s, "u"=u, "states"=EpidemicIndicator, "B"=B, "a_k"=aVec))
   }
 }
 
@@ -945,10 +948,8 @@ multstrain.backwardsweep<- function(y, e_it, nstrain, r, s, u, Gamma, B, Bits, a
   ndept<- length(u)
   time <- length(r)
   nstate<- 2^nstrain
-  Allbackwardprobs<- vector("list", ndept)
   JointTPM<- JointTransitionMatrix(gamma = Gamma, K = nstrain)
-
-    Allbackwardprob<- vector("list", ndept)
+  Allbackwardprob<- vector("list", ndept)
 
     for (i in 1:ndept) {
       backwardprobs<- matrix(NA, nrow = time, ncol = nstate)
@@ -962,7 +963,7 @@ multstrain.backwardsweep<- function(y, e_it, nstrain, r, s, u, Gamma, B, Bits, a
               logprodEmission[n]<- logprodEmission[n] + dpois(y[i, t+1, k], lambda = e_it[i, t+1] * exp(a_k[k] + r[t+1] + s[month_index] + u[i] + B%*%Bits[n, ]), log = TRUE)
             }
           }
-          backwardprobs[t, ]<- logspace_vecmatmult(logprodEmission, log(JointTPM)) + backwardprobs[t+1, ]
+          backwardprobs[t, ]<- logspace_vecmatmult(logprodEmission + backwardprobs[t+1, ], log(t(JointTPM)))
       }
       Allbackwardprob[[i]] <- backwardprobs
     }
@@ -976,14 +977,12 @@ multstrain.Decoding <- function(y, e_it, nstrain, r, s, u, Gamma, B, Bits, a_k, 
     Allforwardprobs<- multstrain.forwardfilter(y, e_it, nstrain, r, s, u, Gamma, B, Bits, a_k)
     Allbackwardprobs<- multstrain.backwardsweep(y, e_it, nstrain, r, s, u, Gamma, B, Bits, a_k)
     Res<- matrix(NA, ndept, time)
-    Pall<- c()
     for(i in 1:ndept){
       for(j in 1:time){
-        for(s in 1:nstate){
-          Pall<- c(Pall, Allforwardprobs[[i]][j,s] + Allbackwardprobs[[i]][j,s])
-        }
-        Pstate<- Allforwardprobs[[i]][j,state] + Allbackwardprobs[[i]][j,state]
-        Res[i,j]<- exp(Pstate - logSumExp_cpp(c(Pall)))
+        post_log <- Allforwardprobs[[i]][j, ] + Allbackwardprobs[[i]][j, ]
+        denom <- matrixStats::logSumExp(post_log)
+        posterior <- exp(post_log - denom)
+        Res[i, j] <- posterior[state]
       }
     }
     return(Res)

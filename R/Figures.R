@@ -416,3 +416,240 @@ Heatmaps<- function(all.infobjects, all.data, adjmat){
   }
   #dev.off()
 }
+
+
+multstraindatafig2<- function(y, maxAll){
+  nstrain<- dim(y)[3]
+  maxY<- maxAll
+  plotlists<- list()
+
+  for(i in 1:nstrain){
+    Strain<- i
+    sim.object<- y[,,i]
+
+    spatdata<- sim.object
+
+    ts_spatdata <- as.data.frame(t(spatdata))
+    ts_spatdata$Time <- 1:ncol(spatdata)
+    naming<- c(paste("u", 1:(ncol(ts_spatdata)-1), sep=""), "Time")
+    colnames(ts_spatdata)<- naming
+
+    Colors <- rep(c("blue", "red"), length.out = nrow(spatdata))
+    Linetypes <- rep(c("dotted", "dashed", "dotdash", "longdash", "twodash"), length.out = nrow(spatdata))
+
+    long_data <- reshape2::melt(ts_spatdata, id.vars = "Time")
+    library(ggplot2)
+    if(Strain==nstrain){
+      rfigs<- ggplot2::ggplot(data = long_data, mapping = aes(x = Time, y = value, color = variable, linetype = variable)) +
+        geom_line() +
+        scale_color_manual(values = Colors) +
+        scale_linetype_manual(values = Linetypes) +
+        ylim(0, maxY) +
+        labs(x = "Time [month]", y = "Case counts", color = "Location") +
+        guides(color = guide_legend("Location"), linetype = guide_legend("Location")) +
+        theme(axis.title.y = element_text(size=18),
+              axis.title.x = element_text(size=18),
+              axis.text.x = element_text(size=16),
+              axis.text.y = element_text(size=16),
+              legend.title = element_text(size = 18),
+              legend.text = element_text(size = 16))
+    }else{
+      rfigs<- ggplot2::ggplot(data = long_data, mapping = aes(x = Time, y = value, color = variable, linetype = variable)) +
+        geom_line() +
+        scale_color_manual(values = Colors) +
+        scale_linetype_manual(values = Linetypes) +
+        ylim(0, maxY) +
+        labs(x = "Time [month]", y = "Case counts", color = "Location") +
+        guides(color = guide_legend("Location"), linetype = guide_legend("Location")) +
+        theme(axis.title.y = element_text(size=18),
+              axis.title.x = element_text(size=18),
+              axis.text.x = element_text(size=16),
+              axis.text.y = element_text(size=16),
+              legend.position = "none")
+    }
+    plotlists[[Strain]]<- rfigs
+  }
+  row_1<- cowplot::plot_grid(plotlist = plotlists[1:3], ncol = 3, labels = c("A", "B", "C"), label_size = 17)
+  row_2<- cowplot::plot_grid(plotlist = plotlists[4:5], ncol = 3, labels = c("D", "E"), label_size = 17, rel_widths = c(1, 1.35, 0.65))
+  cowplot::plot_grid(row_1, row_2, nrow = 2)
+}
+
+
+RecoverInf.plot<- function(inf.object, true_r, true_s){
+
+  if(is.data.frame(inf.object)){
+    rPosterior<- inf.object[, startsWith(colnames(inf.object), "r")]
+    sPosterior<- inf.object[, startsWith(colnames(inf.object), "s")]
+    inf.r<- colMeans(rPosterior)
+    inf.s<- colMeans(sPosterior)
+    uCI.r<- posterior_interval_custom(as.matrix.data.frame(rPosterior))[,2]
+    lCI.r<- posterior_interval_custom(as.matrix.data.frame(rPosterior))[,1]
+    uCI.s<- posterior_interval_custom(as.matrix.data.frame(sPosterior))[,2]
+    lCI.s<- posterior_interval_custom(as.matrix.data.frame(sPosterior))[,1]
+  }else{
+    inf.r<- colMeans(as.data.frame(inf.object$draws(variables = "r")[,1,]))
+    uCI.r<- posterior_interval_custom(as.matrix.data.frame(inf.object$draws(variables = "r")[,1,]))[,2]
+    lCI.r<- posterior_interval_custom(as.matrix.data.frame(inf.object$draws(variables = "r")[,1,]))[,1]
+    inf.s<- colMeans(as.data.frame(inf.object$draws(variables = "s")[,1,]))
+    uCI.s<- posterior_interval_custom(as.matrix.data.frame(inf.object$draws(variables = "s")[,1,]))[,2]
+    lCI.s<- posterior_interval_custom(as.matrix.data.frame(inf.object$draws(variables = "s")[,1,]))[,1]
+    inf.u<- colMeans(as.data.frame(inf.object$draws(variables = "uconstrained")[,1,]))
+    uCI.u<- posterior_interval_custom(as.matrix.data.frame(inf.object$draws(variables = "uconstrained")[,1,]))[,2]
+    lCI.u<- posterior_interval_custom(as.matrix.data.frame(inf.object$draws(variables = "uconstrained")[,1,]))[,1]
+  }
+
+  par(mfrow=c(1,2))
+  plot(0, type = "n", xlim = c(1,length(inf.r)), ylim = c(min(lCI.r, inf.r), max(uCI.r, inf.r)), ylab = "Trend component", xlab = "Time")
+  polygon(c(1:length(inf.r), rev(1:length(inf.r))), c(lCI.r, rev(uCI.r)),
+          col = "pink", border = NA)
+  lines(1:length(inf.r), inf.r, col="red")
+  points(1:length(inf.r), true_r, pch = 19)
+  grid()
+
+  plot(0, type = "n", xlim = c(1,length(inf.s)), ylim = c(min(lCI.s, inf.s), max(uCI.s, inf.s)), ylab = "Seasonal component", xlab = "Season")
+  polygon(c(1:length(inf.s), rev(1:length(inf.s))), c(lCI.s, rev(uCI.s)),
+          col = "pink", border = NA)
+  lines(1:length(inf.s), inf.s, col="red")
+  points(1:length(inf.s), true_s, pch = 19)
+  grid()
+  add_legend("topright", legend=c("Truth", "Posterior means"), lty=c(NA, 1),
+             pch=c(19, NA), col=c("black", "red"),
+             horiz=TRUE, bty='n', cex=1.4)
+}
+
+RecoverInfU.plot<- function(inf.object, true_u, burn.in=100){
+
+  if(!is.data.frame(inf.object)){
+    fullu.draws<- as.data.frame(inf.object$draws(variables = "uconstrained")[,1,])
+  }else{
+    fullu.draws<- inf.object[-(1:burn.in), 5+time+12+(1:ndept)]
+  }
+
+  thinning<- numeric(floor(nrow(fullu.draws)/10))
+  thinning[1]<- 10
+  for(i in 2:length(thinning)){
+    thinning[i]<- thinning[i-1] + 10
+  }
+  u.draws<- fullu.draws[thinning, ]
+  sim.u<- true_u
+
+  # Violin plot for spatial components and intercepts
+  spatcomp<- data.frame(value = c(u.draws[, 1], u.draws[, 2], u.draws[, 3], u.draws[, 4],
+                                  u.draws[, 5], u.draws[, 6], u.draws[, 7], u.draws[, 8],
+                                  u.draws[, 9]), group = factor(rep(c("u1", "u2", "u3", "u4", "u5", "u6", "u7", "u8", "u9"), each = nrow(u.draws))))
+  spatcomp$group <- factor(spatcomp$group, levels = unique(spatcomp$group))
+  library(ggplot2)
+  library(RColorBrewer)
+  mycolors <- c(rep(c("blue", "red"), 4), "blue")
+  rfigs<- ggplot(spatcomp, aes(x = group, y = value, fill = group)) +
+    geom_violin(trim = FALSE, alpha = 0.7) +
+    geom_point(x = 1, y = sim.u[1], size = 2, shape = 19) +
+    geom_point(x = 2, y = sim.u[2], size = 2, shape = 19) +
+    geom_point(x = 3, y = sim.u[3], size = 2, shape = 19) +
+    geom_point(x = 4, y = sim.u[4], size = 2, shape = 19) +
+    geom_point(x = 5, y = sim.u[5], size = 2, shape = 19) +
+    geom_point(x = 6, y = sim.u[6], size = 2, shape = 19) +
+    geom_point(x = 7, y = sim.u[7], size = 2, shape = 19) +
+    geom_point(x = 8, y = sim.u[8], size = 2, shape = 19) +
+    geom_point(x = 9, y = sim.u[9], size = 2, shape = 19) +
+    #ylim(-0.90, 0.70) +
+    labs(title = "", x = "Location", y = "Value", fill = "") +
+    theme_minimal() +
+    scale_fill_manual(values = mycolors) +
+    theme(axis.title.y = element_text(size=18),
+          axis.title.x = element_text(size=18),
+          axis.text.x = element_text(size=16),
+          axis.text.y = element_text(size=16),
+          legend.title = element_text(size = 18),
+          legend.text = element_text(size = 16),legend.position = "none")
+
+  print(rfigs)
+  add_legend(0.85, 1.15, legend="Truth",
+             pch=19, col="black",
+             horiz=TRUE, bty='n', cex=1.8)
+  #add_legend("topright", legend="Truth",
+  #           pch=19, col="black",
+  #           horiz=TRUE, bty='n', cex=1.1)
+}
+
+RecoverInfU_ak.plot<- function(inf.object, true_u, true_a_k, burn.in=100){
+
+  nstrain<- length(true_a_k)
+    if(!is.data.frame(inf.object)){
+      fullu.draws<- as.data.frame(inf.object$draws(variables = "uconstrained")[,1,])
+      fullak.draws<- as.data.frame(inf.object$draws(variables = "a_k")[,1,])
+    }else{
+      fullu.draws<- inf.object[-(1:burn.in), 5+time+12+(1:ndept)]
+      fullak.draws<- inf.object[-(1:burn.in), 5+time+12+ndept+nstrain+(1:nstrain)]
+    }
+
+    thinning<- numeric(floor(nrow(fullu.draws)/10))
+    thinning[1]<- 10
+    for(i in 2:length(thinning)){
+      thinning[i]<- thinning[i-1] + 10
+    }
+    u.draws<- fullu.draws[thinning, ]
+    ak.draws<- fullak.draws[thinning, ]
+    sim.u<- true_u
+    sim.ak<- true_a_k
+
+    # Violin plot for spatial components and intercepts
+    spatcomp<- data.frame(value = c(u.draws[, 1], u.draws[, 2], u.draws[, 3], u.draws[, 4],
+                                    u.draws[, 5], u.draws[, 6], u.draws[, 7], u.draws[, 8],
+                                    u.draws[, 9]), group = factor(rep(c("u1", "u2", "u3", "u4", "u5", "u6", "u7", "u8", "u9"), each = nrow(u.draws))))
+    spatcomp$group <- factor(spatcomp$group, levels = unique(spatcomp$group))
+    library(ggplot2)
+    library(RColorBrewer)
+    mycolors <- c(rep(c("blue", "red"), 4), "blue")
+    rfigs<- ggplot(spatcomp, aes(x = group, y = value, fill = group)) +
+      geom_violin(trim = FALSE, alpha = 0.7) +
+      geom_point(x = 1, y = sim.u[1], size = 2, shape = 19) +
+      geom_point(x = 2, y = sim.u[2], size = 2, shape = 19) +
+      geom_point(x = 3, y = sim.u[3], size = 2, shape = 19) +
+      geom_point(x = 4, y = sim.u[4], size = 2, shape = 19) +
+      geom_point(x = 5, y = sim.u[5], size = 2, shape = 19) +
+      geom_point(x = 6, y = sim.u[6], size = 2, shape = 19) +
+      geom_point(x = 7, y = sim.u[7], size = 2, shape = 19) +
+      geom_point(x = 8, y = sim.u[8], size = 2, shape = 19) +
+      geom_point(x = 9, y = sim.u[9], size = 2, shape = 19) +
+      ylim(-0.90, 0.70) +
+      labs(title = "", x = "Location", y = "Value", fill = "") +
+      theme_minimal() +
+      scale_fill_manual(values = mycolors) +
+      theme(axis.title.y = element_text(size=18),
+            axis.title.x = element_text(size=18),
+            axis.text.x = element_text(size=16),
+            axis.text.y = element_text(size=16),
+            legend.title = element_text(size = 18),
+            legend.text = element_text(size = 16),legend.position = "none")
+
+    spatcomp<- data.frame(value = c(ak.draws[, 1], ak.draws[, 2], ak.draws[, 3], ak.draws[, 4],
+                                    ak.draws[, 5]), group = factor(rep(c("a1", "a2", "a3", "a4", "a5"), each = nrow(ak.draws))))
+    spatcomp$group <- factor(spatcomp$group, levels = unique(spatcomp$group))
+    mycolors <- c(rep("purple", 5))
+    rfigs2<- ggplot(spatcomp, aes(x = group, y = value, fill = group)) +
+      geom_violin(trim = FALSE, alpha = 0.7) +
+      geom_point(x = 1, y = sim.ak[1], size = 2, shape = 19) +
+      geom_point(x = 2, y = sim.ak[2], size = 2, shape = 19) +
+      geom_point(x = 3, y = sim.ak[3], size = 2, shape = 19) +
+      geom_point(x = 4, y = sim.ak[4], size = 2, shape = 19) +
+      geom_point(x = 5, y = sim.ak[5], size = 2, shape = 19) +
+      #ylim(-0.90, 0.70) +
+      labs(title = "", x = "Location", y = "Value", fill = "") +
+      theme_minimal() +
+      scale_fill_manual(values = mycolors) +
+      theme(axis.title.y = element_text(size=18),
+            axis.title.x = element_text(size=18),
+            axis.text.x = element_text(size=16),
+            axis.text.y = element_text(size=16),
+            legend.title = element_text(size = 18),
+            legend.text = element_text(size = 16),legend.position = "none")
+    plotlists<- list(rfigs,rfigs2)
+    print(cowplot::plot_grid(plotlist = plotlists, ncol = 2, labels = c("A", "B"), label_size = 17))
+  add_legend(0.85, 1.15, legend="Truth",
+             pch=19, col="black",
+             horiz=TRUE, bty='n', cex=1.8)
+  #add_legend("topright", legend="Truth",
+  #           pch=19, col="black",
+  #           horiz=TRUE, bty='n', cex=1.1)
+}

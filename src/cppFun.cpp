@@ -201,8 +201,12 @@ double logIGMRF1_cpp(NumericVector x, double y, NumericMatrix z, int rankdef){
 //Fast PMF computation
 // [[Rcpp::export]]
 double dpois_cpp(int y, double lambda){
+  if(lambda <= 0){
+    return R_NegInf;
+  }else{
   double res = -lambda + y * log(lambda) - log(Rcpp::internal::factorial(y));
   return res;
+  }
 }
 
 
@@ -519,8 +523,8 @@ double multGeneralLoglikelihood_cpp2(IntegerVector y, int ndept, int time, int n
           if(y[k * ndept * time + i * time + t] == -1){
             full_log_likelihood += 0;
           }else{
-            full_log_likelihood += dpois_cpp(y[k * ndept * time + i * time + t], e_it(i, t) * exp(a_k[k] + r[t] + s[month_index] + u[i]));
-//            full_log_likelihood += R::dpois(y[k * ndept * time + i * time + t], e_it(i, t) * exp(a_k[k] + r[t] + s[month_index] + u[i]), true);
+//            full_log_likelihood += dpois_cpp(y[k * ndept * time + i * time + t], e_it(i, t) * exp(a_k[k] + r[t] + s[month_index] + u[i]));
+            full_log_likelihood += R::dpois(y[k * ndept * time + i * time + t], e_it(i, t) * exp(a_k[k] + r[t] + s[month_index] + u[i]), true);
           }
         }
       }
@@ -542,8 +546,8 @@ double multGeneralLoglikelihood_cpp2(IntegerVector y, int ndept, int time, int n
           if(y[k * ndept * time + i * time + 0] == -1){
             prodEmission(0, n) += 0;
           }else{
-            prodEmission(0, n) = prodEmission(0, n) + dpois_cpp(y[k * ndept * time + i * time + 0], e_it(i, 0) * exp(a_k[k] + r[0] + s[0] + u[i] + dotproduct_cpp(B, Bits(n, _))));
-//            prodEmission(0, n) = prodEmission(0, n) + R::dpois(y[k * ndept * time + i * time + 0], e_it(i, 0) * exp(a_k[k] + r[0] + s[0] + u[i] + dotproduct_cpp(B, Bits(n, _))), true);
+//            prodEmission(0, n) = prodEmission(0, n) + dpois_cpp(y[k * ndept * time + i * time + 0], e_it(i, 0) * exp(a_k[k] + r[0] + s[0] + u[i] + dotproduct_cpp(B, Bits(n, _))));
+            prodEmission(0, n) = prodEmission(0, n) + R::dpois(y[k * ndept * time + i * time + 0], e_it(i, 0) * exp(a_k[k] + r[0] + s[0] + u[i] + dotproduct_cpp(B, Bits(n, _))), true);
           }
         }
       }
@@ -557,8 +561,8 @@ double multGeneralLoglikelihood_cpp2(IntegerVector y, int ndept, int time, int n
             if(y[k * ndept * time + i * time + t] == -1){
               prodEmission(t, n) += 0;
             }else{
-              prodEmission(t, n) = prodEmission(t, n) + dpois_cpp(y[k * ndept * time + i * time + t], e_it(i, t) * exp(a_k[k] + r[t] + s[month_index] + u[i] + dotproduct_cpp(B, Bits(n, _))));
-//              prodEmission(t, n) = prodEmission(t, n) + R::dpois(y[k * ndept * time + i * time + t], e_it(i, t) * exp(a_k[k] + r[t] + s[month_index] + u[i] + dotproduct_cpp(B, Bits(n, _))), true);
+//              prodEmission(t, n) = prodEmission(t, n) + dpois_cpp(y[k * ndept * time + i * time + t], e_it(i, t) * exp(a_k[k] + r[t] + s[month_index] + u[i] + dotproduct_cpp(B, Bits(n, _))));
+              prodEmission(t, n) = prodEmission(t, n) + R::dpois(y[k * ndept * time + i * time + t], e_it(i, t) * exp(a_k[k] + r[t] + s[month_index] + u[i] + dotproduct_cpp(B, Bits(n, _))), true);
             }
           }
         }
@@ -584,8 +588,8 @@ double multGeneralLoglikelihood_cpp2(IntegerVector y, int ndept, int time, int n
             if(y[k * ndept * time + i * time + 0] == -1){
               prodEmission(0, n) += 0;
             }else{
-              prodEmission(0, n) = prodEmission(0, n) + dpois_cpp(y[k * ndept * time + i * time + 0], e_it(i, 0) * exp(a_k[k] + r[0] + s[0] + u[i] + B[k] * n));
-//              prodEmission(0, n) = prodEmission(0, n) + R::dpois(y[k * ndept * time + i * time + 0], e_it(i, 0) * exp(a_k[k] + r[0] + s[0] + u[i] + B[k] * n), true);
+//              prodEmission(0, n) = prodEmission(0, n) + dpois_cpp(y[k * ndept * time + i * time + 0], e_it(i, 0) * exp(a_k[k] + r[0] + s[0] + u[i] + B[k] * n));
+              prodEmission(0, n) = prodEmission(0, n) + R::dpois(y[k * ndept * time + i * time + 0], e_it(i, 0) * exp(a_k[k] + r[0] + s[0] + u[i] + B[k] * n), true);
             }
           }
         }
@@ -599,8 +603,8 @@ double multGeneralLoglikelihood_cpp2(IntegerVector y, int ndept, int time, int n
               if(y[k * ndept * time + i * time + t] == -1){
                 prodEmission(t, n) += 0;
               }else{
-                prodEmission(t, n) = prodEmission(t, n) + dpois_cpp(y[k * ndept * time + i * time + t], e_it(i, t) * exp(a_k[k] + r[t] + s[month_index] + u[i] + B[k] * n));
-//               prodEmission(t, n) = prodEmission(t, n) + R::dpois(y[k * ndept * time + i * time + t], e_it(i, t) * exp(a_k[k] + r[t] + s[month_index] + u[i] + B[k] * n), true);
+ //               prodEmission(t, n) = prodEmission(t, n) + dpois_cpp(y[k * ndept * time + i * time + t], e_it(i, t) * exp(a_k[k] + r[t] + s[month_index] + u[i] + B[k] * n));
+               prodEmission(t, n) = prodEmission(t, n) + R::dpois(y[k * ndept * time + i * time + t], e_it(i, t) * exp(a_k[k] + r[t] + s[month_index] + u[i] + B[k] * n), true);
               }
             }
           }
@@ -846,9 +850,9 @@ NumericMatrix multInfer_cpp(IntegerVector y, NumericMatrix e_it, int nstrain, in
   //initials
   MC_chain(0, 0) = R::runif(0,1);
   MC_chain(0, 1) = R::runif(0,1);
-  MC_chain(0, 2) = R::runif(0,1000);
-  MC_chain(0, 3) = R::runif(0,100);
-  MC_chain(0, 4) = R::runif(0,30);
+  MC_chain(0, 2) = 1/var(CrudeR);
+  MC_chain(0, 3) = 1/var(CrudeS);
+  MC_chain(0, 4) = 1/var(CrudeU);
   MC_chain(0, 5+time+12+ndept+nstrain+nstrain) = state_dist_cpp(MC_chain(0,0), MC_chain(0,1))[1];
   for(int t = 0; t < time; ++t){
     MC_chain(0, 5+t) = CrudeR[t];
@@ -867,7 +871,7 @@ NumericMatrix multInfer_cpp(IntegerVector y, NumericMatrix e_it, int nstrain, in
   }
 
   double epsilonR = 0.007;
-  NumericMatrix XnR(5, time);
+  NumericMatrix XnR(6, time);
   NumericVector XnbarR(time);
   NumericVector XnbarPrevR(time);
   NumericMatrix currentzigmaR(time, time);
@@ -877,7 +881,7 @@ NumericMatrix multInfer_cpp(IntegerVector y, NumericMatrix e_it, int nstrain, in
 
 
   double epsilonS = 0.007;
-  NumericMatrix XnS(5, 11);
+  NumericMatrix XnS(6, 11);
   NumericVector XnbarS(11);
   NumericVector XnbarPrevS(11);
   NumericMatrix currentzigmaS(11, 11);
@@ -886,7 +890,7 @@ NumericMatrix multInfer_cpp(IntegerVector y, NumericMatrix e_it, int nstrain, in
   currentzigmaS = makeDiagMat_cpp(0.1,11);
 
   double epsilonU = 0.007;
-  NumericMatrix XnU(5, ndept-1);
+  NumericMatrix XnU(6, ndept-1);
   NumericVector XnbarU(ndept-1);
   NumericVector XnbarPrevU(ndept-1);
   NumericMatrix currentzigmaU(ndept-1, ndept-1);
@@ -912,6 +916,14 @@ NumericMatrix multInfer_cpp(IntegerVector y, NumericMatrix e_it, int nstrain, in
   NumericVector acceptedR(time);
   NumericVector acceptedB(nstrain);
   NumericVector accepteda_k(nstrain);
+
+  NumericVector currentR(time);
+
+  NumericVector proposedRcomps(time);
+  NumericVector Rconditionalmean(Rsize);
+  NumericVector blockproposedRcomps(Rsize);
+  NumericVector lastproposedRcomps(time-7*Rsize);
+  NumericVector lastproposedRconditionalmean(time-7*Rsize);
 
   //Start MCMC sampling
   for(int i = 1; i < num_iteration; ++i){
@@ -985,12 +997,6 @@ NumericMatrix multInfer_cpp(IntegerVector y, NumericMatrix e_it, int nstrain, in
                                   RconditionalcovE, Rconditionalcovf, Rconditionalcovg, RconditionalcovH);
 
       for(int j = 0; j < 8 ; ++j){
-        NumericVector proposedRcomps(time);
-        NumericVector Rconditionalmean(Rsize);
-        NumericVector blockproposedRcomps(Rsize);
-        NumericVector lastproposedRcomps(time-7*Rsize);
-        NumericVector lastproposedRconditionalmean(time-7*Rsize);
-
         if(j==0){
           NumericMatrix othercompsMat = MC_chain(Range(i-1, i-1), Range(5+Rsize, 5+time-1));
           NumericMatrix tempCov = covBlocks[j];
@@ -1059,6 +1065,7 @@ NumericMatrix multInfer_cpp(IntegerVector y, NumericMatrix e_it, int nstrain, in
             for(int t = 0; t < time; ++t){
             MC_chain(i, 5+t) = proposedRcomps[t];
             acceptedR[t] = proposedRcomps[t];
+            currentR[t] = proposedRcomps[t];
             }
           }
           else{
@@ -1066,12 +1073,14 @@ NumericMatrix multInfer_cpp(IntegerVector y, NumericMatrix e_it, int nstrain, in
               for(int t = 0; t < time; ++t){
               MC_chain(i, 5+t) = MC_chain(i-1, 5+t);
               acceptedR[t] = MC_chain(i-1, 5+t);
+              currentR[t] = MC_chain(i-1, 5+t);
               }
             }
             else if(j!=0){
               for(int t = 0; t < time; ++t){
                 MC_chain(i, 5+t) = MC_chain(i, 5+t);
                 acceptedR[t] = MC_chain(i, 5+t);
+                currentR[t] = MC_chain(i, 5+t);
               }
             }
           }
@@ -1093,7 +1102,7 @@ NumericMatrix multInfer_cpp(IntegerVector y, NumericMatrix e_it, int nstrain, in
     double likelihoodcurrentS = multGeneralLoglikelihood_cpp2(y,ndept,time,nstrain,currenta_k, acceptedR,currentS,acceptedU,Gmat,e_it, currentB, Model, Bits, independentChains);
     double likelihoodproposedS = multGeneralLoglikelihood_cpp2(y,ndept,time,nstrain,currenta_k,acceptedR,newproposedScomps,acceptedU,Gmat,e_it, currentB, Model, Bits, independentChains);
 
-    double mh_ratioS = exp(likelihoodproposedS + priorproposedScomps - likelihoodcurrentS - priorcurrentScomps);
+    double mh_ratioS = exp(likelihoodproposedS + priorproposedScomps + proposalcurrentcompsS - likelihoodcurrentS - priorcurrentScomps - proposalproposedcompsS);
 
     if(R::runif(0, 1) < mh_ratioS) {
       for (int s = 0; s < 12; ++s) {
@@ -1115,15 +1124,16 @@ NumericMatrix multInfer_cpp(IntegerVector y, NumericMatrix e_it, int nstrain, in
 
     if(Model == 0){
       proposedB = rep(0.0, nstrain);
-      priorcurrentB = -99999.0;
-      priorproposedB = -99999.0;
+      for (int b = 0; b < nstrain; ++b) {
+        MC_chain(i, 5 + time + 12 + ndept + b) = 0.0;
+        acceptedB[b] = 0.0;
+      }
     }else{
     for (int j = 0; j < nstrain; ++j) {
       proposedB[j] = std::abs(R::rnorm(currentB[j], 0.1));
       priorcurrentB += R::dgamma(currentB[j], 2, 1.0 / 2.0, true);
       priorproposedB += R::dgamma(proposedB[j], 2, 1.0 / 2.0, true);
       }
-    }
 
     double likelihoodcurrentB = multGeneralLoglikelihood_cpp2(y, ndept, time, nstrain, currenta_k, acceptedR, acceptedS, acceptedU,Gmat, e_it, currentB, Model, Bits, independentChains);
     double likelihoodproposedB = multGeneralLoglikelihood_cpp2(y, ndept, time, nstrain, currenta_k, acceptedR, acceptedS, acceptedU,Gmat, e_it, proposedB, Model, Bits, independentChains);
@@ -1142,32 +1152,33 @@ NumericMatrix multInfer_cpp(IntegerVector y, NumericMatrix e_it, int nstrain, in
         acceptedB[b] = currentB[b];
       }
     }
+  }
     //Rcpp::Rcout << "Beta update" << i << std::endl;
 
     // update a_k's
-   // NumericVector proposeda_k(nstrain);
-    //  for (int j = 0; j < nstrain; ++j) {
-    //    proposeda_k[j] = R::rnorm(currenta_k[j], 0.07);
-    //  }
+    NumericVector proposeda_k(nstrain);
+      for (int j = 0; j < nstrain; ++j) {
+        proposeda_k[j] = R::rnorm(currenta_k[j], 0.07);
+      }
 
-  //  double likelihoodcurrenta_k = multGeneralLoglikelihood_cpp2(y, ndept, time, nstrain, currenta_k, acceptedR, acceptedS, acceptedU,Gmat, e_it, acceptedB, Model, Bits, independentChains);
-  //  double likelihoodproposeda_k = multGeneralLoglikelihood_cpp2(y, ndept, time, nstrain, proposeda_k, acceptedR, acceptedS, acceptedU,Gmat, e_it, acceptedB, Model, Bits, independentChains);
+    double likelihoodcurrenta_k = multGeneralLoglikelihood_cpp2(y, ndept, time, nstrain, currenta_k, acceptedR, acceptedS, acceptedU,Gmat, e_it, acceptedB, Model, Bits, independentChains);
+    double likelihoodproposeda_k = multGeneralLoglikelihood_cpp2(y, ndept, time, nstrain, proposeda_k, acceptedR, acceptedS, acceptedU,Gmat, e_it, acceptedB, Model, Bits, independentChains);
 
-//    double mh_ratioA = exp(likelihoodproposeda_k
-//                             - likelihoodcurrenta_k);
+    double mh_ratioA = exp(likelihoodproposeda_k
+                             - likelihoodcurrenta_k);
 
-  //  NumericVector accepteda_k(nstrain);
-  //  if(R::runif(0, 1) < mh_ratioA) {
-  //    for (int a = 0; a < nstrain; ++a) {
-  //      MC_chain(i, 5 + time + 12 + ndept + nstrain + a) = proposeda_k[a];
-  //      accepteda_k[a] = proposeda_k[a];
-  //    }
-  //  } else {
-  //    for (int a = 0; a < nstrain; ++a) {
-  //      MC_chain(i, 5 + time + 12 + ndept + nstrain + a) = currenta_k[a];
-  //      accepteda_k[a] = currenta_k[a];
-  //    }
-  //  }
+    NumericVector accepteda_k(nstrain);
+    if(R::runif(0, 1) < mh_ratioA) {
+      for (int a = 0; a < nstrain; ++a) {
+        MC_chain(i, 5 + time + 12 + ndept + nstrain + a) = proposeda_k[a];
+        accepteda_k[a] = proposeda_k[a];
+      }
+    } else {
+      for (int a = 0; a < nstrain; ++a) {
+        MC_chain(i, 5 + time + 12 + ndept + nstrain + a) = currenta_k[a];
+        accepteda_k[a] = currenta_k[a];
+      }
+    }
     //Rcpp::Rcout << "a_k update" << i << std::endl;
 
     //update Gamma's
@@ -1194,8 +1205,8 @@ NumericMatrix multInfer_cpp(IntegerVector y, NumericMatrix e_it, int nstrain, in
     }
     NumericMatrix proposedGmat = makematrix_cpp(proposedGs[0], proposedGs[1]);
 
-    double likelihoodcurrentGs = multGeneralLoglikelihood_cpp2(y, ndept, time, nstrain, currenta_k, acceptedR, acceptedS, acceptedU,Gmat, e_it, acceptedB, Model, Bits, independentChains);
-    double likelihoodproposedGs = multGeneralLoglikelihood_cpp2(y, ndept, time, nstrain, currenta_k, acceptedR, acceptedS, acceptedU,proposedGmat, e_it, acceptedB, Model, Bits, independentChains);
+    double likelihoodcurrentGs = multGeneralLoglikelihood_cpp2(y, ndept, time, nstrain, accepteda_k, acceptedR, acceptedS, acceptedU,Gmat, e_it, acceptedB, Model, Bits, independentChains);
+    double likelihoodproposedGs = multGeneralLoglikelihood_cpp2(y, ndept, time, nstrain, accepteda_k, acceptedR, acceptedS, acceptedU,proposedGmat, e_it, acceptedB, Model, Bits, independentChains);
 
     double mh_ratioG = exp(likelihoodproposedGs + priorproposedGs
                          - likelihoodcurrentGs - priorcurrentGs);
@@ -1212,24 +1223,24 @@ NumericMatrix multInfer_cpp(IntegerVector y, NumericMatrix e_it, int nstrain, in
     //Rcpp::Rcout << "gamma update" << i << std::endl;
 
  //Gibbs update for a_k's
-    NumericVector stationDist = state_dist_cpp(MC_chain(i, 0), MC_chain(i, 1));
-      double poisMean = 0.0;
-      for(int a = 0; a < ndept; ++a){
-        for(int b = 0; b < time; ++b){
-          int month_index = b % 12;
-          poisMean +=  e_it(a, b) * exp(acceptedR[b] + acceptedS[month_index] + acceptedU[a] + dotproduct_cpp(acceptedB, stationDist));
-        }
-      }
+//    NumericVector stationDist = state_dist_cpp(MC_chain(i, 0), MC_chain(i, 1));
+//      double poisMean = 0.0;
+//      for(int a = 0; a < ndept; ++a){
+//        for(int b = 0; b < time; ++b){
+//          int month_index = b % 12;
+//          poisMean +=  e_it(a, b) * exp(acceptedR[b] + acceptedS[month_index] + acceptedU[a] + dotproduct_cpp(acceptedB, stationDist));
+//        }
+//      }
 
-      double scale = 1.0 / (poisMean + 0.01/exp(-15));
-      for(int a = 0; a < nstrain; ++a){
-      MC_chain(i, 5+time+12+ndept+nstrain+a) = log(R::rgamma(0.01+SumYk_vec[a],  scale));
-      accepteda_k[a] = MC_chain(i, 5+time+12+ndept+nstrain+a);
-      }
+//      double scale = 1.0 / (poisMean + 0.01/exp(-15));
+//      for(int a = 0; a < nstrain; ++a){
+//      MC_chain(i, 5+time+12+ndept+nstrain+a) = log(R::rgamma(0.01+SumYk_vec[a],  scale));
+//      accepteda_k[a] = MC_chain(i, 5+time+12+ndept+nstrain+a);
+//      }
 
     //Adapting zigmaR
     if(i==5){
-      XnR = MC_chain(Range(0,i-1), Range(5, 5+time-1));
+      XnR = MC_chain(Range(0,i), Range(5, 5+time-1));
       XnbarR = ColMeans_cpp(XnR);
       tempzigmaR = add2matrices_cpp(cov_cpp(XnR), makeDiagMat_cpp(epsilonR, time));
       currentzigmaR = optconstantR * tempzigmaR;
@@ -1273,7 +1284,7 @@ NumericMatrix multInfer_cpp(IntegerVector y, NumericMatrix e_it, int nstrain, in
 
 //Adapting zigmaS
     if(i==5){
-      XnS = MC_chain(Range(0,i-1), Range(5+time, 5+time+10));
+      XnS = MC_chain(Range(0,i), Range(5+time, 5+time+10));
       XnbarS = ColMeans_cpp(XnS);
       tempzigmaS = add2matrices_cpp(cov_cpp(XnS), makeDiagMat_cpp(epsilonS, 11));
       currentzigmaS = optconstantS * tempzigmaS;
@@ -1293,7 +1304,7 @@ NumericMatrix multInfer_cpp(IntegerVector y, NumericMatrix e_it, int nstrain, in
 
     //Adapting zigmaU
     if(i==5){
-      XnU = MC_chain(Range(0,i-1), Range(5+time+12, 5+time+12+(ndept-2)));
+      XnU = MC_chain(Range(0,i), Range(5+time+12, 5+time+12+(ndept-2)));
       XnbarU = ColMeans_cpp(XnU);
       tempzigmaU = add2matrices_cpp(cov_cpp(XnU), makeDiagMat_cpp(epsilonU, ndept-1));
       currentzigmaU = optconstantU * tempzigmaU;
@@ -1310,7 +1321,7 @@ NumericMatrix multInfer_cpp(IntegerVector y, NumericMatrix e_it, int nstrain, in
         (std::min(mh_ratioU, 1.0) - 0.234));
       currentzigmaU = lambdaU * optconstantU * tempzigmaU;
     }
-    if(i % 100 == 0) Rcpp::Rcout << "Iteration: " << i << std::endl;
+    if(i % 1 == 0) Rcpp::Rcout << "Iteration: " << i << std::endl;
   }
   return MC_chain;
 }

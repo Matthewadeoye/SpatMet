@@ -5,8 +5,8 @@ multstrainInfer<- function(y, e_it, nstrain, Model, adjmat, independentChains, n
   R<- -1 * adjmat
   diag(R)<- -rowSums(R, na.rm = T)
   rankdef<- nrow(R)-qr(R)$rank
-  ndept<- nrow(y[,,1])
-  time<- ncol(y[,,1])
+  ndept<- nrow(e_it)
+  time<- ncol(e_it)
 
   original.y<- y
 
@@ -120,7 +120,7 @@ multstrainInfer<- function(y, e_it, nstrain, Model, adjmat, independentChains, n
     initG12<- runif(1)
     initG21<- runif(1)
     initstateD<- state_dist_cpp(initG12, initG21)[2]
-    MC_chain[1,]<- c(initG12, initG21, runif(1, 0, 1000), runif(1, 0, 100), runif(1, 0, 30), crudeR, crudeS[crudeblock-12], crudeU, rep(0, nstrain), rep(mean(crudeResults[[1]]), nstrain), initstateD)
+    MC_chain[1,]<- c(initG12, initG21, 1/var(crudeR), 1/var(crudeS), 1/var(crudeU), crudeR, crudeS[crudeblock-12], crudeU, rep(0, nstrain), rep(mean(crudeResults[[1]]), nstrain), initstateD)
 
     zigmaR<- diag(rep(0.1, time), nrow = time, ncol = time)
     zigmaS<- diag(rep(0.1, 11), nrow = 11, ncol = 11)
@@ -169,8 +169,8 @@ multstrainInfer<- function(y, e_it, nstrain, Model, adjmat, independentChains, n
     for(i in 2:num_iteration){
       #print(i)
 
-      proposedkappaR<- rgamma(1, shape = 1 + (time-2)/2, rate = 0.0001 + (t(MC_chain[i-1, 5+(1:time)]) %*% strr %*% MC_chain[i-1, 5+(1:time)])/2)
-      MC_chain[i,3]<- proposedkappaR
+      #proposedkappaR<- rgamma(1, shape = 1 + (time-2)/2, rate = 0.0001 + (t(MC_chain[i-1, 5+(1:time)]) %*% strr %*% MC_chain[i-1, 5+(1:time)])/2)
+      #MC_chain[i,3]<- proposedkappaR
       #print(paste("GibbskappaR = ", proposedkappaR))
 
       proposedkappaS<- rgamma(1, shape = 1 + 11/2, rate = 0.001 + (t(MC_chain[i-1, 5+time+(1:12)]) %*% strs %*% MC_chain[i-1, 5+time+(1:12)])/2)
@@ -205,31 +205,69 @@ multstrainInfer<- function(y, e_it, nstrain, Model, adjmat, independentChains, n
         MC_chain[i,5+time+12+(1:ndept)]<- MC_chain[i-1,5+time+12+(1:ndept)]
       }
 
-      RW2PrecMat<- MC_chain[i, 3] * strr
-      RconditionalcovA<- (1/MC_chain[i, 3])* invRconditionalcovA
-      RconditionalcovB<- (1/MC_chain[i, 3])* invRconditionalcovB
-      RconditionalcovC<- (1/MC_chain[i, 3])* invRconditionalcovC
-      RconditionalcovD<- (1/MC_chain[i, 3])* invRconditionalcovD
-      RconditionalcovE<- (1/MC_chain[i, 3])* invRconditionalcovE
-      Rconditionalcovf<- (1/MC_chain[i, 3])* invRconditionalcovf
-      Rconditionalcovg<- (1/MC_chain[i, 3])* invRconditionalcovg
-      RconditionalcovH<- (1/MC_chain[i, 3])* invRconditionalcovH
-
-      covBlocks<- list(RconditionalcovA, RconditionalcovB, RconditionalcovC, RconditionalcovD,
-                       RconditionalcovE, Rconditionalcovf, Rconditionalcovg, RconditionalcovH)
-
-      for(j in 1:length(Blocks)){
+       for(j in 1:length(Blocks)){
         if(j==1){
+          Bj<- length(Blocks[j])
+          proposedkappaR<- rgamma(1, shape = 1 + (time-2-Bj)/2, rate = 0.0001 + (t(MC_chain[i-1, unlist(Blocks[-j])]) %*% strr[-(Blocks[[j]]-5),-(Blocks[[j]]-5)] %*% MC_chain[i-1, unlist(Blocks[-j])])/2)
+          MC_chain[i,3]<- proposedkappaR
+
+          RW2PrecMat<- MC_chain[i, 3] * strr
+          RconditionalcovA<- (1/MC_chain[i, 3])* invRconditionalcovA
+          RconditionalcovB<- (1/MC_chain[i, 3])* invRconditionalcovB
+          RconditionalcovC<- (1/MC_chain[i, 3])* invRconditionalcovC
+          RconditionalcovD<- (1/MC_chain[i, 3])* invRconditionalcovD
+          RconditionalcovE<- (1/MC_chain[i, 3])* invRconditionalcovE
+          Rconditionalcovf<- (1/MC_chain[i, 3])* invRconditionalcovf
+          Rconditionalcovg<- (1/MC_chain[i, 3])* invRconditionalcovg
+          RconditionalcovH<- (1/MC_chain[i, 3])* invRconditionalcovH
+
+          covBlocks<- list(RconditionalcovA, RconditionalcovB, RconditionalcovC, RconditionalcovD,
+                           RconditionalcovE, Rconditionalcovf, Rconditionalcovg, RconditionalcovH)
+
           Rconditionalmean<- -covBlocks[[j]] %*% RW2PrecMat[(Blocks[[j]])-5, (unlist(Blocks[-j]))-5] %*% MC_chain[i-1, unlist(Blocks[-j])]
           proposedRcomps<- mvnfast::rmvn(1, mu = Rconditionalmean, sigma = covBlocks[[j]])
           proposedRcomps<- c(proposedRcomps, MC_chain[i-1, unlist(Blocks[-j])])
         }
         else if(j!=1 && j!=length(Blocks)){
+          Bj<- length(Blocks[j])
+          proposedkappaR<- rgamma(1, shape = 1 + (time-2-Bj)/2, rate = 0.0001 + (t(MC_chain[i-1, unlist(Blocks[-j])]) %*% strr[-(Blocks[[j]]-5),-(Blocks[[j]]-5)] %*% MC_chain[i-1, unlist(Blocks[-j])])/2)
+          MC_chain[i,3]<- proposedkappaR
+
+          RW2PrecMat<- MC_chain[i, 3] * strr
+          RconditionalcovA<- (1/MC_chain[i, 3])* invRconditionalcovA
+          RconditionalcovB<- (1/MC_chain[i, 3])* invRconditionalcovB
+          RconditionalcovC<- (1/MC_chain[i, 3])* invRconditionalcovC
+          RconditionalcovD<- (1/MC_chain[i, 3])* invRconditionalcovD
+          RconditionalcovE<- (1/MC_chain[i, 3])* invRconditionalcovE
+          Rconditionalcovf<- (1/MC_chain[i, 3])* invRconditionalcovf
+          Rconditionalcovg<- (1/MC_chain[i, 3])* invRconditionalcovg
+          RconditionalcovH<- (1/MC_chain[i, 3])* invRconditionalcovH
+
+          covBlocks<- list(RconditionalcovA, RconditionalcovB, RconditionalcovC, RconditionalcovD,
+                           RconditionalcovE, Rconditionalcovf, Rconditionalcovg, RconditionalcovH)
+
           Rconditionalmean<- -covBlocks[[j]] %*% (RW2PrecMat[(Blocks[[j]])-5, (unlist(Blocks[1:(j-1)]))-5] %*% MC_chain[i, unlist(Blocks[1:(j-1)])] + RW2PrecMat[(Blocks[[j]])-5, (unlist(Blocks[(j+1):(length(Blocks))]))-5] %*% MC_chain[i, unlist(Blocks[(j+1):length(Blocks)])])
           proposedRcomps<- mvnfast::rmvn(1, mu = Rconditionalmean, sigma = covBlocks[[j]])
           proposedRcomps<- c(MC_chain[i, unlist(Blocks[1:(j-1)])], proposedRcomps, MC_chain[i, unlist(Blocks[(j+1):length(Blocks)])])
         }
         else if(j==length(Blocks)){
+          Bj<- length(Blocks[j])
+          proposedkappaR<- rgamma(1, shape = 1 + (time-2-Bj)/2, rate = 0.0001 + (t(MC_chain[i-1, unlist(Blocks[-j])]) %*% strr[-(Blocks[[j]]-5),-(Blocks[[j]]-5)] %*% MC_chain[i-1, unlist(Blocks[-j])])/2)
+          MC_chain[i,3]<- proposedkappaR
+
+          RW2PrecMat<- MC_chain[i, 3] * strr
+          RconditionalcovA<- (1/MC_chain[i, 3])* invRconditionalcovA
+          RconditionalcovB<- (1/MC_chain[i, 3])* invRconditionalcovB
+          RconditionalcovC<- (1/MC_chain[i, 3])* invRconditionalcovC
+          RconditionalcovD<- (1/MC_chain[i, 3])* invRconditionalcovD
+          RconditionalcovE<- (1/MC_chain[i, 3])* invRconditionalcovE
+          Rconditionalcovf<- (1/MC_chain[i, 3])* invRconditionalcovf
+          Rconditionalcovg<- (1/MC_chain[i, 3])* invRconditionalcovg
+          RconditionalcovH<- (1/MC_chain[i, 3])* invRconditionalcovH
+
+          covBlocks<- list(RconditionalcovA, RconditionalcovB, RconditionalcovC, RconditionalcovD,
+                           RconditionalcovE, Rconditionalcovf, Rconditionalcovg, RconditionalcovH)
+
           Rconditionalmean<- -covBlocks[[j]] %*% RW2PrecMat[(Blocks[[j]])-5, (unlist(Blocks[-j]))-5] %*% MC_chain[i, unlist(Blocks[-j])]
           proposedRcomps<- mvnfast::rmvn(1, mu = Rconditionalmean, sigma = covBlocks[[j]])
           proposedRcomps<- c(MC_chain[i, unlist(Blocks[-j])], proposedRcomps)
@@ -326,59 +364,59 @@ multstrainInfer<- function(y, e_it, nstrain, Model, adjmat, independentChains, n
       MC_chain[i, 5+time+12+ndept+nstrain+nstrain+1]<- state_dist_cpp(MC_chain[i, 1], MC_chain[i, 2])[2]
 
       #Random-wal Ak's update
-      #proposeda_k <- rnorm(nstrain, mean = MC_chain[i-1, 5+time+12+ndept+nstrain+(1:nstrain)], sd = rep(0.07, nstrain))
+      proposeda_k <- rnorm(nstrain, mean = MC_chain[i-1, 5+time+12+ndept+nstrain+(1:nstrain)], sd = rep(0.07, nstrain))
 
-      #likelihoodcurrent<- multGeneralLoglikelihood_cpp2(y=yflat,ndept=ndept,time=time,nstrain=nstrain,a_k=MC_chain[i-1, 5+time+12+ndept+nstrain+(1:nstrain)], r=MC_chain[i, 5+(1:time)], s=MC_chain[i, 5+time+(1:12)], u=MC_chain[i, 5+time+12+(1:ndept)], Gamma=G(MC_chain[i, 1],MC_chain[i,2]), e_it=e_it, B=MC_chain[i, 5+time+12+ndept+(1:nstrain)], Bits=Bits, model=Model, independentChains=independentChains)
-      #likelihoodproposed<- multGeneralLoglikelihood_cpp2(y=yflat,ndept=ndept,time=time,nstrain=nstrain,a_k=proposeda_k, r=MC_chain[i, 5+(1:time)], s=MC_chain[i, 5+time+(1:12)], u=MC_chain[i, 5+time+12+(1:ndept)], Gamma=G(MC_chain[i, 1], MC_chain[i,2]), e_it=e_it, B=MC_chain[i, 5+time+12+ndept+(1:nstrain)], Bits=Bits, model=Model,independentChains=independentChains)
+      likelihoodcurrent<- multGeneralLoglikelihood_cpp2(y=yflat,ndept=ndept,time=time,nstrain=nstrain,a_k=MC_chain[i-1, 5+time+12+ndept+nstrain+(1:nstrain)], r=MC_chain[i, 5+(1:time)], s=MC_chain[i, 5+time+(1:12)], u=MC_chain[i, 5+time+12+(1:ndept)], Gamma=G(MC_chain[i, 1],MC_chain[i,2]), e_it=e_it, B=MC_chain[i, 5+time+12+ndept+(1:nstrain)], Bits=Bits, model=Model, independentChains=independentChains)
+      likelihoodproposed<- multGeneralLoglikelihood_cpp2(y=yflat,ndept=ndept,time=time,nstrain=nstrain,a_k=proposeda_k, r=MC_chain[i, 5+(1:time)], s=MC_chain[i, 5+time+(1:12)], u=MC_chain[i, 5+time+12+(1:ndept)], Gamma=G(MC_chain[i, 1], MC_chain[i,2]), e_it=e_it, B=MC_chain[i, 5+time+12+ndept+(1:nstrain)], Bits=Bits, model=Model,independentChains=independentChains)
 
-      #mh.ratio<- exp(likelihoodproposed - likelihoodcurrent)
+      mh.ratio<- exp(likelihoodproposed - likelihoodcurrent)
 
-      #if(!is.na(mh.ratio) && runif(1) < mh.ratio){
-      #  MC_chain[i, 5+time+12+ndept+nstrain+(1:nstrain)]<- proposeda_k
-      #}
-      #else{
-      #  MC_chain[i, 5+time+12+ndept+nstrain+(1:nstrain)]<- MC_chain[i-1, 5+time+12+ndept+nstrain+(1:nstrain)]
-      #}
+      if(!is.na(mh.ratio) && runif(1) < mh.ratio){
+        MC_chain[i, 5+time+12+ndept+nstrain+(1:nstrain)]<- proposeda_k
+      }
+      else{
+        MC_chain[i, 5+time+12+ndept+nstrain+(1:nstrain)]<- MC_chain[i-1, 5+time+12+ndept+nstrain+(1:nstrain)]
+      }
 
       #Gibbs update for a_k's
-      stateDist<- state_dist_cpp2(G(MC_chain[i, 1], MC_chain[i, 2]))
+#      stateDist<- state_dist_cpp2(JointTransitionMatrix_cpp(G(MC_chain[i, 1], MC_chain[i, 2]), K=nstrain))
 
-      currentR<- MC_chain[i, 5+(1:time)]
-      currentS<- MC_chain[i, 5+time+(1:12)]
-      currentU<- MC_chain[i, 5+time+12+(1:ndept)]
-      currentB<- MC_chain[i, 5+time+12+ndept+(1:nstrain)]
-      poisMean<- 0
-      for(a in 1:ndept){
-        for(b in 1:time){
-          month_index<- (b-1) %% 12 + 1
-          poisMean<- poisMean + e_it[a, b] * exp(currentR[b] + currentS[month_index] + currentU[a] + currentB%*%stateDist)
-        }
-      }
-      proposedAks<- log(rgamma(nstrain, shape = 0.01+SumYk_vec, rate = poisMean + 0.01/exp(-15)))
-      if(Model==0 || Model==1){
-      MC_chain[i, 5+time+12+ndept+nstrain+(1:nstrain)]<- proposedAks
-      }else{
-        proposedcurrentAks<- sum(dgamma(exp(MC_chain[i-1, 5+time+12+ndept+nstrain+(1:nstrain)]), shape = 0.01+SumYk_vec, rate = poisMean + 0.01/exp(-15), log=TRUE) + MC_chain[i-1, 5+time+12+ndept+nstrain+(1:nstrain)])
-        proposedproposedAks<- sum(dgamma(exp(proposedAks), shape = 0.01+SumYk_vec, rate = poisMean + 0.01/exp(-15), log=TRUE) + proposedAks)
+#      currentR<- MC_chain[i, 5+(1:time)]
+#      currentS<- MC_chain[i, 5+time+(1:12)]
+#      currentU<- MC_chain[i, 5+time+12+(1:ndept)]
+#      currentB<- MC_chain[i, 5+time+12+ndept+(1:nstrain)]
+#      poisMean<- 0
+#      for(a in 1:ndept){
+#        for(b in 1:time){
+#          month_index<- (b-1) %% 12 + 1
+#          poisMean<- poisMean + e_it[a, b] * exp(currentR[b] + currentS[month_index] + currentU[a] + rep(currentB[1], nstrain)%*%stateDist[c(1,2)] + rep(currentB[2], nstrain)%*%stateDist[c(2,4)])
+#        }
+#      }
+#      proposedAks<- log(rgamma(nstrain, shape = 0.01+SumYk_vec, rate = poisMean + 0.01/exp(-15)))
+#      if(Model==0){
+#      MC_chain[i, 5+time+12+ndept+nstrain+(1:nstrain)]<- proposedAks
+#      }else{
+#        proposedcurrentAks<- sum(dgamma(exp(MC_chain[i-1, 5+time+12+ndept+nstrain+(1:nstrain)]), shape = 0.01+SumYk_vec, rate = poisMean + 0.01/exp(-15), log=TRUE) + MC_chain[i-1, 5+time+12+ndept+nstrain+(1:nstrain)])
+#        proposedproposedAks<- sum(dgamma(exp(proposedAks), shape = 0.01+SumYk_vec, rate = poisMean + 0.01/exp(-15), log=TRUE) + proposedAks)
 
-        priorcurrentAks<- sum(dgamma(exp(MC_chain[i-1, 5+time+12+ndept+nstrain+(1:nstrain)]), shape = rep(0.01, nstrain), rate = rep(0.01/exp(-15),nstrain), log=TRUE))
-        priorproposedAks<- sum(dgamma(exp(proposedAks), shape = rep(0.01, nstrain), rate = rep(0.01/exp(-15),nstrain), log=TRUE))
+#        priorcurrentAks<- sum(dgamma(exp(MC_chain[i-1, 5+time+12+ndept+nstrain+(1:nstrain)]), shape = rep(0.01, nstrain), rate = rep(0.01/exp(-15),nstrain), log=TRUE))
+#        priorproposedAks<- sum(dgamma(exp(proposedAks), shape = rep(0.01, nstrain), rate = rep(0.01/exp(-15),nstrain), log=TRUE))
 
-        likelihoodcurrent<- multGeneralLoglikelihood_cpp2(y=yflat,ndept=ndept,time=time,nstrain=nstrain,a_k=MC_chain[i-1, 5+time+12+ndept+nstrain+(1:nstrain)], r=MC_chain[i,5+(1:time)], s=MC_chain[i,5+time+(1:12)], u=MC_chain[i, 5+time+12+(1:ndept)], Gamma=G(MC_chain[i,1],MC_chain[i,2]),e_it=e_it, B=MC_chain[i, 5+time+12+ndept+(1:nstrain)], Bits=Bits, model=Model, independentChains=independentChains)
-        likelihoodproposed<- multGeneralLoglikelihood_cpp2(y=yflat,ndept=ndept,time=time,nstrain=nstrain,a_k=proposedAks, r=MC_chain[i, 5+(1:time)], s=MC_chain[i, 5+time+(1:12)], u=MC_chain[i, 5+time+12+(1:ndept)], Gamma=G(MC_chain[i,1],MC_chain[i,2]),e_it=e_it, B=MC_chain[i, 5+time+12+ndept+(1:nstrain)], Bits=Bits, model=Model,independentChains=independentChains)
+#        likelihoodcurrent<- multGeneralLoglikelihood_cpp2(y=yflat,ndept=ndept,time=time,nstrain=nstrain,a_k=MC_chain[i-1, 5+time+12+ndept+nstrain+(1:nstrain)], r=MC_chain[i,5+(1:time)], s=MC_chain[i,5+time+(1:12)], u=MC_chain[i, 5+time+12+(1:ndept)], Gamma=G(MC_chain[i,1],MC_chain[i,2]),e_it=e_it, B=MC_chain[i, 5+time+12+ndept+(1:nstrain)], Bits=Bits, model=Model, independentChains=independentChains)
+#        likelihoodproposed<- multGeneralLoglikelihood_cpp2(y=yflat,ndept=ndept,time=time,nstrain=nstrain,a_k=proposedAks, r=MC_chain[i, 5+(1:time)], s=MC_chain[i, 5+time+(1:12)], u=MC_chain[i, 5+time+12+(1:ndept)], Gamma=G(MC_chain[i,1],MC_chain[i,2]),e_it=e_it, B=MC_chain[i, 5+time+12+ndept+(1:nstrain)], Bits=Bits, model=Model,independentChains=independentChains)
 
-        mh.ratio<- exp(likelihoodproposed + priorproposedAks + proposedcurrentAks
-                       - likelihoodcurrent - priorcurrentAks - proposedproposedAks)
+#        mh.ratio<- exp(likelihoodproposed + priorproposedAks + proposedcurrentAks
+#                       - likelihoodcurrent - priorcurrentAks - proposedproposedAks)
 
         #print(mh.ratio)
 
-        if(!is.na(mh.ratio) && runif(1) < mh.ratio){
-          MC_chain[i, 5+time+12+ndept+nstrain+(1:nstrain)]<- proposedAks
-        }
-        else{
-          MC_chain[i, 5+time+12+ndept+nstrain+(1:nstrain)]<- MC_chain[i-1, 5+time+12+ndept+nstrain+(1:nstrain)]
-        }
-      }
+#        if(!is.na(mh.ratio) && runif(1) < mh.ratio){
+#          MC_chain[i, 5+time+12+ndept+nstrain+(1:nstrain)]<- proposedAks
+#        }
+#        else{
+#          MC_chain[i, 5+time+12+ndept+nstrain+(1:nstrain)]<- MC_chain[i-1, 5+time+12+ndept+nstrain+(1:nstrain)]
+#        }
+#      }
 
       #Adapting zigmaR
       if(i==5){
@@ -455,7 +493,7 @@ multstrainInfer<- function(y, e_it, nstrain, Model, adjmat, independentChains, n
         zigmaU<- lambdaU* optconstantU * zigmaU
         #print(zigmaU)
       }
-      if(i %% 100 == 0) cat("Iteration:", i, "\n")
+      if(i %% 1000 == 0) cat("Iteration:", i, "\n")
     }
 
     colnames(MC_chain) <- paste(c("G12", "G21", "kappa_r", "kappa_s", "kappa_u", paste("r", 1:time, sep=""), paste("s", 1:12, sep=""), paste("u", 1:ndept, sep=""), paste("B", 1:nstrain, sep=""), paste("a_k", 1:nstrain, sep=""), "StationaryDistribution"))
@@ -623,6 +661,5 @@ CPPmultstrainInfer<- function(y, e_it, nstrain, Model, adjmat, independentChains
     return(MC_chain)
   }
 }
-
 
 #chkmcmcMult<- multstrainInfer(y=multmod1[[1]], e_it=multmod1[[2]], nstrain=2, Model=0, adjmat=sim_adjmat, independentChains=0, num_iteration = 1000, Stan = FALSE, GPU = FALSE, nchains = 4,iter = 4000, seed = NULL, verbose = F, ModEvid = F, OutbreakProb = F, adaptdelta = 0.90, Burn.in = 1000)
