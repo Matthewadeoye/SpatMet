@@ -889,7 +889,9 @@ Multstrain.simulate<- function(Model, time, nstrain=2, adj.matrix,
       m<- (t - 1) %% 12 + 1
       for(i in 1:ndept){
         for(k in 1:nstrain){
-          lograte<- aVec[k] + r[t] + s[m] + u[i] + (B %*% Bits[EpidemicIndicator[i, t]+1, ])
+          newB<- rep(0, nstrain)
+          newB[k]<- B[k]
+          lograte<- aVec[k] + r[t] + s[m] + u[i] + (newB %*% Bits[EpidemicIndicator[i, t]+1, ])
           y_itk[i, t, k]<- rpois(1, lambda = e_it[i, t] * exp(lograte))
         }
       }
@@ -934,7 +936,9 @@ multstrain.forwardfilter<- function(y, e_it, nstrain, r, s, u, Gamma, B, Bits, a
     logprodEmission<- rep(0, nstate)
     for(n in 1:nstate){
       for(k in 1:nstrain){
-        logprodEmission[n]<- logprodEmission[n] + dpois(y[i, t, k], lambda = e_it[i, t] * exp(a_k[k] + r[t] + s[month_index] + u[i] + B%*%Bits[n, ]), log = TRUE)
+        newB<- rep(0, nstrain)
+        newB[k]<- B[k]
+        logprodEmission[n]<- logprodEmission[n] + dpois(y[i, t, k], lambda = e_it[i, t] * exp(a_k[k] + r[t] + s[month_index] + u[i] + newB%*%Bits[n, ]), log = TRUE)
       }
     }
     forwardprobs[t, ]<- logspace_vecmatmult(forwardprobs[t-1, ], log(JointTPM)) + logprodEmission
@@ -960,7 +964,9 @@ multstrain.backwardsweep<- function(y, e_it, nstrain, r, s, u, Gamma, B, Bits, a
           logprodEmission<- rep(0, nstate)
           for(n in 1:nstate){
             for(k in 1:nstrain){
-              logprodEmission[n]<- logprodEmission[n] + dpois(y[i, t+1, k], lambda = e_it[i, t+1] * exp(a_k[k] + r[t+1] + s[month_index] + u[i] + B%*%Bits[n, ]), log = TRUE)
+              newB<- rep(0, nstrain)
+              newB[k]<- B[k]
+              logprodEmission[n]<- logprodEmission[n] + dpois(y[i, t+1, k], lambda = e_it[i, t+1] * exp(a_k[k] + r[t+1] + s[month_index] + u[i] + newB%*%Bits[n, ]), log = TRUE)
             }
           }
           backwardprobs[t, ]<- logspace_vecmatmult(logprodEmission + backwardprobs[t+1, ], log(t(JointTPM)))
@@ -991,6 +997,63 @@ multstrain.Decoding <- function(y, e_it, nstrain, r, s, u, Gamma, B, Bits, a_k, 
 R_dpois<- function(y, lambda){
   res <- (y * log(lambda)) -lambda -log(factorial(y))
   return(res)
+}
+
+Posteriormultstrain.Decoding<- function(y, e_it, inf.object, thinningL=1000, burn.in=1000){
+  ndept<- dim(y)[1]
+  time<- dim(y)[2]
+  nstrain<- dim(y)[3]
+  nstate<- 2^nstrain
+  Bits<- encodeBits(K=nstrain)
+
+  if(!is.data.frame(inf.object)){
+    fullG12.draws<- stack(as.data.frame(inf.object$draws(variables = "G12")[,1,]))[,1]
+    fullG21.draws<- stack(as.data.frame(inf.object$draws(variables = "G21")[,1,]))[,1]
+    fullr.draws<- as.data.frame(inf.object$draws(variables = "r")[,1,])
+    fulls.draws<- as.data.frame(inf.object$draws(variables = "s")[,1,])
+    fullu.draws<- as.data.frame(inf.object$draws(variables = "uconstrained")[,1,])
+    fullB.draws<- as.data.frame(inf.object$draws(variables = "B")[,1,])
+    fulla_k.draws<- as.data.frame(inf.object$draws(variables = "a_k")[,1,])
+  }else{
+    fullG12.draws<- as.numeric(inf.object[-(1:burn.in), 1])
+    fullG21.draws<- as.numeric(inf.object[-(1:burn.in), 2])
+    fullr.draws<- inf.object[-(1:burn.in), 5+(1:time)]
+    fulls.draws<- inf.object[-(1:burn.in), 5+time+(1:12)]
+    fullu.draws<- inf.object[-(1:burn.in), 5+time+12+(1:ndept)]
+    fullB.draws<- inf.object[-(1:burn.in), 5+time+12+ndept+(1:nstrain)]
+    fulla_k.draws<- inf.object[-(1:burn.in), 5+time+12+ndept+nstrain+(1:nstrain)]
+  }
+
+  thinning<- numeric(floor(nrow(fullr.draws)/thinningL))
+  thinning[1]<- thinningL
+  for(i in 2:length(thinning)){
+    thinning[i]<- thinning[i-1] + thinningL
+  }
+
+  G12.draws<- fullG12.draws[thinning]
+  G21.draws<- fullG21.draws[thinning]
+  r.draws<- fullr.draws[thinning, ]
+  s.draws<- fulls.draws[thinning, ]
+  u.draws<- fullu.draws[thinning, ]
+  B.draws<- fullB.draws[thinning, ]
+  a_k.draws<- fulla_k.draws[thinning, ]
+
+  decodedOutbreakMatrix<- list()
+  for(n in 1:nstate){
+    sum_Xit<- matrix(0, nrow = ndept, ncol = time)
+
+    for(index in 1:length(thinning)){
+      r<- as.numeric(r.draws[index,])
+      s<- as.numeric(s.draws[index,])
+      u<- as.numeric(u.draws[index,])
+      B<- as.numeric(B.draws[index,])
+      a_k<- as.numeric(a_k.draws[index,])
+      Ex_Xit <- multstrain.Decoding(y = y, e_it = e_it, nstrain=nstrain, r = r, s = s, u = u, Gamma = G(G12.draws[index], G21.draws[index]), Bits = Bits, B = B, a_k = a_k, state = n)
+      sum_Xit<- sum_Xit + Ex_Xit
+    }
+    decodedOutbreakMatrix[[n]]<- sum_Xit/length(thinning)
+  }
+  return(decodedOutbreakMatrix)
 }
 
 multstrainLoglikelihood<- function(y, e_it, nstrain, r, s, u, Gamma, B, Bits, a_k, Model, independentChains=FALSE){
@@ -1045,7 +1108,9 @@ multstrainLoglikelihood<- function(y, e_it, nstrain, r, s, u, Gamma, B, Bits, a_
     logprodEmission<- rep(0, nstate)
     for(n in 1:nstate){
       for(k in 1:nstrain){
-        logprodEmission[n]<- logprodEmission[n] + dpois(y[i, 1, k], lambda = e_it[i, 1] * exp(a_k[k] + r[1] + s[1] + u[i] + as.numeric(B%*%Bits[n, ])), log=T)
+        newB<- rep(0, nstrain)
+        newB[k]<- B[k]
+        logprodEmission[n]<- logprodEmission[n] + dpois(y[i, 1, k], lambda = e_it[i, 1] * exp(a_k[k] + r[1] + s[1] + u[i] + as.numeric(newB%*%Bits[n, ])), log=T)
       }
     }
     forwardprobs[1, ]<- logprodEmission + loginit.density
@@ -1054,7 +1119,9 @@ multstrainLoglikelihood<- function(y, e_it, nstrain, r, s, u, Gamma, B, Bits, a_
       logprodEmission<- rep(0, nstate)
       for(n in 1:nstate){
         for(k in 1:nstrain){
-          logprodEmission[n]<- logprodEmission[n] + dpois(y[i, t, k], lambda = e_it[i, t] * exp(a_k[k] + r[t] + s[month_index] + u[i] + as.numeric(B%*%Bits[n, ])), log=T)
+          newB<- rep(0, nstrain)
+          newB[k]<- B[k]
+          logprodEmission[n]<- logprodEmission[n] + dpois(y[i, t, k], lambda = e_it[i, t] * exp(a_k[k] + r[t] + s[month_index] + u[i] + as.numeric(newB%*%Bits[n, ])), log=T)
         }
       }
       forwardprobs[t, ]<- logspace_vecmatmult(forwardprobs[t-1, ], log(JointTPM)) + logprodEmission
@@ -1158,7 +1225,9 @@ scalingmultstrainLoglikelihood<- function(y, e_it, nstrain, r, s, u, Gamma, B, B
         init.density<- init.density/sum(init.density)
         for(n in 1:nstate){
           for(k in 1:nstrain){
-            prodEmission[1, n]<- prodEmission[1, n] * dpois(y[i, 1, k], lambda = e_it[i, 1] * exp(a_k[k] + r[1] + s[1] + u[i] + as.numeric(B%*%Bits[n, ])))
+            newB<- rep(0, nstrain)
+            newB[k]<- B[k]
+            prodEmission[1, n]<- prodEmission[1, n] * dpois(y[i, 1, k], lambda = e_it[i, 1] * exp(a_k[k] + r[1] + s[1] + u[i] + as.numeric(newB%*%Bits[n, ])))
           }
         }
         prodEmission[1, ]<- init.density * prodEmission[1, ]
@@ -1169,7 +1238,9 @@ scalingmultstrainLoglikelihood<- function(y, e_it, nstrain, r, s, u, Gamma, B, B
           month_index<- (t-1) %% 12 + 1
           for(n in 1:nstate){
             for(k in 1:nstrain){
-              prodEmission[t, n]<- prodEmission[t, n] * dpois(y[i, t, k], lambda = e_it[i, t] * exp(a_k[k] + r[t] + s[month_index] + u[i] + as.numeric(B%*%Bits[n, ])))
+              newB<- rep(0, nstrain)
+              newB[k]<- B[k]
+              prodEmission[t, n]<- prodEmission[t, n] * dpois(y[i, t, k], lambda = e_it[i, t] * exp(a_k[k] + r[t] + s[month_index] + u[i] + as.numeric(newB%*%Bits[n, ])))
             }
           }
           forwardprobs[t, ]<- (forwardprobs[t-1, ] %*% (JointTPM) * prodEmission[t, ])/sum(forwardprobs[t-1, ] %*% (JointTPM) * prodEmission[t, ])
@@ -1180,6 +1251,98 @@ scalingmultstrainLoglikelihood<- function(y, e_it, nstrain, r, s, u, Gamma, B, B
       }
       return(sum(AllForwardprobs))
     }
+  }
+}
+
+newscalingmultstrainLoglikelihood<- function(y, e_it, nstrain, r, s, u, Gamma, B, Bits, a_k, Model, independentChains=FALSE){
+  ndept<- nrow(y[,,1])
+  time <- ncol(y[,,1])
+  if(Model == 0){
+    loglike<- 0
+    for(i in 1:ndept){
+      for(t in 1:time){
+        month_index<- (t-1) %% 12 + 1
+        for(k in 1:nstrain){
+          loglike<- loglike + dpois(y[i, t, k], lambda = e_it[i, t] * exp(a_k[k] + r[t] + s[month_index] + u[i]), log=T)
+        }
+      }
+    }
+    return(loglike)
+  }else{
+      nstate<- 2^nstrain
+      loglikelihood<- numeric(ndept)
+      gradR<- matrix(NA, nrow = ndept, ncol = time)
+      grad_r<- matrix(NA, nrow=ndept, ncol=time)
+      grad_s<- matrix(NA, nrow=ndept, ncol=12)
+      grad_u<- matrix(NA, nrow=ndept, ncol=ndept)
+      JointTPM<- JointTransitionMatrix(gamma = Gamma, K = nstrain)
+      init.density<- stationarydist(JointTPM)
+
+      for(i in 1:ndept){
+        scalingFactor<- numeric(time)
+        gradR_scalingFactor<- numeric(time)
+        gradS_scalingFactor<- numeric(12)
+        grad_forward<- array(rep(1, time*time*nstate), dim=c(time, time, nstate))
+        forwardprobs<- matrix(NA, nrow = time, ncol = nstate)
+        gradR_forward<- matrix(rep(1, time*nstate), nrow = time, ncol = nstate)
+        gradS_forward<- matrix(NA, nrow = time, ncol = nstate)
+        gradU_scalingFactor<- matrix(NA, nrow = time, ncol = nstate)
+        prodEmission<- matrix(rep(1, time*nstate), nrow = time, ncol = nstate)
+        init.density<- init.density
+        for(n in 1:nstate){
+          for(k in 1:nstrain){
+            newB<- rep(0, nstrain)
+            newB[k]<- B[k]
+            Lambda<- exp(a_k[k] + r[1] + s[1] + u[i] + as.numeric(newB%*%Bits[n, ]))
+            prodEmission[1, n]<- prodEmission[1, n] * dpois(y[i, 1, k], lambda = e_it[i, 1] * Lambda)
+            gradR_forward[1, n]<- gradR_forward[1, n] * (e_it[i, 1]/factorial(y[i, 1, k])) * exp(e_it[i, 1] * Lambda) * Lambda * (1 - e_it[i, 1] * Lambda)
+          }
+        }
+        for(gradt in 1:time){
+          month_index<- (gradt-1) %% 12 + 1
+          for(n in 1:nstate){
+            for(k in 1:nstrain){
+              newB<- rep(0, nstrain)
+              newB[k]<- B[k]
+              Lambda<- exp(a_k[k] + r[gradt] + s[month_index] + u[i] + as.numeric(newB%*%Bits[n, ]))
+              grad_forward[1, gradt, n]<- grad_forward[1, gradt, n] * (e_it[i, gradt]/factorial(y[i, gradt, k])) * exp(e_it[i, gradt] * Lambda) * Lambda * (1 - e_it[i, gradt] * Lambda)
+            }
+          }
+        }
+        prodEmission[1, ]<- init.density * prodEmission[1, ]
+        forwardprobs[1, ]<- prodEmission[1, ]
+        scalingFactor[1]<- sum(forwardprobs[1,])
+        grad_forward[1,1,]<- grad_forward[1,1,] * init.density
+        for(t in 2:time){
+          month_index<- (t-1) %% 12 + 1
+          for(n in 1:nstate){
+            for(k in 1:nstrain){
+              newB<- rep(0, nstrain)
+              newB[k]<- B[k]
+              Lambda<- exp(a_k[k] + r[t] + s[month_index] + u[i] + as.numeric(newB%*%Bits[n, ]))
+              prodEmission[t, n]<- prodEmission[t, n] * dpois(y[i, t, k], lambda = e_it[i, t] * Lambda)
+            }
+          }
+          forwardprobs[t, ]<- ((forwardprobs[t-1, ] %*% JointTPM) * prodEmission[t, ])/sum(forwardprobs[t-1, ])
+          scalingFactor[t]<- sum(forwardprobs[t, ])
+          for(gradt in 1:time){
+            month_index<- (gradt-1) %% 12 + 1
+            derivRt<- rep(1, nstate)
+            for(n in 1:nstate){
+              for(k in 1:nstrain){
+                newB<- rep(0, nstrain)
+                newB[k]<- B[k]
+                Lambda<- exp(a_k[k] + r[gradt] + s[month_index] + u[i] + as.numeric(newB%*%Bits[n, ]))
+                derivRt[n]<- derivRt[n] * (e_it[i, t]/factorial(y[i, t, k])) * exp(e_it[i, t] * Lambda) * Lambda * (1 - e_it[i, t] * Lambda)
+              }
+            }
+            grad_forward[t, gradt, ]<- (((grad_forward[t-1, gradt, ] %*% JointTPM) * prodEmission[t, ]) + (forwardprobs[t-1, ] %*% JointTPM) * derivRt)/sum(forwardprobs[t-1, ])
+          }
+        }
+        loglikelihood[i]<- sum(log(scalingFactor))
+        gradR[i, ]<- rowSums(grad_forward[time,,])/scalingFactor[time]
+      }
+      return(list("loglike"=sum(loglikelihood), "grad_r"= sum(gradR)))
   }
 }
 
@@ -1379,7 +1542,9 @@ FIRSTgradmultstrainLoglikelihood2<- function(y, e_it, nstrain, r, s, u, Gamma, B
         for(n in 1:nstate){
           # compute the per-strain lambda for this (i,t,n)
           for(k in 1:nstrain){
-            lambda_array[t,n,k] <- e_it[i,t] * exp(a_k[k] + r[t] + s[month_index] + u[i] + as.numeric(B %*% Bits[n, ]))
+            newB<- rep(0, nstrain)
+            newB[k]<- B[k]
+            lambda_array[t,n,k] <- e_it[i,t] * exp(a_k[k] + r[t] + s[month_index] + u[i] + as.numeric(newB %*% Bits[n, ]))
           }
           logEmissions[t,n] <- sum(dpois(y[i,t,], lambda = lambda_array[t,n,], log = TRUE))
         }

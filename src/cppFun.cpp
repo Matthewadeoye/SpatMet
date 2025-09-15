@@ -1,14 +1,21 @@
-#include <Rcpp.h>
+#include <RcppArmadillo.h>
 #include <RcppEigen.h>
 #include <cmath>
 #include <algorithm>
 
-using namespace Rcpp;
-
+// [[Rcpp::depends(RcppArmadillo)]
 // [[Rcpp::depends(RcppEigen)]
+
+using namespace Rcpp;
 
 // [[Rcpp::export]]
 double logSumExp_cpp(NumericVector x) {
+  double max_val = max(x);
+  return log(sum(exp(x - max_val))) + max_val;
+}
+
+// [[Rcpp::export]]
+double logSumExp_cpp2(arma::vec x) {
   double max_val = max(x);
   return log(sum(exp(x - max_val))) + max_val;
 }
@@ -32,6 +39,20 @@ NumericVector logVecMatMult(NumericVector logV, NumericMatrix M) {
       temp[s] = logV[s] + log(M(s, p));
     }
     res[p] = logSumExp_cpp(temp);
+  }
+  return res;
+}
+
+// [[Rcpp::export]]
+arma::vec logVecMatMult2(arma::vec logV, arma::mat logM) {
+  int S = logV.size();
+  arma::vec res(S);
+  for (int p = 0; p < S; ++p) {
+    arma::vec temp(S);
+    for (int s = 0; s < S; ++s) {
+      temp[s] = logV[s] + logM(s, p);
+    }
+    res[p] = logSumExp_cpp2(temp);
   }
   return res;
 }
@@ -146,6 +167,17 @@ double randomwalk2_cpp(NumericVector componentR, double PrecisionR){
 }
 
 // [[Rcpp::export]]
+double randomwalk2_cpp2(arma::vec componentR, double PrecisionR){
+  int time = componentR.size();
+  double Sumres = 0;
+  for(int i = 2; i < time; ++i) {
+    double res = pow(componentR[i - 2] - (2 * componentR[i - 1]) + componentR[i], 2);
+    Sumres += res;
+  }
+  return (time - 2) / 2.0 * log(PrecisionR) - PrecisionR / 2.0 * Sumres;
+}
+
+// [[Rcpp::export]]
 double dotproduct_cpp(NumericVector v1, NumericVector v2) {
   int lengthV1 = v1.size();
   double result = 0;
@@ -153,6 +185,20 @@ double dotproduct_cpp(NumericVector v1, NumericVector v2) {
     result += v1[i] * v2[i];
   }
   return result;
+}
+
+// [[Rcpp::export]]
+NumericVector dotproduct2_cpp(NumericMatrix z, NumericVector v1) {
+  int lengthV1 = v1.size();
+  NumericVector newvec(lengthV1);
+  for (int i = 0; i < lengthV1 ; ++i) {
+    double result = 0;
+    for(int j = 0; j < lengthV1 ; ++j){
+      result += v1[j] * z(j, i);
+    }
+    newvec[i] = result;
+  }
+  return newvec;
 }
 
 // [[Rcpp::export]]
@@ -185,6 +231,17 @@ double seasonalComp2_cpp(NumericVector x, double y, NumericMatrix z){
 }
 
 // [[Rcpp::export]]
+double seasonalComp2_cpp2(const arma::vec& x, double y, const arma::mat& z) {
+  arma::uword n = x.n_elem;
+  double sumC = arma::accu(x);
+  arma::vec x_new = arma::join_vert(x.head(n-1), arma::vec(1).fill(-sumC));
+
+  double result = ((n - 1) / 2.0 ) * (std::log(y) - std::log(2 * M_PI)) - 0.5 * y * arma::as_scalar(x_new.t() * z * x_new);
+
+  return result;
+}
+
+// [[Rcpp::export]]
 double logIGMRF1_cpp(NumericVector x, double y, NumericMatrix z, int rankdef){
   int n = z.nrow();
   double sumC = 0;
@@ -198,8 +255,19 @@ double logIGMRF1_cpp(NumericVector x, double y, NumericMatrix z, int rankdef){
   return result;
 }
 
-//Fast PMF computation
 // [[Rcpp::export]]
+double logIGMRF1_cpp2(const arma::vec& x, double y, const arma::mat& z, int rankdef) {
+  arma::uword n = x.n_elem;
+  double sumC = arma::accu(x);
+  arma::vec x_new = arma::join_vert(x.head(n-1), arma::vec(1).fill(-sumC));
+
+  double result = ((n - rankdef) / 2.0 ) * (std::log(y) - std::log(2 * M_PI)) - 0.5 * y * arma::as_scalar(x_new.t() * z * x_new);
+
+  return result;
+}
+
+//Fast PMF computation
+/// [[Rcpp::export]]
 double dpois_cpp(int y, double lambda){
   if(lambda <= 0){
     return R_NegInf;
@@ -543,11 +611,13 @@ double multGeneralLoglikelihood_cpp2(IntegerVector y, int ndept, int time, int n
       NumericMatrix prodEmission(time, nstate);
       for(int n = 0; n < nstate; ++n){
         for(int k = 0; k < nstrain; ++k){
+          NumericVector newB(nstrain);
+          newB[k] = B[k];
           if(y[k * ndept * time + i * time + 0] == -1){
             prodEmission(0, n) += 0;
           }else{
 //            prodEmission(0, n) = prodEmission(0, n) + dpois_cpp(y[k * ndept * time + i * time + 0], e_it(i, 0) * exp(a_k[k] + r[0] + s[0] + u[i] + dotproduct_cpp(B, Bits(n, _))));
-            prodEmission(0, n) = prodEmission(0, n) + R::dpois(y[k * ndept * time + i * time + 0], e_it(i, 0) * exp(a_k[k] + r[0] + s[0] + u[i] + dotproduct_cpp(B, Bits(n, _))), true);
+            prodEmission(0, n) = prodEmission(0, n) + R::dpois(y[k * ndept * time + i * time + 0], e_it(i, 0) * exp(a_k[k] + r[0] + s[0] + u[i] + dotproduct_cpp(newB, Bits(n, _))), true);
           }
         }
       }
@@ -558,11 +628,13 @@ double multGeneralLoglikelihood_cpp2(IntegerVector y, int ndept, int time, int n
         int month_index = t % 12;
         for(int n = 0; n < nstate; ++n){
           for(int k = 0; k < nstrain; ++k){
+            NumericVector newB(nstrain);
+            newB[k] = B[k];
             if(y[k * ndept * time + i * time + t] == -1){
               prodEmission(t, n) += 0;
             }else{
 //              prodEmission(t, n) = prodEmission(t, n) + dpois_cpp(y[k * ndept * time + i * time + t], e_it(i, t) * exp(a_k[k] + r[t] + s[month_index] + u[i] + dotproduct_cpp(B, Bits(n, _))));
-              prodEmission(t, n) = prodEmission(t, n) + R::dpois(y[k * ndept * time + i * time + t], e_it(i, t) * exp(a_k[k] + r[t] + s[month_index] + u[i] + dotproduct_cpp(B, Bits(n, _))), true);
+              prodEmission(t, n) = prodEmission(t, n) + R::dpois(y[k * ndept * time + i * time + t], e_it(i, t) * exp(a_k[k] + r[t] + s[month_index] + u[i] + dotproduct_cpp(newB, Bits(n, _))), true);
             }
           }
         }
@@ -656,6 +728,24 @@ double rcpp_dmvn(NumericVector x, NumericVector u, NumericMatrix m){
 }
 
 // [[Rcpp::export]]
+double rcpp_dmvn2(const arma::vec& x, const arma::vec& mu, const arma::mat& sigma) {
+  // Ensure x is a row (1 × d) matrix
+  arma::mat X(1, x.n_elem, arma::fill::none);
+  X.row(0) = x.t();  // transpose vec → row
+
+  Environment pkg = Environment::namespace_env("mvnfast");
+  Function f = pkg["dmvn"];
+
+  return Rcpp::as<double>(
+    f(_["X"] = Rcpp::wrap(X),
+      _["mu"] = Rcpp::wrap(mu),
+      _["sigma"] = Rcpp::wrap(sigma),
+      _["log"] = true)
+  );
+}
+
+
+// [[Rcpp::export]]
 NumericMatrix rcpp_updateCov(NumericMatrix C, NumericVector x, int n, NumericVector xbar){
   // Obtaining namespace of mvnfast package
   Environment pkg = Environment::namespace_env("onlinePCA");
@@ -663,6 +753,18 @@ NumericMatrix rcpp_updateCov(NumericMatrix C, NumericVector x, int n, NumericVec
   Function f = pkg["updateCovariance"];
   // Executing updateCovariance
   return f(C, x, n, xbar);
+}
+
+// [[Rcpp::export]]
+arma::mat chol_cpp(const arma::mat& X) {
+  // Access base namespace (where chol lives)
+  Rcpp::Environment base = Rcpp::Environment::base_env();
+  // Get the chol function
+  Rcpp::Function f = base["chol"];
+  // Call chol(X) in R
+  Rcpp::NumericMatrix res = f(Rcpp::wrap(X));
+  // Convert result back to Armadillo matrix
+  return Rcpp::as<arma::mat>(res);
 }
 
 // [[Rcpp::export]]
@@ -1322,6 +1424,502 @@ NumericMatrix multInfer_cpp(IntegerVector y, NumericMatrix e_it, int nstrain, in
       currentzigmaU = lambdaU * optconstantU * tempzigmaU;
     }
     if(i % 1 == 0) Rcpp::Rcout << "Iteration: " << i << std::endl;
+  }
+  return MC_chain;
+}
+
+
+// [[Rcpp::export]]
+List gradmultstrainLoglikelihood2_cpp(arma::cube y, arma::mat e_it, int nstrain, arma::vec r, arma::vec s,
+                                      arma::vec u, NumericMatrix Gamma, NumericVector B, NumericMatrix Bits, arma::vec a_k,
+                                      int Model, arma::mat Q_r, arma::mat Q_s, arma::mat Q_u){
+
+  int ndept = e_it.n_rows;
+  int time = e_it.n_cols;
+  int nstate = intPower(2, nstrain);
+
+if(Model == 0){
+  arma::uvec month_indexes(time);
+  for (int t = 0; t < time; t++) {
+    month_indexes(t) = (t % 12);
+  }
+  arma::mat r_mat = arma::repmat(r.t(), ndept, 1);
+
+  arma::vec s_sub = s.elem(month_indexes);
+  arma::mat s_mat = arma::repmat(s_sub.t(), ndept, 1);
+
+  arma::mat u_mat = arma::repmat(u, 1, time);
+
+  arma::mat log_risk = r_mat + s_mat + u_mat;
+
+  arma::mat poisMean(ndept, time, arma::fill::zeros);
+  arma::cube allPoisMean(ndept, time, nstrain, arma::fill::zeros);
+  arma::mat delta(ndept, time, arma::fill::zeros);
+
+  for (int k = 0; k < nstrain; ++k) {
+    arma::mat lambda = e_it % arma::exp(log_risk + a_k[k]);
+    delta   += y.slice(k) - lambda;
+    poisMean += lambda;
+    allPoisMean.slice(k) = lambda;
+  }
+
+  // compute log-likelihood
+  double loglike = 0.0;
+  for (int k = 0; k < nstrain; ++k){
+    arma::mat Y = y.slice(k);
+    arma::mat Lambda = allPoisMean.slice(k);
+    arma::mat safeLambda = Lambda;
+    safeLambda.transform( [](double val) { return (val <= 0) ? 1e-12 : val; } );
+    loglike += arma::accu(Y % arma::log(safeLambda) - Lambda - lgamma(Y + 1));
+    }
+
+  // Temporal trend r gradients
+  arma::vec grad_r = arma::sum(delta, 0).t() - Q_r * r;
+  arma::mat diag_pois_colsum = arma::diagmat(arma::sum(poisMean, 0));
+  arma::mat cov_r = arma::inv_sympd(diag_pois_colsum + Q_r + arma::eye(time, time) * 1e-8);
+
+  // Seasonal s gradients
+  arma::vec grad_s(12, arma::fill::zeros);
+  arma::vec fishervec_s(12, arma::fill::zeros);
+
+  for (int month_index = 0; month_index < 12; ++month_index) {
+    for (int t = 0; t < time; ++t) {
+      if ((t % 12) == month_index) {
+        grad_s(month_index)     += arma::accu(delta.col(t));
+        fishervec_s(month_index)+= arma::accu(poisMean.col(t));
+      }
+    }
+  }
+  grad_s -= Q_s * s;
+  arma::mat cov_s = arma::inv_sympd(arma::diagmat(fishervec_s) + Q_s);
+
+
+  // Spatial u gradients
+  arma::vec grad_u = arma::sum(delta, 1) - Q_u * u;
+
+  return List::create(
+    Named("loglike") = loglike,
+    Named("grad_r") = grad_r,
+    Named("grad_s") = grad_s,
+    Named("grad_u") = grad_u,
+    Named("cov_r") = cov_r,
+    Named("cov_s") = cov_s
+  );
+    }else{
+
+      double loglike_total = 0;
+
+      NumericMatrix jointTPM = JointTransitionMatrix_cpp(Gamma, nstrain);
+      arma::mat armajointTPM = Rcpp::as<arma::mat>(jointTPM);
+      arma::mat safeTPM = armajointTPM;
+      safeTPM.transform([](double val){ return (val <= 0) ? 1e-12 : val; });
+      arma::mat logjointTPM = arma::log(safeTPM);
+
+      arma::cube E_lambda_itk(ndept, time, nstrain, arma::fill::zeros);
+
+      for(int i = 0; i < ndept; ++i){
+        arma::mat logEmissions(time, nstate, arma::fill::zeros);
+        arma::cube lambda_array(time, nstate, nstrain, arma::fill::zeros);
+        for(int t = 0; t < time; ++t){
+          int month_index = t % 12;
+          for(int n = 0; n < nstate; ++n){
+            for(int k = 0; k < nstrain; ++k){
+              NumericVector newB(nstrain);
+              newB[k] = B[k];
+              lambda_array(t, n, k) = e_it(i, t) * std::exp(a_k[k] + r[t] + s[month_index] + u[i] + dotproduct_cpp(newB, Bits(n, _)));
+            }
+            arma::vec y_vec = y.tube(i, t);
+            arma::vec lambda_vec = lambda_array.tube(t, n);
+            arma::vec safelambda_vec = lambda_vec;
+            safelambda_vec.transform( [](double val) { return (val <= 0) ? 1e-12 : val; });
+            logEmissions(t, n) = arma::accu(y_vec % arma::log(lambda_vec) - lambda_vec - lgamma(y_vec + 1));
+          }
+        }
+        //forward pass
+        NumericVector init_density = state_dist_cpp2(jointTPM);
+        arma::vec armainit_density = Rcpp::as<arma::vec>(init_density);
+        arma::vec safeinitdensity = init_density;
+        safeinitdensity.transform( [](double val) { return (val <= 0) ? 1e-12 : val; });
+        arma::vec loginit_density = arma::log(safeinitdensity);
+        arma::mat logalpha(time, nstate);
+
+        logalpha.row(0) = loginit_density.t() + logEmissions.row(0);
+        for(int t = 1; t < time; ++t){
+          logalpha.row(t) = (logVecMatMult2(logalpha.row(t-1).t(), logjointTPM) + logEmissions.row(t).t()).t();
+        }
+
+        double loglike_i = logSumExp_cpp2(logalpha.row(time-1).t());
+        loglike_total += loglike_i;
+
+        //backward pass
+        arma::mat logbeta(time, nstate, arma::fill::zeros);
+        arma::mat logjointTPM_t = logjointTPM.t();
+
+        for(int t = time - 2; t >= 0; --t){
+          arma::vec vec = (logEmissions.row(t + 1) + logbeta.row(t + 1)).t();
+          logbeta.row(t) = logVecMatMult2(vec, logjointTPM_t).t();
+        }
+        //Marginal posterior probabilities
+        arma::mat logP_s = (logalpha + logbeta) - loglike_i;
+        arma::mat P_s = arma::exp(logP_s);
+
+        for(int t = 0; t < time; ++t){
+          for(int k = 0; k < nstrain; ++k){
+            arma::vec newlambtube(nstate);
+            for(int n = 0; n < nstate; ++n){
+              newlambtube[n] = lambda_array(t, n, k);
+            }
+            arma::vec probvec = P_s.row(t).t();
+            E_lambda_itk(i, t, k) = arma::dot(probvec, newlambtube);
+          }
+        }
+      }
+
+      arma::mat poisMean(ndept, time, arma::fill::zeros);
+      arma::mat delta(ndept, time, arma::fill::zeros);
+
+      for (int k = 0; k < nstrain; ++k){
+        arma::mat currentY = y.slice(k);
+        arma::mat currentE_lambda = E_lambda_itk.slice(k);
+        delta   += (currentY - currentE_lambda);
+        poisMean += currentE_lambda;
+      }
+
+      // Temporal trend r gradients
+      arma::vec grad_r = arma::sum(delta, 0).t() - Q_r * r;
+      arma::mat diag_pois_colsum = arma::diagmat(arma::sum(poisMean, 0));
+      arma::mat cov_r = arma::inv_sympd(diag_pois_colsum + Q_r + arma::eye(time, time) * 1e-8);
+
+      // Seasonal s gradients
+      arma::vec grad_s(12, arma::fill::zeros);
+      arma::vec fishervec_s(12, arma::fill::zeros);
+
+      for(int month_index = 0; month_index < 12; ++month_index){
+        for(int t = 0; t < time; ++t){
+          if((t % 12) == month_index){
+            grad_s(month_index)     += arma::accu(delta.col(t));
+            fishervec_s(month_index)+= arma::accu(poisMean.col(t));
+          }
+        }
+      }
+      grad_s -= Q_s * s;
+      arma::mat cov_s = arma::inv_sympd(arma::diagmat(fishervec_s) + Q_s);
+
+
+      // Spatial u gradients
+      arma::vec grad_u = arma::sum(delta, 1) - Q_u * u;
+
+      return List::create(
+        Named("loglike") = loglike_total,
+        Named("grad_r") = grad_r,
+        Named("grad_s") = grad_s,
+        Named("grad_u") = grad_u,
+        Named("cov_r") = cov_r,
+        Named("cov_s") = cov_s
+      );
+  }
+}
+
+
+//MALA and Riemann Manifold MALA - MCMC updates
+// [[Rcpp::export]]
+arma::mat MMALA_cpp(arma::cube y, arma::mat e_it, int Model, NumericMatrix Bits, arma::vec CrudeR,
+                            arma::vec CrudeS, arma::vec CrudeU, arma::mat RW2PrecMat, arma::mat RW1PrecMat,
+                            arma::mat Ru, int rankdef, int independentChains, int num_iteration, double meanR, List step_sizes){
+
+  int time = e_it.n_cols;
+  int ndept = e_it.n_rows;
+  int nstrain = Bits.ncol();
+  arma::mat MC_chain(num_iteration, 5+time+12+ndept+nstrain+nstrain+1);
+  //initials
+  MC_chain(0, 0) = R::runif(0,1);
+  MC_chain(0, 1) = R::runif(0,1);
+  MC_chain(0, 2) = 1/var(CrudeR);
+  MC_chain(0, 3) = 1/var(CrudeS);
+  MC_chain(0, 4) = 1/var(CrudeU);
+  MC_chain(0, 5+time+12+ndept+nstrain+nstrain) = state_dist_cpp(MC_chain(0,0), MC_chain(0,1))[1];
+  MC_chain(arma::span(0,0), arma::span(5, 5+time-1)) = CrudeR.t();
+  MC_chain(arma::span(0,0), arma::span(5+time, 5+time+12-1)) = CrudeS.t();
+  MC_chain(arma::span(0,0), arma::span(5+time+12, 5+time+12+ndept-1)) = CrudeU.t();
+  MC_chain(arma::span(0,0), arma::span(5+time+12+ndept, 5+time+12+ndept+nstrain-1)).zeros();
+  MC_chain(arma::span(0,0), arma::span(5+time+12+ndept+nstrain, 5+time+12+ndept+2*nstrain-1)).fill(meanR);
+
+  arma::mat Q_r = MC_chain(0,2) * RW2PrecMat;
+  arma::mat Q_s = MC_chain(0,3) * RW1PrecMat;
+  arma::mat Q_u = MC_chain(0,4) * Ru;
+
+  NumericMatrix Gmat = makematrix_cpp(MC_chain(0, 0), MC_chain(0, 1));
+  NumericVector B(nstrain);
+  arma::vec a_k(nstrain);
+  a_k = MC_chain(arma::span(0,0), arma::span(5+time+12+ndept+nstrain, 5+time+12+ndept+nstrain+nstrain-1)).t();
+
+  List Allquantities = gradmultstrainLoglikelihood2_cpp(y, e_it, nstrain, CrudeR, CrudeS, CrudeU, Gmat,
+                                                        B, Bits, a_k, Model, Q_r, Q_s, Q_u);
+  double likelihoodcurrent = Allquantities["loglike"];
+  double KappaR = MC_chain(0, 2);
+  double KappaS = MC_chain(0, 3);
+  double KappaU = MC_chain(0, 4);
+
+  double priorcurrentRcomps = randomwalk2_cpp2(CrudeR, KappaR);
+  double priorcurrentScomps = seasonalComp2_cpp2(CrudeS, KappaS, RW1PrecMat);
+  double priorcurrentUcomps = logIGMRF1_cpp2(CrudeU, KappaU, Ru, rankdef);
+
+  double priorproposedRcomps = 0;
+  double priorproposedScomps = 0;
+  double priorproposedUcomps = 0;
+
+  List grad_current = List::create(Named("grad_r")=Allquantities["grad_r"], Named("grad_s")=Allquantities["grad_s"], Named("grad_u")=Allquantities["grad_u"], Named("cov_r")=Allquantities["cov_r"], Named("cov_s")=Allquantities["cov_s"]);
+
+  arma::vec currentR(time);
+  arma::vec currentS(12);
+  arma::vec currentU(ndept);
+
+  double likelihoodproposed = 0;
+  double q_prop = 0;
+  double q_curr = 0;
+
+  List grad_proposed = List::create(Named("grad_r")=Allquantities["grad_r"], Named("grad_s")=Allquantities["grad_s"], Named("grad_u")=Allquantities["grad_u"], Named("cov_r")=Allquantities["cov_r"], Named("cov_s")=Allquantities["cov_s"]);
+
+  //Start MCMC sampling
+  for(int i = 1; i < num_iteration; ++i){
+
+    currentR = MC_chain(arma::span(i-1,i-1), arma::span(5, 5+time-1)).t();
+    currentS = MC_chain(arma::span(i-1,i-1), arma::span(5+time, 5+time+12-1)).t();
+    currentU = MC_chain(arma::span(i-1,i-1), arma::span(5+time+12, 5+time+12+ndept-1)).t();
+
+    //Kappa_r update
+    MC_chain(i, 2) = R::rgamma(1 + (time-2)/2.0, 1.0/(0.0001 + arma::as_scalar(currentR.t() * RW2PrecMat * currentR)/2.0));
+
+    //Kappa_s update
+    MC_chain(i, 3) = R::rgamma(1 + 11/2.0, 1.0/(0.001 + arma::as_scalar(currentS.t() * RW1PrecMat * currentS)/2.0));
+
+    //kappa_u update
+    MC_chain(i, 4) = R::rgamma(1 + (ndept-rankdef)/2.0, 1.0/(0.01 + arma::as_scalar(currentU.t() * Ru * currentU)/2.0));
+
+    KappaR = MC_chain(i, 2);
+    KappaS = MC_chain(i, 3);
+    KappaU = MC_chain(i, 4);
+
+    Q_r = KappaR * RW2PrecMat;
+    Q_s = KappaS * RW1PrecMat;
+    Q_u = KappaU * Ru;
+
+    //Update s
+    double steps_s = as<double>(step_sizes["s"]);
+    arma::vec grad_cs = grad_current["grad_s"];
+    arma::mat cov_cs  = grad_current["cov_s"];
+    arma::vec Mmatcs = cov_cs * grad_cs;
+
+    arma::vec eps_s = Rcpp::rnorm(12);
+    arma::vec proposedScomps = currentS + 0.5 * pow(steps_s,2) * Mmatcs + steps_s * arma::chol(cov_cs) * eps_s;
+    proposedScomps = proposedScomps - mean(proposedScomps);
+
+    Allquantities = gradmultstrainLoglikelihood2_cpp(y, e_it, nstrain, currentR, proposedScomps, currentU, Gmat,
+                                                          B, Bits, a_k, Model, Q_r, Q_s, Q_u);
+
+    likelihoodproposed = as<double>(Allquantities["loglike"]);
+
+    grad_proposed = List::create(Named("grad_r")=Allquantities["grad_r"], Named("grad_s")=Allquantities["grad_s"], Named("grad_u")=Allquantities["grad_u"], Named("cov_r")=Allquantities["cov_r"], Named("cov_s")=Allquantities["cov_s"]);
+
+    arma::vec grad_ps = grad_proposed["grad_s"];
+    arma::mat cov_ps  = grad_proposed["cov_s"];
+    arma::vec Mmatps = cov_ps * grad_ps;
+
+    q_prop = rcpp_dmvn2(proposedScomps, currentS + 0.5 * pow(steps_s,2) * Mmatcs, pow(steps_s,2) * cov_cs);
+    q_curr = rcpp_dmvn2(currentS, proposedScomps + 0.5 * pow(steps_s,2) * Mmatps, pow(steps_s,2) * cov_ps);
+    priorproposedScomps = seasonalComp2_cpp2(proposedScomps, KappaS, RW1PrecMat);
+
+    double log_alpha_s = likelihoodproposed + priorproposedScomps + q_curr - likelihoodcurrent - priorcurrentScomps - q_prop;
+
+    if(std::log(R::runif(0, 1)) < log_alpha_s){
+      MC_chain(arma::span(i,i), arma::span(5+time, 5+time+11)) = proposedScomps.t();
+      currentS = proposedScomps;
+      likelihoodcurrent = likelihoodproposed;
+      priorcurrentScomps = priorproposedScomps;
+      grad_current = grad_proposed;
+    }else{
+        MC_chain(arma::span(i,i), arma::span(5+time, 5+time+11)) = currentS.t();
+  }
+
+    //Update r
+    double steps_r = as<double>(step_sizes["r"]);
+    arma::vec grad_cr = grad_current["grad_r"];
+    arma::mat cov_cr  = grad_current["cov_r"];
+    arma::vec Mmatcr = cov_cr * grad_cr;
+
+    arma::vec eps_r = Rcpp::rnorm(time);
+    arma::vec proposedRcomps = currentR + 0.5 * pow(steps_r,2) * Mmatcr + steps_r * arma::chol(cov_cr) * eps_r;
+    proposedRcomps = proposedRcomps - mean(proposedRcomps);
+
+    Allquantities = gradmultstrainLoglikelihood2_cpp(y, e_it, nstrain, proposedRcomps, currentS, currentU, Gmat,
+                                                     B, Bits, a_k, Model, Q_r, Q_s, Q_u);
+
+    likelihoodproposed = as<double>(Allquantities["loglike"]);
+
+    grad_proposed = List::create(Named("grad_r")=Allquantities["grad_r"], Named("grad_s")=Allquantities["grad_s"], Named("grad_u")=Allquantities["grad_u"], Named("cov_r")=Allquantities["cov_r"], Named("cov_s")=Allquantities["cov_s"]);
+
+    arma::vec grad_pr = grad_proposed["grad_r"];
+    arma::mat cov_pr  = grad_proposed["cov_r"];
+    arma::vec Mmatpr = cov_pr * grad_pr;
+
+    q_prop = rcpp_dmvn2(proposedRcomps, currentR + 0.5 * pow(steps_r,2) * Mmatcr, pow(steps_r,2) * cov_cr);
+    q_curr = rcpp_dmvn2(currentR, proposedRcomps + 0.5 * pow(steps_r,2) * Mmatpr, pow(steps_r,2) * cov_pr);
+    priorproposedRcomps = randomwalk2_cpp2(proposedRcomps, KappaR);
+
+    double log_alpha_r = likelihoodproposed + priorproposedRcomps + q_curr - likelihoodcurrent - priorcurrentRcomps - q_prop;
+
+    if(std::log(R::runif(0, 1)) < log_alpha_r){
+      MC_chain(arma::span(i,i), arma::span(5, 5+time-1)) = proposedRcomps.t();
+      currentR = proposedRcomps;
+      likelihoodcurrent = likelihoodproposed;
+      priorcurrentRcomps = priorproposedRcomps;
+      grad_current = grad_proposed;
+    }else{
+      MC_chain(arma::span(i,i), arma::span(5, 5+time-1)) = currentR.t();
+    }
+
+    //Update u
+    double steps_u = as<double>(step_sizes["u"]);
+    arma::vec eps_u = Rcpp::rnorm(ndept);
+    arma::vec grad_cu = grad_current["grad_u"];
+
+    arma::vec proposedUcomps = currentU + 0.5 * pow(steps_u,2) * grad_cu + steps_u * eps_u;
+    proposedUcomps = proposedUcomps - mean(proposedUcomps);
+
+    Allquantities = gradmultstrainLoglikelihood2_cpp(y, e_it, nstrain, currentR, currentS, proposedUcomps, Gmat,
+                                                     B, Bits, a_k, Model, Q_r, Q_s, Q_u);
+    likelihoodproposed = as<double>(Allquantities["loglike"]);
+
+    grad_proposed = List::create(Named("grad_r")=Allquantities["grad_r"], Named("grad_s")=Allquantities["grad_s"], Named("grad_u")=Allquantities["grad_u"], Named("cov_r")=Allquantities["cov_r"], Named("cov_s")=Allquantities["cov_s"]);
+
+    arma::vec grad_pu = grad_proposed["grad_u"];
+
+    q_prop = rcpp_dmvn2(proposedUcomps, currentU + 0.5 * pow(steps_u,2) * grad_cu, pow(steps_u,2) * arma::eye(ndept, ndept));
+    q_curr = rcpp_dmvn2(currentU, proposedUcomps + 0.5 * pow(steps_u,2) * grad_pu, pow(steps_u,2) * arma::eye(ndept, ndept));
+    priorproposedUcomps = logIGMRF1_cpp2(proposedUcomps, KappaU, Ru, rankdef);
+
+    double log_alpha_u = likelihoodproposed + priorproposedUcomps + q_curr - likelihoodcurrent - priorcurrentUcomps - q_prop;
+
+    if(std::log(R::runif(0, 1)) < log_alpha_u){
+      MC_chain(arma::span(i,i), arma::span(5+time+12, 5+time+12+ndept-1)) = proposedUcomps.t();
+      currentU = proposedUcomps;
+      likelihoodcurrent = likelihoodproposed;
+      priorcurrentUcomps = priorproposedUcomps;
+      grad_current = grad_proposed;
+    }else{
+      MC_chain(arma::span(i,i), arma::span(5+time+12, 5+time+12+ndept-1)) = currentU.t();
+    }
+
+    // update Betas
+    if(Model == 0){
+      arma::vec constB(nstrain, arma::fill::zeros);
+      MC_chain(arma::span(i,i), arma::span(5+time+12+ndept, 5+time+12+ndept+nstrain-1)) = constB.t();
+      MC_chain(arma::span(i,i), arma::span(0, 1)) = MC_chain(arma::span(i-1,i-1), arma::span(0, 1));
+    }else{
+      NumericVector proposedB(nstrain);
+      double priorcurrentB = 0.0;
+      double priorproposedB = 0.0;
+      for (int j = 0; j < nstrain; ++j) {
+        proposedB[j] = std::abs(R::rnorm(B[j], 0.03));
+        priorcurrentB += R::dgamma(B[j], 2, 1.0 / 2.0, true);
+        priorproposedB += R::dgamma(proposedB[j], 2, 1.0 / 2.0, true);
+      }
+
+      Allquantities = gradmultstrainLoglikelihood2_cpp(y, e_it, nstrain, currentR, currentS, currentU, Gmat,
+                                                       proposedB, Bits, a_k, Model, Q_r, Q_s, Q_u);
+      grad_proposed = List::create(Named("grad_r")=Allquantities["grad_r"], Named("grad_s")=Allquantities["grad_s"], Named("grad_u")=Allquantities["grad_u"], Named("cov_r")=Allquantities["cov_r"], Named("cov_s")=Allquantities["cov_s"]);
+
+      likelihoodproposed = as<double>(Allquantities["loglike"]);
+
+      double log_alpha_B = likelihoodproposed + priorproposedB - likelihoodcurrent - priorcurrentB;
+
+      if(std::log(R::runif(0, 1)) < log_alpha_B) {
+        for (int b = 0; b < nstrain; ++b) {
+          MC_chain(i, 5 + time + 12 + ndept + b) = proposedB[b];
+          B[b] = proposedB[b];
+        }
+        likelihoodcurrent = likelihoodproposed;
+        grad_current = grad_proposed;
+      } else {
+        for (int b = 0; b < nstrain; ++b) {
+          MC_chain(i, 5 + time + 12 + ndept + b) = B[b];
+        }
+      }
+
+      //update Gamma's
+      NumericVector tempGs(2);
+      NumericVector proposedGs(2);
+      NumericVector currentGs(2);
+      double priorcurrentGs = 0.0;
+      double priorproposedGs = 0.0;
+      for(int g = 0; g < 2; ++g){
+        currentGs[g] = MC_chain(i-1, g);
+        tempGs[g] = std::abs(R::rnorm(currentGs[g], 0.1));
+        if(tempGs[0]>1){
+          proposedGs[0]=2-tempGs[0];
+        }else{
+          proposedGs[0]=tempGs[0];
+        }
+        if(tempGs[1]>1){
+          proposedGs[1]=2-tempGs[1];
+        }else{
+          proposedGs[1]=tempGs[1];
+        }
+        priorcurrentGs += R::dbeta(currentGs[g], 2.0, 2.0, true);
+        priorproposedGs += R::dbeta(proposedGs[g], 2.0, 2.0, true);
+      }
+      Gmat = makematrix_cpp(proposedGs[0], proposedGs[1]);
+
+      Allquantities = gradmultstrainLoglikelihood2_cpp(y, e_it, nstrain, currentR, currentS, currentU, Gmat,
+                                                       B, Bits, a_k, Model, Q_r, Q_s, Q_u);
+      grad_proposed = List::create(Named("grad_r")=Allquantities["grad_r"], Named("grad_s")=Allquantities["grad_s"], Named("grad_u")=Allquantities["grad_u"], Named("cov_r")=Allquantities["cov_r"], Named("cov_s")=Allquantities["cov_s"]);
+
+      likelihoodproposed = as<double>(Allquantities["loglike"]);
+
+      double log_alpha_G = likelihoodproposed + priorproposedGs - likelihoodcurrent - priorcurrentGs;
+
+      if(std::log(R::runif(0,1)) < log_alpha_G){
+        MC_chain(i, 0) = proposedGs[0];
+        MC_chain(i, 1) = proposedGs[1];
+        likelihoodcurrent = likelihoodproposed;
+        grad_current = grad_proposed;
+      }
+      else{
+        MC_chain(i, 0) = currentGs[0];
+        MC_chain(i, 1) = currentGs[1];
+      }
+    }
+      MC_chain(i, 5+time+12+ndept+nstrain+nstrain) = state_dist_cpp(MC_chain(i, 0), MC_chain(i, 1))[1];
+
+
+    // update a_k's
+    arma::vec proposeda_k(nstrain);
+    for (int j = 0; j < nstrain; ++j) {
+      proposeda_k[j] = R::rnorm(a_k[j], 0.03);
+    }
+
+    Allquantities = gradmultstrainLoglikelihood2_cpp(y, e_it, nstrain, currentR, currentS, currentU, Gmat,
+                                                     B, Bits, proposeda_k, Model, Q_r, Q_s, Q_u);
+    grad_proposed = List::create(Named("grad_r")=Allquantities["grad_r"], Named("grad_s")=Allquantities["grad_s"], Named("grad_u")=Allquantities["grad_u"], Named("cov_r")=Allquantities["cov_r"], Named("cov_s")=Allquantities["cov_s"]);
+
+    likelihoodproposed = as<double>(Allquantities["loglike"]);
+
+    double log_alpha_ak = likelihoodproposed - likelihoodcurrent;
+
+    if(std::log(R::runif(0, 1)) < log_alpha_ak) {
+      for (int a = 0; a < nstrain; ++a) {
+        MC_chain(i, 5 + time + 12 + ndept + nstrain + a) = proposeda_k[a];
+        a_k[a] = proposeda_k[a];
+      }
+      likelihoodcurrent = likelihoodproposed;
+      grad_current = grad_proposed;
+    } else {
+      for (int a = 0; a < nstrain; ++a) {
+        MC_chain(i, 5 + time + 12 + ndept + nstrain + a) = a_k[a];
+      }
+    }
+    //Rcpp::Rcout << "a_k update" << i << std::endl;
+    if(i % 1000 == 0) Rcpp::Rcout << "Iteration: " << i << std::endl;
   }
   return MC_chain;
 }

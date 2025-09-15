@@ -142,10 +142,12 @@ functions{
   for(n in 1:nstate){
     prodEmission[n] = 0;
   for(k in 1:nstrain){
+    vector[nstrain] newB = rep_vector(0.0, nstrain);
+    newB[k] = B[k];
   if(y[(k-1) * ndept * time + (i-1) * time + 1] == -1){
     prodEmission[n] += 0;
     }else{
-    prodEmission[n] += poisson_lpmf(y[(k-1) * ndept * time + (i-1) * time + 1] | e_it[i, 1] * exp(a_k[k] + r[1] + s[1] + u[i] + dot_product(B, Bits[n, ])));
+    prodEmission[n] += poisson_lpmf(y[(k-1) * ndept * time + (i-1) * time + 1] | e_it[i, 1] * exp(a_k[k] + r[1] + s[1] + u[i] + dot_product(newB, Bits[n, ])));
     }
   }
 }
@@ -157,10 +159,12 @@ functions{
         for(n in 1:nstate){
           prodEmission[n] = 0;
         for(k in 1:nstrain){
+          vector[nstrain] newB = rep_vector(0.0, nstrain);
+          newB[k] = B[k];
         if(y[(k-1) * ndept * time + (i-1) * time + t] == -1){
           prodEmission[n] += 0;
           }else{
-         prodEmission[n] += poisson_lpmf(y[(k-1) * ndept * time + (i-1) * time + t] | e_it[i, t] * exp(a_k[k] + r[t] + s[month_index] + u[i] + dot_product(B, Bits[n, ])));
+         prodEmission[n] += poisson_lpmf(y[(k-1) * ndept * time + (i-1) * time + t] | e_it[i, t] * exp(a_k[k] + r[t] + s[month_index] + u[i] + dot_product(newB, Bits[n, ])));
          }
         }
       }

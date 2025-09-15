@@ -418,7 +418,7 @@ Heatmaps<- function(all.infobjects, all.data, adjmat){
 }
 
 
-multstraindatafig2<- function(y, maxAll){
+multstraindatafig2<- function(y, maxAll, Modeltype = ""){
   nstrain<- dim(y)[3]
   maxY<- maxAll
   plotlists<- list()
@@ -471,11 +471,14 @@ multstraindatafig2<- function(y, maxAll){
   }
   row_1<- cowplot::plot_grid(plotlist = plotlists[1:3], ncol = 3, labels = c("A", "B", "C"), label_size = 17)
   row_2<- cowplot::plot_grid(plotlist = plotlists[4:5], ncol = 3, labels = c("D", "E"), label_size = 17, rel_widths = c(1, 1.35, 0.65))
-  cowplot::plot_grid(row_1, row_2, nrow = 2)
+  print(cowplot::plot_grid(row_1, row_2, nrow = 2))
+  add_legend(0.6, -0.3, legend=substitute(paste(bold(Modeltype))),
+              col="black",
+             horiz=TRUE, bty='n', cex=3.0)
 }
 
 
-RecoverInf.plot<- function(inf.object, true_r, true_s){
+RecoverInf.plot<- function(inf.object, true_r, true_s, Modeltype=""){
 
   if(is.data.frame(inf.object)){
     rPosterior<- inf.object[, startsWith(colnames(inf.object), "r")]
@@ -515,6 +518,10 @@ RecoverInf.plot<- function(inf.object, true_r, true_s){
   add_legend("topright", legend=c("Truth", "Posterior means"), lty=c(NA, 1),
              pch=c(19, NA), col=c("black", "red"),
              horiz=TRUE, bty='n', cex=1.4)
+  add_legend("topleft", legend=substitute(paste(bold(Modeltype))),
+             col=c("black", "red"),
+             horiz=TRUE, bty='n', cex=1.5)
+
 }
 
 RecoverInfU.plot<- function(inf.object, true_u, burn.in=100){
@@ -572,7 +579,7 @@ RecoverInfU.plot<- function(inf.object, true_u, burn.in=100){
   #           horiz=TRUE, bty='n', cex=1.1)
 }
 
-RecoverInfU_ak.plot<- function(inf.object, true_u, true_a_k, burn.in=100){
+RecoverInfU_ak.plot<- function(inf.object, true_u, true_a_k, Modeltype="", burn.in=100){
 
   nstrain<- length(true_a_k)
     if(!is.data.frame(inf.object)){
@@ -649,7 +656,177 @@ RecoverInfU_ak.plot<- function(inf.object, true_u, true_a_k, burn.in=100){
   add_legend(0.85, 1.15, legend="Truth",
              pch=19, col="black",
              horiz=TRUE, bty='n', cex=1.8)
+  add_legend("topleft", legend=substitute(paste(bold(Modeltype))),
+             col=c("black", "red"),
+             horiz=TRUE, bty='n', cex=1.5)
   #add_legend("topright", legend="Truth",
   #           pch=19, col="black",
   #           horiz=TRUE, bty='n', cex=1.1)
+}
+
+
+RecoverInfUABG.plot<- function(inf.object, true_u, true_a_k, true_B, true_G, Modeltype="", time=60, ndept=9, burn.in=100){
+
+  nstrain<- length(true_a_k)
+  if(!is.data.frame(inf.object)){
+    fullu.draws<- as.data.frame(inf.object$draws(variables = "uconstrained")[,1,])
+    fullak.draws<- as.data.frame(inf.object$draws(variables = "a_k")[,1,])
+    fullB.draws<- as.data.frame(inf.object$draws(variables = "B")[,1,])
+    fullG.draws<- as.data.frame(inf.object$draws(variables = c("G12","G21"))[,1,])
+  }else{
+    fullu.draws<- inf.object[-(1:burn.in), 5+time+12+(1:ndept)]
+    fullak.draws<- inf.object[-(1:burn.in), 5+time+12+ndept+nstrain+(1:nstrain)]
+    fullB.draws<- inf.object[-(1:burn.in), 5+time+12+ndept+(1:nstrain)]
+    fullG.draws<- inf.object[-(1:burn.in), 1:2]
+  }
+
+  thinning<- numeric(floor(nrow(fullu.draws)/10))
+  thinning[1]<- 10
+  for(i in 2:length(thinning)){
+    thinning[i]<- thinning[i-1] + 10
+  }
+  u.draws<- fullu.draws[thinning, ]
+  ak.draws<- fullak.draws[thinning, ]
+  B.draws<- fullB.draws[thinning, ]
+  G.draws<- fullG.draws[thinning, ]
+  sim.u<- true_u
+  sim.ak<- true_a_k
+  sim.B<- true_B
+  sim.G<- true_G
+
+  # Violin plot for spatial components and intercepts
+  spatcomp<- data.frame(value = c(u.draws[, 1], u.draws[, 2], u.draws[, 3], u.draws[, 4],
+                                  u.draws[, 5], u.draws[, 6], u.draws[, 7], u.draws[, 8],
+                                  u.draws[, 9]), group = factor(rep(c("u1", "u2", "u3", "u4", "u5", "u6", "u7", "u8", "u9"), each = nrow(u.draws))))
+  spatcomp$group <- factor(spatcomp$group, levels = unique(spatcomp$group))
+  library(ggplot2)
+  library(RColorBrewer)
+  mycolors <- c(rep(c("blue", "red"), 4), "blue")
+  rfigs<- ggplot(spatcomp, aes(x = group, y = value, fill = group)) +
+    geom_violin(trim = FALSE, alpha = 0.7) +
+    geom_point(x = 1, y = sim.u[1], size = 2, shape = 19) +
+    geom_point(x = 2, y = sim.u[2], size = 2, shape = 19) +
+    geom_point(x = 3, y = sim.u[3], size = 2, shape = 19) +
+    geom_point(x = 4, y = sim.u[4], size = 2, shape = 19) +
+    geom_point(x = 5, y = sim.u[5], size = 2, shape = 19) +
+    geom_point(x = 6, y = sim.u[6], size = 2, shape = 19) +
+    geom_point(x = 7, y = sim.u[7], size = 2, shape = 19) +
+    geom_point(x = 8, y = sim.u[8], size = 2, shape = 19) +
+    geom_point(x = 9, y = sim.u[9], size = 2, shape = 19) +
+    ylim(-0.90, 0.70) +
+    labs(title = "", x = "Location", y = "Value", fill = "") +
+    theme_minimal() +
+    scale_fill_manual(values = mycolors) +
+    theme(axis.title.y = element_text(size=18),
+          axis.title.x = element_text(size=18),
+          axis.text.x = element_text(size=16),
+          axis.text.y = element_text(size=16),
+          legend.title = element_text(size = 18),
+          legend.text = element_text(size = 16),legend.position = "none")
+
+  Acomp<- data.frame(value = c(ak.draws[, 1], ak.draws[, 2], ak.draws[, 3], ak.draws[, 4],
+                                  ak.draws[, 5]), group = factor(rep(c("a1", "a2", "a3", "a4", "a5"), each = nrow(ak.draws))))
+  Acomp$group <- factor(Acomp$group, levels = unique(Acomp$group))
+  mycolors <- c(rep("purple", 5))
+  rfigs2<- ggplot(Acomp, aes(x = group, y = value, fill = group)) +
+    geom_violin(trim = FALSE, alpha = 0.7) +
+    geom_point(x = 1, y = sim.ak[1], size = 2, shape = 19) +
+    geom_point(x = 2, y = sim.ak[2], size = 2, shape = 19) +
+    geom_point(x = 3, y = sim.ak[3], size = 2, shape = 19) +
+    geom_point(x = 4, y = sim.ak[4], size = 2, shape = 19) +
+    geom_point(x = 5, y = sim.ak[5], size = 2, shape = 19) +
+    #ylim(-0.90, 0.70) +
+    labs(title = "", x = "Location", y = "Value", fill = "") +
+    theme_minimal() +
+    scale_x_discrete(labels = c("a1" = expression(a[1]),
+                                "a2" = expression(a[2]),
+                                "a3" = expression(a[3]),
+                                "a4" = expression(a[4]),
+                                "a5" = expression(a[5]))) +
+    scale_fill_manual(values = c(rep("purple", 5)),
+                      labels = c(expression(a[1]),
+                                 expression(a[2]),
+                                 expression(a[3]),
+                                 expression(a[4]),
+                                 expression(a[5])),
+                      name = "True value") +
+    theme(axis.title.y = element_text(size=18),
+          axis.title.x = element_text(size=18),
+          axis.text.x = element_text(size=16),
+          axis.text.y = element_text(size=16),
+          legend.title = element_text(size = 18),
+          legend.text = element_text(size = 16),legend.position = "none")
+
+  Bcomp<- data.frame(value = c(G.draws[, 1], G.draws[, 2], B.draws[, 1], B.draws[, 2], B.draws[, 3], B.draws[, 4],
+                               B.draws[, 5]), group = factor(rep(paste0("B",1:(nstrain+2)), each = nrow(B.draws))))
+  Bcomp$group <- factor(Bcomp$group, levels = unique(Bcomp$group))
+  rfigs3<- ggplot(Bcomp, aes(x = group, y = value, fill = group)) +
+    geom_violin(trim = FALSE, alpha = 0.7) +
+    geom_point(x = 1, y = sim.G[1], size = 2, shape = 19) +
+    geom_point(x = 2, y = sim.G[2], size = 2, shape = 19) +
+    geom_point(x = 3, y = sim.B[1], size = 2, shape = 19) +
+    geom_point(x = 4, y = sim.B[2], size = 2, shape = 19) +
+    geom_point(x = 5, y = sim.B[3], size = 2, shape = 19) +
+    geom_point(x = 6, y = sim.B[4], size = 2, shape = 19) +
+    geom_point(x = 7, y = sim.B[5], size = 2, shape = 19) +
+    #ylim(-0.90, 0.70) +
+    labs(title = "", x = "Location", y = "Value", fill = "") +
+    theme_minimal() +
+    scale_fill_brewer(palette = "Set2") +
+    scale_x_discrete(labels = c("B1" = expression(gamma[0][1]),
+                                "B2" = expression(gamma[1][0]),
+                                "B3" = expression(beta[1]),
+                                "B4" = expression(beta[2]),
+                                "B5" = expression(beta[3]),
+                                "B6" = expression(beta[4]),
+                                "B7" = expression(beta[5]))) +
+    scale_fill_manual(values = c(rep("purple", 7)),
+                      labels = c(expression(gamma[0][1]),
+                                 expression(gamma[1][0]),
+                                 expression(beta[1]),
+                                 expression(beta[2]),
+                                 expression(beta[3]),
+                                 expression(beta[4]),
+                                 expression(beta[5])),
+                      name = "True value") +
+    theme(axis.title.y = element_text(size=18),
+          axis.title.x = element_text(size=18),
+          axis.text.x = element_text(size=16),
+          axis.text.y = element_text(size=16),
+          legend.title = element_text(size = 18),
+          legend.text = element_text(size = 16),legend.position = "none")
+  plotlists<- list(rfigs,rfigs2,rfigs3)
+  print(cowplot::plot_grid(plotlist = plotlists, ncol = 3, labels = c("A", "B", "C"), rel_widths = c(1,0.8,1.2), label_size = 17))
+  add_legend(0.85, 1.15, legend="Truth",
+             pch=19, col="black",
+             horiz=TRUE, bty='n', cex=1.8)
+  add_legend("topleft", legend=substitute(paste(bold(Modeltype))),
+             horiz=TRUE, bty='n', cex=1.5)
+  #add_legend("topright", legend="Truth",
+  #           pch=19, col="black",
+  #           horiz=TRUE, bty='n', cex=1.1)
+}
+
+Outbreakfigures<- function(matrix_list, BitsMatrix, labelLetter=""){
+  time<- ncol(matrix_list[[1]])
+  ndept<- nrow(matrix_list[[1]])
+  pdf(paste0("Alloutbreaks",labelLetter,".pdf"), paper="special", width=24,height=24, pointsize=12)
+  par(mfrow=c(4,8))
+  for(i in 1:length(matrix_list)){
+    X_it<- matrix_list[[i]]
+    smallxit<- X_it[c(1,3,5,7,9), ]
+    bigxit<- X_it[c(2,4,6,8), ]
+    bigsmallxit<- X_it[c(2,4,6,8,1,3,5,7,9), ]
+    image(x=1:time, y=1:ndept, t(bigsmallxit), main =paste(Bits[i,], collapse = ","), axes=F, ylab="spatial location", xlab="Time [month]", cex.lab=1.80, cex.main=2.5)
+    abline(h=4.5, col="black", lty=2)
+    #custom Y-axis
+    axis(2, at=seq(1, 4, length.out=4), labels=c("u2", "u4", "u6", "u8"), col = "red", col.axis="red", lwd.ticks = 1, las = 1, lwd=0, cex.axis = 1.8, cex.lab=1.8)
+    axis(2, at=seq(5, 9, length.out=5), labels=c("u1", "u3", "u5", "u7", "u9"), col = "blue", col.axis="blue", lwd.ticks = 1, las = 1, lwd=0, cex.axis = 1.8, cex.lab=1.8)
+    #custom X-axis
+    axis(1, cex.axis = 1.8)
+  }
+  add_legend("topleft", legend=substitute(paste(bold(labelLetter))),
+             horiz=TRUE, bty='n', cex=2.0)
+
+  dev.off()
 }
