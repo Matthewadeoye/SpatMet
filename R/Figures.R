@@ -830,3 +830,30 @@ Outbreakfigures<- function(matrix_list, BitsMatrix, labelLetter=""){
 
   dev.off()
 }
+
+
+perstrainOutbreakfigures<- function(matrix_array, Outbreaktype=""){
+  time<- ncol(matrix_array[,,1])
+  ndept<- nrow(matrix_array[,,1])
+  nstrain<- dim(matrix_array)[3]
+  pdf(paste0("Alloutbreaksperstrain",Outbreaktype,".pdf"), paper="special", width=15,height=9, pointsize=12)
+  par(mfrow=c(2,3))
+  for(i in 1:nstrain){
+    X_it<- matrix_array[,,i]
+    smallxit<- X_it[c(1,3,5,7,9), ]
+    bigxit<- X_it[c(2,4,6,8), ]
+    bigsmallxit<- X_it[c(2,4,6,8,1,3,5,7,9), ]
+    image(x=1:time, y=1:ndept, t(bigsmallxit), zlim = c(0,1),  main =paste("Strain", i), axes=F, ylab="spatial location", xlab="Time [month]", cex.lab=1.80, cex.main=2.5)
+    abline(h=4.5, col="black", lty=2)
+    #custom Y-axis
+    axis(2, at=seq(1, 4, length.out=4), labels=c("u2", "u4", "u6", "u8"), col = "red", col.axis="red", lwd.ticks = 1, las = 1, lwd=0, cex.axis = 1.8, cex.lab=1.8)
+    axis(2, at=seq(5, 9, length.out=5), labels=c("u1", "u3", "u5", "u7", "u9"), col = "blue", col.axis="blue", lwd.ticks = 1, las = 1, lwd=0, cex.axis = 1.8, cex.lab=1.8)
+    #custom X-axis
+    axis(1, cex.axis = 1.8)
+  }
+  add_legend(0.38, -0.4, legend=substitute(paste(bold(Outbreaktype))),
+             col="black",
+             horiz=TRUE, bty='n', cex=3.0)
+
+  dev.off()
+}

@@ -82,6 +82,18 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// JointTransitionMatrix_per_strain_cpp
+NumericMatrix JointTransitionMatrix_per_strain_cpp(List gamma_list, int K);
+RcppExport SEXP _SpatMet_JointTransitionMatrix_per_strain_cpp(SEXP gamma_listSEXP, SEXP KSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< List >::type gamma_list(gamma_listSEXP);
+    Rcpp::traits::input_parameter< int >::type K(KSEXP);
+    rcpp_result_gen = Rcpp::wrap(JointTransitionMatrix_per_strain_cpp(gamma_list, K));
+    return rcpp_result_gen;
+END_RCPP
+}
 // state_dist_cpp2
 NumericVector state_dist_cpp2(NumericMatrix Gamma);
 RcppExport SEXP _SpatMet_state_dist_cpp2(SEXP GammaSEXP) {
@@ -512,6 +524,30 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// perstraingradmultstrainLoglikelihood2_cpp
+List perstraingradmultstrainLoglikelihood2_cpp(arma::cube y, arma::mat e_it, int nstrain, arma::vec r, arma::vec s, arma::vec u, List Gamma, NumericVector B, NumericMatrix Bits, arma::vec a_k, int Model, arma::mat Q_r, arma::mat Q_s, arma::mat Q_u);
+RcppExport SEXP _SpatMet_perstraingradmultstrainLoglikelihood2_cpp(SEXP ySEXP, SEXP e_itSEXP, SEXP nstrainSEXP, SEXP rSEXP, SEXP sSEXP, SEXP uSEXP, SEXP GammaSEXP, SEXP BSEXP, SEXP BitsSEXP, SEXP a_kSEXP, SEXP ModelSEXP, SEXP Q_rSEXP, SEXP Q_sSEXP, SEXP Q_uSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::cube >::type y(ySEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type e_it(e_itSEXP);
+    Rcpp::traits::input_parameter< int >::type nstrain(nstrainSEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type r(rSEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type s(sSEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type u(uSEXP);
+    Rcpp::traits::input_parameter< List >::type Gamma(GammaSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type B(BSEXP);
+    Rcpp::traits::input_parameter< NumericMatrix >::type Bits(BitsSEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type a_k(a_kSEXP);
+    Rcpp::traits::input_parameter< int >::type Model(ModelSEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type Q_r(Q_rSEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type Q_s(Q_sSEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type Q_u(Q_uSEXP);
+    rcpp_result_gen = Rcpp::wrap(perstraingradmultstrainLoglikelihood2_cpp(y, e_it, nstrain, r, s, u, Gamma, B, Bits, a_k, Model, Q_r, Q_s, Q_u));
+    return rcpp_result_gen;
+END_RCPP
+}
 // MMALA_cpp
 arma::mat MMALA_cpp(arma::cube y, arma::mat e_it, int Model, NumericMatrix Bits, arma::vec CrudeR, arma::vec CrudeS, arma::vec CrudeU, arma::mat RW2PrecMat, arma::mat RW1PrecMat, arma::mat Ru, int rankdef, int independentChains, int num_iteration, double meanR, List step_sizes);
 RcppExport SEXP _SpatMet_MMALA_cpp(SEXP ySEXP, SEXP e_itSEXP, SEXP ModelSEXP, SEXP BitsSEXP, SEXP CrudeRSEXP, SEXP CrudeSSEXP, SEXP CrudeUSEXP, SEXP RW2PrecMatSEXP, SEXP RW1PrecMatSEXP, SEXP RuSEXP, SEXP rankdefSEXP, SEXP independentChainsSEXP, SEXP num_iterationSEXP, SEXP meanRSEXP, SEXP step_sizesSEXP) {
@@ -545,6 +581,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_SpatMet_logVecMatMult", (DL_FUNC) &_SpatMet_logVecMatMult, 2},
     {"_SpatMet_logVecMatMult2", (DL_FUNC) &_SpatMet_logVecMatMult2, 2},
     {"_SpatMet_JointTransitionMatrix_cpp", (DL_FUNC) &_SpatMet_JointTransitionMatrix_cpp, 2},
+    {"_SpatMet_JointTransitionMatrix_per_strain_cpp", (DL_FUNC) &_SpatMet_JointTransitionMatrix_per_strain_cpp, 2},
     {"_SpatMet_state_dist_cpp2", (DL_FUNC) &_SpatMet_state_dist_cpp2, 1},
     {"_SpatMet_state_dist_cpp", (DL_FUNC) &_SpatMet_state_dist_cpp, 2},
     {"_SpatMet_randomwalk2_cpp", (DL_FUNC) &_SpatMet_randomwalk2_cpp, 2},
@@ -576,6 +613,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_SpatMet_inv_cpp", (DL_FUNC) &_SpatMet_inv_cpp, 1},
     {"_SpatMet_multInfer_cpp", (DL_FUNC) &_SpatMet_multInfer_cpp, 16},
     {"_SpatMet_gradmultstrainLoglikelihood2_cpp", (DL_FUNC) &_SpatMet_gradmultstrainLoglikelihood2_cpp, 14},
+    {"_SpatMet_perstraingradmultstrainLoglikelihood2_cpp", (DL_FUNC) &_SpatMet_perstraingradmultstrainLoglikelihood2_cpp, 14},
     {"_SpatMet_MMALA_cpp", (DL_FUNC) &_SpatMet_MMALA_cpp, 15},
     {NULL, NULL, 0}
 };

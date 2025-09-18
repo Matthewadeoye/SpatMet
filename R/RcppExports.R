@@ -25,6 +25,10 @@ JointTransitionMatrix_cpp <- function(gamma, K) {
     .Call(`_SpatMet_JointTransitionMatrix_cpp`, gamma, K)
 }
 
+JointTransitionMatrix_per_strain_cpp <- function(gamma_list, K) {
+    .Call(`_SpatMet_JointTransitionMatrix_per_strain_cpp`, gamma_list, K)
+}
+
 state_dist_cpp2 <- function(Gamma) {
     .Call(`_SpatMet_state_dist_cpp2`, Gamma)
 }
@@ -147,6 +151,10 @@ multInfer_cpp <- function(y, e_it, nstrain, Model, Bits, CrudeR, CrudeS, CrudeU,
 
 gradmultstrainLoglikelihood2_cpp <- function(y, e_it, nstrain, r, s, u, Gamma, B, Bits, a_k, Model, Q_r, Q_s, Q_u) {
     .Call(`_SpatMet_gradmultstrainLoglikelihood2_cpp`, y, e_it, nstrain, r, s, u, Gamma, B, Bits, a_k, Model, Q_r, Q_s, Q_u)
+}
+
+perstraingradmultstrainLoglikelihood2_cpp <- function(y, e_it, nstrain, r, s, u, Gamma, B, Bits, a_k, Model, Q_r, Q_s, Q_u) {
+    .Call(`_SpatMet_perstraingradmultstrainLoglikelihood2_cpp`, y, e_it, nstrain, r, s, u, Gamma, B, Bits, a_k, Model, Q_r, Q_s, Q_u)
 }
 
 MMALA_cpp <- function(y, e_it, Model, Bits, CrudeR, CrudeS, CrudeU, RW2PrecMat, RW1PrecMat, Ru, rankdef, independentChains, num_iteration, meanR, step_sizes) {

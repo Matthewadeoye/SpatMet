@@ -796,6 +796,18 @@ JointTransitionMatrix_per_strain<- function(gamma_list){
   return(Gamma)
 }
 
+#Build list of per-strain transition matrices
+BuildGamma_list<- function(Gs){
+  n_mat<-length(Gs)/2
+  Gmats<- list()
+  index<- 0
+  for(i in 1:n_mat){
+    Gmats[[i]] = G(Gs[i+index], Gs[i+index+1])
+    index<- index + 1
+  }
+  return(Gmats)
+}
+
 encodeBits<- function(K){
 S <- 2^K
 bits<- matrix(0, nrow = S, ncol = K)
@@ -899,6 +911,80 @@ Multstrain.simulate<- function(Model, time, nstrain=2, adj.matrix,
     return(list("y" =y_itk, "e_it"=e_it, "r"=r, "s"=s, "u"=u, "states"=EpidemicIndicator, "B"=B, "a_k"=aVec))
   }
 }
+
+perstrainMultstrain.simulate<- function(Model, time, nstrain=2, adj.matrix,
+                               e_it=matrix(c(rep(c(rpois(time, 500000), rpois(time, 1000000)), 4), rpois(time, 500000)),
+                                           byrow = T, ncol = time),
+                               B = runif(nstrain),
+                               r = sim.RW2mean0(time, sd=0.009), s = DetectOutbreaks:::sim.Seasonals2(Amplitude = 1.4),
+                               u = DetectOutbreaks:::sim.Spatials(adj.matrix)){
+  ndept<- nrow(adj.matrix)
+  y_itk<- array(NA, dim=c(ndept, time, nstrain))
+  EpidemicIndicator<- matrix(NA, ndept, time)
+  tprobs<- runif(2*nstrain, min = 0.1, max = 0.2)
+  T.prob<- BuildGamma_list(tprobs)
+  JointTPM<- JointTransitionMatrix_per_strain(T.prob)
+  Jointstates<- 2^nstrain
+  Bits<- encodeBits(K=nstrain)
+  aVec<- numeric(nstrain)
+  for(k in 1:nstrain){
+    a_k<- runif(1, min = -14, max = -12)
+    aVec[k]<- a_k
+  }
+
+  if(Model == 0){
+    for(i in 1:ndept){
+      for(t in 1:time){
+        m<- (t - 1) %% 12 + 1
+        for(k in 1:nstrain){
+          lograte <- aVec[k] + r[t] + s[m] + u[i]
+          y_itk[i, t, k]<- rpois(1, lambda = e_it[i, t] * exp(lograte))
+        }
+      }
+    }
+    return(list("y" =y_itk, "e_it"=e_it, "r"=r, "s"=s, "u"=u, "states"=EpidemicIndicator, "a_k"=aVec, "T.probs"= tprobs))
+  }
+  else{
+    for(i in 1:ndept){
+      for(k in 1:nstrain){
+        lograte<- aVec[k] + r[1] + s[1] + u[i]
+        y_itk[i, 1, k]<- rpois(1, lambda = e_it[i, 1] * exp(lograte))
+      }
+      EpidemicIndicator[i, ]<- simulateMarkovChain(nstep=time, JointTPM)
+    }
+
+    for(t in 2:time){
+      m<- (t - 1) %% 12 + 1
+      for(i in 1:ndept){
+        for(k in 1:nstrain){
+          newB<- rep(0, nstrain)
+          newB[k]<- B[k]
+          lograte<- aVec[k] + r[t] + s[m] + u[i] + (newB %*% Bits[EpidemicIndicator[i, t]+1, ])
+          y_itk[i, t, k]<- rpois(1, lambda = e_it[i, t] * exp(lograte))
+        }
+      }
+    }
+    return(list("y" =y_itk, "e_it"=e_it, "r"=r, "s"=s, "u"=u, "states"=EpidemicIndicator, "B"=B, "a_k"=aVec, "T.probs"= tprobs))
+  }
+}
+
+
+perstrainOutbreaks <- function(EpidemicIndicator, nstrain) {
+  Bits <- encodeBits(K = nstrain)
+  ndept <- nrow(EpidemicIndicator)
+  time <- ncol(EpidemicIndicator)
+
+  Outbreaks <- array(NA, dim = c(ndept, time, nstrain))
+
+  for (i in 1:ndept) {
+    for (t in 1:time) {
+      s <- EpidemicIndicator[i, t]   #joint state index
+      Outbreaks[i, t, ] <- Bits[s + 1, ]  #per-strain indicators
+    }
+  }
+  return(Outbreaks)
+}
+
 
 stationarydist <- function(Gamma) {
   mT <- t(Gamma)
@@ -1055,6 +1141,21 @@ Posteriormultstrain.Decoding<- function(y, e_it, inf.object, thinningL=1000, bur
   }
   return(decodedOutbreakMatrix)
 }
+
+perstrainPosteriorOutbreaks <- function(decodedOutbreakMatrix, nstrain){
+  time<- ncol(decodedOutbreakMatrix[[1]])
+  ndept<- nrow(decodedOutbreakMatrix[[1]])
+  perStrainProbs <- array(0, dim = c(ndept, time, nstrain))
+  nstate<- 2^nstrain
+  Bits<- encodeBits(K=nstrain)
+  for(n in 1:nstate){
+    for(k in 1:nstrain){
+      perStrainProbs[,,k] <- perStrainProbs[,,k] + Bits[n, k] * decodedOutbreakMatrix[[n]]
+    }
+  }
+  return(perStrainProbs)
+}
+
 
 multstrainLoglikelihood<- function(y, e_it, nstrain, r, s, u, Gamma, B, Bits, a_k, Model, independentChains=FALSE){
   ndept<- nrow(y[,,1])
