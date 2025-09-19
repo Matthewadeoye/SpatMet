@@ -1551,7 +1551,7 @@ if(Model == 0){
             arma::vec lambda_vec = lambda_array.tube(t, n);
             arma::vec safelambda_vec = lambda_vec;
             safelambda_vec.transform( [](double val) { return (val <= 0) ? 1e-12 : val; });
-            logEmissions(t, n) = arma::accu(y_vec % arma::log(lambda_vec) - lambda_vec - lgamma(y_vec + 1));
+            logEmissions(t, n) = arma::accu(y_vec % arma::log(safelambda_vec) - lambda_vec - lgamma(y_vec + 1));
           }
         }
         //forward pass
@@ -1743,7 +1743,7 @@ List perstraingradmultstrainLoglikelihood2_cpp(arma::cube y, arma::mat e_it, int
           arma::vec lambda_vec = lambda_array.tube(t, n);
           arma::vec safelambda_vec = lambda_vec;
           safelambda_vec.transform( [](double val) { return (val <= 0) ? 1e-12 : val; });
-          logEmissions(t, n) = arma::accu(y_vec % arma::log(lambda_vec) - lambda_vec - lgamma(y_vec + 1));
+          logEmissions(t, n) = arma::accu(y_vec % arma::log(safelambda_vec) - lambda_vec - lgamma(y_vec + 1));
         }
       }
       //forward pass
