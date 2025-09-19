@@ -901,7 +901,7 @@ GeneralCPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_
         MC_chain[i, 2*nstrain+3+time+12+ndept+(1:nstrain)]<- MC_chain[i-1, 2*nstrain+3+time+12+ndept+(1:nstrain)]
       }
 
-      proposedGs<- abs(rnorm(2*nstrain,mean=MC_chain[i-1,1:(2*nstrain)], sd=rep(0.08, 2*nstrain)))
+      proposedGs<- abs(rnorm(2*nstrain,mean=MC_chain[i-1,1:(2*nstrain)], sd=rep(0.05, 2*nstrain)))
       proposedGs<- ifelse(proposedGs<1, proposedGs, 2-proposedGs)
 
       priorcurrentGs<- sum(dbeta(MC_chain[i-1,1:(2*nstrain)], shape1 = rep(2,2*nstrain), shape2 = rep(2,2*nstrain), log=TRUE))
@@ -930,7 +930,7 @@ GeneralCPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_
     }
 
     #Random-wal Ak's update
-    proposeda_k <- rnorm(nstrain, mean = MC_chain[i-1, 2*nstrain+3+time+12+ndept+nstrain+(1:nstrain)], sd = rep(0.03, nstrain))
+    proposeda_k <- rnorm(nstrain, mean = MC_chain[i-1, 2*nstrain+3+time+12+ndept+nstrain+(1:nstrain)], sd = rep(0.01, nstrain))
 
     Allquantities<- perstraingradmultstrainLoglikelihood2_cpp(y=y, e_it=e_it, nstrain=nstrain,  r=MC_chain[i, 2*nstrain+3+(1:time)], s=MC_chain[i, 2*nstrain+3+time+(1:12)], u=MC_chain[i, 2*nstrain+3+time+12+(1:ndept)], Gamma=Gamma_lists, B=MC_chain[i, 2*nstrain+3+time+12+ndept+(1:nstrain)], Bits=Bits, a_k=proposeda_k, Model=Model,Q_r=Q_r,Q_s = Q_s,Q_u=Q_u)
     grad_proposed <- list(grad_r=as.numeric(Allquantities$grad_r), grad_s=as.numeric(Allquantities$grad_s), grad_u=as.numeric(Allquantities$grad_u), cov_r=Allquantities$cov_r, cov_s=Allquantities$cov_s)
