@@ -1544,6 +1544,7 @@ if(Model == 0){
           for(int n = 0; n < nstate; ++n){
             for(int k = 0; k < nstrain; ++k){
               NumericVector newB(nstrain);
+              std::fill(newB.begin(), newB.end(), 0.0);
               newB[k] = B[k];
               lambda_array(t, n, k) = e_it(i, t) * std::exp(a_k[k] + r[t] + s[month_index] + u[i] + dotproduct_cpp(newB, Bits(n, _)));
             }
@@ -1736,6 +1737,7 @@ List perstraingradmultstrainLoglikelihood2_cpp(arma::cube y, arma::mat e_it, int
         for(int n = 0; n < nstate; ++n){
           for(int k = 0; k < nstrain; ++k){
             NumericVector newB(nstrain);
+            std::fill(newB.begin(), newB.end(), 0.0);
             newB[k] = B[k];
             lambda_array(t, n, k) = e_it(i, t) * std::exp(a_k[k] + r[t] + s[month_index] + u[i] + dotproduct_cpp(newB, Bits(n, _)));
           }

@@ -1,13 +1,4 @@
 CXX_STD = CXX11
 
-CXX11 = g++
-CXX11FLAGS = -O2 -g -Wall -Wextra -Wpedantic -fno-omit-frame-pointer
-
-CXX14 = g++
-CXX14FLAGS = -O2 -g -Wall -Wextra -Wpedantic -fno-omit-frame-pointer
-
-CXX17 = g++
-CXX17FLAGS = -O2 -g -Wall -Wextra -Wpedantic -fno-omit-frame-pointer
-
 PKG_CPPFLAGS =
 PKG_LIBS = $(LAPACK_LIBS) $(BLAS_LIBS) $(FLIBS)
