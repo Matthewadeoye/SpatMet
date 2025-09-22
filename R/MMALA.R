@@ -535,6 +535,7 @@ CPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_iterati
     priorproposedUcomps<- logIGMRF1(proposedUcomps, MC_chain[i, 5], R, rankdef)
 
     log_alpha_u <- likelihoodproposed + priorproposedUcomps + q_curr - likelihoodcurrent - priorcurrentUcomps - q_prop
+    print(exp(log_alpha_u))
     if (is.finite(log_alpha_u) && log(runif(1)) < log_alpha_u){
       MC_chain[i, 5+time+12+(1:ndept)]<- proposedUcomps
       likelihoodcurrent<- likelihoodproposed
@@ -872,13 +873,20 @@ GeneralCPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_
       grad_current<- grad_proposed
     }else{
       MC_chain[i, 2*nstrain+3+time+12+(1:ndept)]<- MC_chain[i-1, 2*nstrain+3+time+12+(1:ndept)]
+      print(paste("rejected u", exp(log_alpha_u)))
+      cat("likelihoodproposed:", likelihoodproposed,
+          "priorproposed:", priorproposedUcomps,
+          "q_curr:", q_curr,
+          "likelihoodcurrent:", likelihoodcurrent,
+          "priorcurrent:", priorcurrentUcomps,
+          "q_prop:", q_prop, "\n")
     }
 
     if(Model == 0){
       MC_chain[i, 2*nstrain+3+time+12+ndept+(1:nstrain)]<-  MC_chain[i-1, 2*nstrain+3+time+12+ndept+(1:nstrain)]
       MC_chain[i, 1:(2*nstrain)]<- MC_chain[i-1, 1:(2*nstrain)]
     }else{
-      proposedB <- abs(rnorm(nstrain, mean = MC_chain[i-1, 2*nstrain+3+time+12+ndept+(1:nstrain)], sd = rep(0.03, nstrain)))
+      proposedB <- abs(rnorm(nstrain, mean = MC_chain[i-1, 2*nstrain+3+time+12+ndept+(1:nstrain)], sd = rep(0.01, nstrain)))
       priorcurrentB<- sum(dgamma(MC_chain[i-1, 2*nstrain+3+time+12+ndept+(1:nstrain)], shape = rep(2, nstrain), rate = rep(2,nstrain), log=TRUE))
       priorproposedB<- sum(dgamma(proposedB, shape = rep(2, nstrain), rate = rep(2, nstrain), log=TRUE))
 
@@ -901,7 +909,7 @@ GeneralCPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_
         MC_chain[i, 2*nstrain+3+time+12+ndept+(1:nstrain)]<- MC_chain[i-1, 2*nstrain+3+time+12+ndept+(1:nstrain)]
       }
 
-      proposedGs<- abs(rnorm(2*nstrain,mean=MC_chain[i-1,1:(2*nstrain)], sd=rep(0.05, 2*nstrain)))
+      proposedGs<- abs(rnorm(2*nstrain,mean=MC_chain[i-1,1:(2*nstrain)], sd=rep(0.1, 2*nstrain)))
       proposedGs<- ifelse(proposedGs<1, proposedGs, 2-proposedGs)
 
       priorcurrentGs<- sum(dbeta(MC_chain[i-1,1:(2*nstrain)], shape1 = rep(2,2*nstrain), shape2 = rep(2,2*nstrain), log=TRUE))
@@ -930,7 +938,7 @@ GeneralCPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_
     }
 
     #Random-wal Ak's update
-    proposeda_k <- rnorm(nstrain, mean = MC_chain[i-1, 2*nstrain+3+time+12+ndept+nstrain+(1:nstrain)], sd = rep(0.01, nstrain))
+    proposeda_k <- rnorm(nstrain, mean = MC_chain[i-1, 2*nstrain+3+time+12+ndept+nstrain+(1:nstrain)], sd = rep(0.03, nstrain))
 
     Allquantities<- perstraingradmultstrainLoglikelihood2_cpp(y=y, e_it=e_it, nstrain=nstrain,  r=MC_chain[i, 2*nstrain+3+(1:time)], s=MC_chain[i, 2*nstrain+3+time+(1:12)], u=MC_chain[i, 2*nstrain+3+time+12+(1:ndept)], Gamma=Gamma_lists, B=MC_chain[i, 2*nstrain+3+time+12+ndept+(1:nstrain)], Bits=Bits, a_k=proposeda_k, Model=Model,Q_r=Q_r,Q_s = Q_s,Q_u=Q_u)
     grad_proposed <- list(grad_r=as.numeric(Allquantities$grad_r), grad_s=as.numeric(Allquantities$grad_s), grad_u=as.numeric(Allquantities$grad_u), cov_r=Allquantities$cov_r, cov_s=Allquantities$cov_s)
@@ -957,5 +965,20 @@ GeneralCPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_
   return(MC_chain)
 }
 
+#sourceCpp("cppFun.cpp")
+#replicate(300, perstraingradmultstrainLoglikelihood2_cpp(
+#  y=testdata[["y"]], e_it=testdata[["e_it"]], nstrain=5,
+#  r=testdata[["r"]], s=testdata[["s"]], u=testdata[["u"]],
+#  Gamma=SpatMet:::BuildGamma_list(testdata[["T.probs"]]), B=testdata[["B"]],
+#  Bits=SpatMet:::encodeBits(5), a_k=testdata[["a_k"]],
+#  Model=1, Q_r=diag(1, 60), Q_s=diag(1, 12), Q_u=diag(1,9)
+#)$loglike)
+#replicate(300, gradmultstrainLoglikelihood2_cpp(
+#  y=testdata[["y"]], e_it=testdata[["e_it"]], nstrain=5,
+#  r=testdata[["r"]], s=testdata[["s"]], u=testdata[["u"]],
+#  Gamma=SpatMet:::G(0.1,0.2), B=testdata[["B"]],
+#  Bits=SpatMet:::encodeBits(5), a_k=testdata[["a_k"]],
+#  Model=1, Q_r=diag(1, 60), Q_s=diag(1, 12), Q_u=diag(1,9)
+#)$loglike)
 #set.seed(212);perstrainmultmod1nstrain2<- Multstrain.simulate(Model = 1, time=30, adj.matrix = sim_adjmat, nstrain=2, B=c(1.65,1.4))
-#perstrainfit<- GeneralCPPmultMMALAInference(y=perstrainmultmod1nstrain2[[1]], e_it = perstrainmultmod1nstrain2[[2]], Model = 0, adjmat = sim_adjmat, step_sizes = list("r"=0.3,"s"=0.3,"u"=0.025), num_iteration = 1500)
+#perstrainfit<- GeneralCPPmultMMALAInference(y=perstrainmultmod1nstrain5[[1]], e_it = perstrainmultmod1nstrain5[[2]], Model = 1, adjmat = sim_adjmat, step_sizes = list("r"=0.3,"s"=0.3,"u"=0.025), num_iteration = 25)

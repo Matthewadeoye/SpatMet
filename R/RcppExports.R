@@ -25,12 +25,20 @@ JointTransitionMatrix_cpp <- function(gamma, K) {
     .Call(`_SpatMet_JointTransitionMatrix_cpp`, gamma, K)
 }
 
+JointTransitionMatrix_arma_cpp <- function(gamma, K) {
+    .Call(`_SpatMet_JointTransitionMatrix_arma_cpp`, gamma, K)
+}
+
 JointTransitionMatrix_per_strain_cpp <- function(gamma_list, K) {
     .Call(`_SpatMet_JointTransitionMatrix_per_strain_cpp`, gamma_list, K)
 }
 
 state_dist_cpp2 <- function(Gamma) {
     .Call(`_SpatMet_state_dist_cpp2`, Gamma)
+}
+
+stationarydistArma_cpp <- function(Gamma) {
+    .Call(`_SpatMet_stationarydistArma_cpp`, Gamma)
 }
 
 state_dist_cpp <- function(G12, G21) {
@@ -107,6 +115,10 @@ rcpp_updateCov <- function(C, x, n, xbar) {
 
 chol_cpp <- function(X) {
     .Call(`_SpatMet_chol_cpp`, X)
+}
+
+makematrix_arma_cpp <- function(g12, g21) {
+    .Call(`_SpatMet_makematrix_arma_cpp`, g12, g21)
 }
 
 makematrix_cpp <- function(g12, g21) {

@@ -3,8 +3,8 @@
 #include <cmath>
 #include <algorithm>
 
-// [[Rcpp::depends(RcppArmadillo)]
-// [[Rcpp::depends(RcppEigen)]
+// [[Rcpp::depends(RcppArmadillo)]]
+// [[Rcpp::depends(RcppEigen)]]
 
 using namespace Rcpp;
 
@@ -76,16 +76,34 @@ NumericMatrix JointTransitionMatrix_cpp(NumericMatrix gamma, int K) {
 }
 
 // [[Rcpp::export]]
-NumericMatrix JointTransitionMatrix_per_strain_cpp(List gamma_list, int K) {
+arma::mat JointTransitionMatrix_arma_cpp(arma::mat gamma, int K) {
   int S = intPower(2, K);
-  NumericMatrix jointGamma(S, S);
+  arma::mat jointGamma(S, S, arma::fill::zeros);
   for (int a = 0; a < S; ++a) {
     for (int b = 0; b < S; ++b) {
       double prob = 1.0;
       for (int k = 0; k < K; ++k) {
         int from_k = (a / intPower(2, k)) % 2;
         int to_k   = (b / intPower(2, k)) % 2;
-        NumericMatrix currentGamma = gamma_list[k];
+        prob *= gamma(from_k, to_k);
+      }
+      jointGamma(a, b) = prob;
+    }
+  }
+  return jointGamma;
+}
+
+// [[Rcpp::export]]
+arma::mat JointTransitionMatrix_per_strain_cpp(List gamma_list, int K) {
+  int S = intPower(2, K);
+  arma::mat jointGamma(S, S, arma::fill::zeros);
+  for (int a = 0; a < S; ++a) {
+    for (int b = 0; b < S; ++b) {
+      double prob = 1.0;
+      for (int k = 0; k < K; ++k) {
+        int from_k = (a / intPower(2, k)) % 2;
+        int to_k   = (b / intPower(2, k)) % 2;
+        arma::mat currentGamma = gamma_list[k];
         prob *= currentGamma(from_k, to_k);
       }
       jointGamma(a, b) = prob;
@@ -132,6 +150,47 @@ NumericVector state_dist_cpp2(NumericMatrix Gamma) {
   NumericVector result(stationary_distribution.data(),
                        stationary_distribution.data() + stationary_distribution.size());
 
+  return result;
+}
+
+// [[Rcpp::export]]
+arma::vec stationarydistArma_cpp(arma::mat Gamma) {
+  int n = Gamma.n_cols;
+  Eigen::MatrixXd m(n, n);
+  for (int i = 0; i < n; ++i) {
+    for (int j = 0; j < n; ++j) {
+      m(i, j) = Gamma(i, j);
+    }
+  }
+
+  Eigen::MatrixXd mT = m.transpose();
+
+  // Eigen decomposition
+  Eigen::EigenSolver<Eigen::MatrixXd> es(mT);
+  Eigen::VectorXd eigenvalues = es.eigenvalues().real();
+  Eigen::MatrixXd eigenvectors = es.eigenvectors().real();
+
+  // Index of eigenvalue close to 1
+  int index = 0;
+  double min_diff = std::abs(eigenvalues(0) - 1.0);
+  for (int i = 1; i < eigenvalues.size(); ++i) {
+    double diff = std::abs(eigenvalues(i) - 1.0);
+    if (diff < min_diff) {
+      min_diff = diff;
+      index = i;
+    }
+  }
+
+  // corresponding eigenvector
+  Eigen::VectorXd stationary_distribution = eigenvectors.col(index);
+
+  // Normalize stationary distribution
+  stationary_distribution = stationary_distribution / stationary_distribution.sum();
+
+  // Convert result to NumericVector
+  arma::vec result(stationary_distribution.data(),
+                   stationary_distribution.size(),
+                   /* copy_aux_mem = */ true);
   return result;
 }
 
@@ -291,8 +350,8 @@ double dpois_cpp(int y, double lambda){
   if(lambda <= 0){
     return R_NegInf;
   }else{
-  double res = -lambda + y * log(lambda) - log(Rcpp::internal::factorial(y));
-  return res;
+    double res = -lambda + y * log(lambda) - log(Rcpp::internal::factorial(y));
+    return res;
   }
 }
 
@@ -599,7 +658,7 @@ double multGeneralLoglikelihood_cpp2(IntegerVector y, int ndept, int time, int n
                                      NumericVector r, NumericVector s, NumericVector u, NumericMatrix Gamma,
                                      NumericMatrix e_it, NumericVector B, int model, NumericMatrix Bits,
                                      int independentChains){
- // Rcpp::Rcout << "Model selected: " << model << std::endl;
+  // Rcpp::Rcout << "Model selected: " << model << std::endl;
   // Model 0
   if(model == 0) {
     double full_log_likelihood = 0;
@@ -610,7 +669,7 @@ double multGeneralLoglikelihood_cpp2(IntegerVector y, int ndept, int time, int n
           if(y[k * ndept * time + i * time + t] == -1){
             full_log_likelihood += 0;
           }else{
-//            full_log_likelihood += dpois_cpp(y[k * ndept * time + i * time + t], e_it(i, t) * exp(a_k[k] + r[t] + s[month_index] + u[i]));
+            //            full_log_likelihood += dpois_cpp(y[k * ndept * time + i * time + t], e_it(i, t) * exp(a_k[k] + r[t] + s[month_index] + u[i]));
             full_log_likelihood += R::dpois(y[k * ndept * time + i * time + t], e_it(i, t) * exp(a_k[k] + r[t] + s[month_index] + u[i]), true);
           }
         }
@@ -621,51 +680,51 @@ double multGeneralLoglikelihood_cpp2(IntegerVector y, int ndept, int time, int n
   // Model 1
   if(model == 1){
     if(independentChains == 0){
-    int nstate = intPower(2, nstrain);
-    NumericMatrix jointTPM = JointTransitionMatrix_cpp(Gamma, nstrain);
-    NumericVector init_density = state_dist_cpp2(jointTPM);
-    NumericVector rowlogsumexp(ndept);
-    for(int i = 0; i < ndept; ++i) {
-      NumericMatrix Alpha(time, nstate);
-      NumericMatrix prodEmission(time, nstate);
-      for(int n = 0; n < nstate; ++n){
-        for(int k = 0; k < nstrain; ++k){
-          NumericVector newB(nstrain);
-          newB[k] = B[k];
-          if(y[k * ndept * time + i * time + 0] == -1){
-            prodEmission(0, n) += 0;
-          }else{
-//            prodEmission(0, n) = prodEmission(0, n) + dpois_cpp(y[k * ndept * time + i * time + 0], e_it(i, 0) * exp(a_k[k] + r[0] + s[0] + u[i] + dotproduct_cpp(B, Bits(n, _))));
-            prodEmission(0, n) = prodEmission(0, n) + R::dpois(y[k * ndept * time + i * time + 0], e_it(i, 0) * exp(a_k[k] + r[0] + s[0] + u[i] + dotproduct_cpp(newB, Bits(n, _))), true);
-          }
-        }
-      }
-      for (int n = 0; n < nstate; ++n){
-        Alpha(0, n) = log(init_density[n]) + prodEmission(0, n);
-      }
-      for(int t = 1; t < time; ++t){
-        int month_index = t % 12;
+      int nstate = intPower(2, nstrain);
+      NumericMatrix jointTPM = JointTransitionMatrix_cpp(Gamma, nstrain);
+      NumericVector init_density = state_dist_cpp2(jointTPM);
+      NumericVector rowlogsumexp(ndept);
+      for(int i = 0; i < ndept; ++i) {
+        NumericMatrix Alpha(time, nstate);
+        NumericMatrix prodEmission(time, nstate);
         for(int n = 0; n < nstate; ++n){
           for(int k = 0; k < nstrain; ++k){
             NumericVector newB(nstrain);
             newB[k] = B[k];
-            if(y[k * ndept * time + i * time + t] == -1){
-              prodEmission(t, n) += 0;
+            if(y[k * ndept * time + i * time + 0] == -1){
+              prodEmission(0, n) += 0;
             }else{
-//              prodEmission(t, n) = prodEmission(t, n) + dpois_cpp(y[k * ndept * time + i * time + t], e_it(i, t) * exp(a_k[k] + r[t] + s[month_index] + u[i] + dotproduct_cpp(B, Bits(n, _))));
-              prodEmission(t, n) = prodEmission(t, n) + R::dpois(y[k * ndept * time + i * time + t], e_it(i, t) * exp(a_k[k] + r[t] + s[month_index] + u[i] + dotproduct_cpp(newB, Bits(n, _))), true);
+              //            prodEmission(0, n) = prodEmission(0, n) + dpois_cpp(y[k * ndept * time + i * time + 0], e_it(i, 0) * exp(a_k[k] + r[0] + s[0] + u[i] + dotproduct_cpp(B, Bits(n, _))));
+              prodEmission(0, n) = prodEmission(0, n) + R::dpois(y[k * ndept * time + i * time + 0], e_it(i, 0) * exp(a_k[k] + r[0] + s[0] + u[i] + dotproduct_cpp(newB, Bits(n, _))), true);
             }
           }
         }
-        NumericVector temp = logVecMatMult(Alpha(t-1, _), jointTPM);
-        for (int j = 0; j < nstate; ++j){
-          Alpha(t, j) = temp[j] + prodEmission(t, j);
+        for (int n = 0; n < nstate; ++n){
+          Alpha(0, n) = log(init_density[n]) + prodEmission(0, n);
         }
+        for(int t = 1; t < time; ++t){
+          int month_index = t % 12;
+          for(int n = 0; n < nstate; ++n){
+            for(int k = 0; k < nstrain; ++k){
+              NumericVector newB(nstrain);
+              newB[k] = B[k];
+              if(y[k * ndept * time + i * time + t] == -1){
+                prodEmission(t, n) += 0;
+              }else{
+                //              prodEmission(t, n) = prodEmission(t, n) + dpois_cpp(y[k * ndept * time + i * time + t], e_it(i, t) * exp(a_k[k] + r[t] + s[month_index] + u[i] + dotproduct_cpp(B, Bits(n, _))));
+                prodEmission(t, n) = prodEmission(t, n) + R::dpois(y[k * ndept * time + i * time + t], e_it(i, t) * exp(a_k[k] + r[t] + s[month_index] + u[i] + dotproduct_cpp(newB, Bits(n, _))), true);
+              }
+            }
+          }
+          NumericVector temp = logVecMatMult(Alpha(t-1, _), jointTPM);
+          for (int j = 0; j < nstate; ++j){
+            Alpha(t, j) = temp[j] + prodEmission(t, j);
+          }
+        }
+        rowlogsumexp[i] = logSumExp_cpp(Alpha(time-1, _));
       }
-          rowlogsumexp[i] = logSumExp_cpp(Alpha(time-1, _));
-    }
-    double full_log_likelihood = sum(rowlogsumexp);
-    return full_log_likelihood;
+      double full_log_likelihood = sum(rowlogsumexp);
+      return full_log_likelihood;
     }else{
       //Independent chains
       int nstate = Gamma.ncol();
@@ -679,7 +738,7 @@ double multGeneralLoglikelihood_cpp2(IntegerVector y, int ndept, int time, int n
             if(y[k * ndept * time + i * time + 0] == -1){
               prodEmission(0, n) += 0;
             }else{
-//              prodEmission(0, n) = prodEmission(0, n) + dpois_cpp(y[k * ndept * time + i * time + 0], e_it(i, 0) * exp(a_k[k] + r[0] + s[0] + u[i] + B[k] * n));
+              //              prodEmission(0, n) = prodEmission(0, n) + dpois_cpp(y[k * ndept * time + i * time + 0], e_it(i, 0) * exp(a_k[k] + r[0] + s[0] + u[i] + B[k] * n));
               prodEmission(0, n) = prodEmission(0, n) + R::dpois(y[k * ndept * time + i * time + 0], e_it(i, 0) * exp(a_k[k] + r[0] + s[0] + u[i] + B[k] * n), true);
             }
           }
@@ -694,8 +753,8 @@ double multGeneralLoglikelihood_cpp2(IntegerVector y, int ndept, int time, int n
               if(y[k * ndept * time + i * time + t] == -1){
                 prodEmission(t, n) += 0;
               }else{
- //               prodEmission(t, n) = prodEmission(t, n) + dpois_cpp(y[k * ndept * time + i * time + t], e_it(i, t) * exp(a_k[k] + r[t] + s[month_index] + u[i] + B[k] * n));
-               prodEmission(t, n) = prodEmission(t, n) + R::dpois(y[k * ndept * time + i * time + t], e_it(i, t) * exp(a_k[k] + r[t] + s[month_index] + u[i] + B[k] * n), true);
+                //               prodEmission(t, n) = prodEmission(t, n) + dpois_cpp(y[k * ndept * time + i * time + t], e_it(i, t) * exp(a_k[k] + r[t] + s[month_index] + u[i] + B[k] * n));
+                prodEmission(t, n) = prodEmission(t, n) + R::dpois(y[k * ndept * time + i * time + t], e_it(i, t) * exp(a_k[k] + r[t] + s[month_index] + u[i] + B[k] * n), true);
               }
             }
           }
@@ -784,6 +843,16 @@ arma::mat chol_cpp(const arma::mat& X) {
   Rcpp::NumericMatrix res = f(Rcpp::wrap(X));
   // Convert result back to Armadillo matrix
   return Rcpp::as<arma::mat>(res);
+}
+
+// [[Rcpp::export]]
+arma::mat makematrix_arma_cpp(double g12, double g21){
+  arma::mat Gmat(2, 2, arma::fill::zeros);
+  Gmat(0, 0) = 1 - g12;
+  Gmat(0, 1) = g12;
+  Gmat(1, 0) = g21;
+  Gmat(1, 1) = 1 - g21;
+  return Gmat;
 }
 
 // [[Rcpp::export]]
@@ -1117,96 +1186,96 @@ NumericMatrix multInfer_cpp(IntegerVector y, NumericMatrix e_it, int nstrain, in
     List covBlocks = List::create(RconditionalcovA, RconditionalcovB, RconditionalcovC, RconditionalcovD,
                                   RconditionalcovE, Rconditionalcovf, Rconditionalcovg, RconditionalcovH);
 
-      for(int j = 0; j < 8 ; ++j){
-        if(j==0){
-          NumericMatrix othercompsMat = MC_chain(Range(i-1, i-1), Range(5+Rsize, 5+time-1));
-          NumericMatrix tempCov = covBlocks[j];
-          NumericMatrix newtempCov = -1 * tempCov;
-          NumericMatrix tempRW2Mat = currentRW2PrecMat(Range(0,Rsize-1), Range(Rsize, time-1));
-          NumericMatrix RconditionalmeanMat = multiply2matrices_cpp(multiply2matrices_cpp(newtempCov, tempRW2Mat), transpose(othercompsMat));
-          Rconditionalmean = RconditionalmeanMat(_, 0);
-          blockproposedRcomps = rcpp_rmvn(1, Rconditionalmean, covBlocks[j]);
-          //Rcpp::Rcout << "Succesful" << i << std::endl;
-          for(int t = 0; t < Rsize; ++t){
+    for(int j = 0; j < 8 ; ++j){
+      if(j==0){
+        NumericMatrix othercompsMat = MC_chain(Range(i-1, i-1), Range(5+Rsize, 5+time-1));
+        NumericMatrix tempCov = covBlocks[j];
+        NumericMatrix newtempCov = -1 * tempCov;
+        NumericMatrix tempRW2Mat = currentRW2PrecMat(Range(0,Rsize-1), Range(Rsize, time-1));
+        NumericMatrix RconditionalmeanMat = multiply2matrices_cpp(multiply2matrices_cpp(newtempCov, tempRW2Mat), transpose(othercompsMat));
+        Rconditionalmean = RconditionalmeanMat(_, 0);
+        blockproposedRcomps = rcpp_rmvn(1, Rconditionalmean, covBlocks[j]);
+        //Rcpp::Rcout << "Succesful" << i << std::endl;
+        for(int t = 0; t < Rsize; ++t){
           proposedRcomps[t] = blockproposedRcomps[t];
-          }
-          for(int tt = Rsize; tt < time; ++tt){
-            proposedRcomps[tt] = MC_chain(i-1, 5+tt);
-          }
         }
-        else if(j!=0 && j!=7){
-          NumericMatrix Before_othercompsMat = MC_chain(Range(i, i), Range(5, 5+j*Rsize-1));
-          NumericMatrix After_othercompsMat = MC_chain(Range(i, i), Range(5+(j+1)*Rsize, 5+time-1));
-          NumericMatrix tempCov = covBlocks[j];
-          NumericMatrix newtempCov = -1 * tempCov;
-          NumericMatrix firsttempRW2Mat = currentRW2PrecMat(Range(j*Rsize, (j+1)*Rsize-1), Range(0, j*Rsize-1));
-          NumericMatrix secondtempRW2Mat = currentRW2PrecMat(Range(j*Rsize, (j+1)*Rsize-1), Range((j+1)*Rsize, time-1));
-          NumericMatrix RconditionalmeanMat1 = multiply2matrices_cpp(firsttempRW2Mat, transpose(Before_othercompsMat));
-          NumericMatrix RconditionalmeanMat2 = multiply2matrices_cpp(secondtempRW2Mat, transpose(After_othercompsMat));
-          //Rcpp::Rcout << "Succesful" << j << std::endl;
-          NumericMatrix RconditionalmeanMat = multiply2matrices_cpp(newtempCov, add2matrices_cpp(RconditionalmeanMat1, RconditionalmeanMat2));
-
-         // RconditionalmeanMat = add2matrices_cpp(multiply2matrices_cpp(multiply2matrices_cpp(newtempCov, firsttempRW2Mat), transpose(Before_othercompsMat)), multiply2matrices_cpp(secondtempRW2Mat, transpose(After_othercompsMat)));
-          Rconditionalmean = RconditionalmeanMat(_, 0);
-          blockproposedRcomps = rcpp_rmvn(1, Rconditionalmean, covBlocks[j]);
-          for(int t = 0; t < j*Rsize; ++t){
-          proposedRcomps[t] = MC_chain(i, 5+t);
-          }
-          for(int tt = j*Rsize; tt < (j+1)*Rsize; ++tt){
-            proposedRcomps[tt] = blockproposedRcomps[tt-j*Rsize];
-          }
-          for(int ttt = (j+1)*Rsize; ttt < time; ++ttt){
-            proposedRcomps[ttt] = MC_chain(i, 5+ttt);
-          }
+        for(int tt = Rsize; tt < time; ++tt){
+          proposedRcomps[tt] = MC_chain(i-1, 5+tt);
         }
-        else if(j==7){
-          NumericMatrix lastproposedRconditionalmeanMat(time-7*Rsize, 1);
-          NumericMatrix othercompsMat = MC_chain(Range(i, i), Range(5, 5+(7*Rsize)-1));
-          NumericMatrix tempCov = covBlocks[j];
-          NumericMatrix newtempCov = -1 * tempCov;
-          NumericMatrix tempRW2Mat = currentRW2PrecMat(Range(7*Rsize, time-1), Range(0, 7*Rsize-1));
-          lastproposedRconditionalmeanMat = multiply2matrices_cpp(multiply2matrices_cpp(newtempCov, tempRW2Mat), transpose(othercompsMat));
-          //Rcpp::Rcout << "Succesful" << j << std::endl;
-          lastproposedRconditionalmean = lastproposedRconditionalmeanMat(_, 0);
-          blockproposedRcomps = rcpp_rmvn(1, lastproposedRconditionalmean, covBlocks[j]);
-          for(int t = 0; t < 7*Rsize; ++t){
-            proposedRcomps[t] = MC_chain(i, 5+t);
-          }
-          for(int tt = 7*Rsize; tt < time; ++tt){
-            proposedRcomps[tt] = blockproposedRcomps[tt-7*Rsize];
-          }
-        }
-
-        double likelihoodcurrentR = multGeneralLoglikelihood_cpp2(y,ndept,time,nstrain,currenta_k, currentR,currentS,acceptedU,Gmat,e_it, currentB, Model, Bits, independentChains);
-        double likelihoodproposedR = multGeneralLoglikelihood_cpp2(y,ndept,time,nstrain,currenta_k,proposedRcomps,currentS,acceptedU,Gmat,e_it, currentB, Model, Bits, independentChains);
-
-        double mh_ratioR = exp(likelihoodproposedR - likelihoodcurrentR);
-
-          if(R::runif(0,1) < mh_ratioR){
-            for(int t = 0; t < time; ++t){
-            MC_chain(i, 5+t) = proposedRcomps[t];
-            acceptedR[t] = proposedRcomps[t];
-            currentR[t] = proposedRcomps[t];
-            }
-          }
-          else{
-            if(j==0){
-              for(int t = 0; t < time; ++t){
-              MC_chain(i, 5+t) = MC_chain(i-1, 5+t);
-              acceptedR[t] = MC_chain(i-1, 5+t);
-              currentR[t] = MC_chain(i-1, 5+t);
-              }
-            }
-            else if(j!=0){
-              for(int t = 0; t < time; ++t){
-                MC_chain(i, 5+t) = MC_chain(i, 5+t);
-                acceptedR[t] = MC_chain(i, 5+t);
-                currentR[t] = MC_chain(i, 5+t);
-              }
-            }
-          }
       }
-      //Rcpp::Rcout << "Condprior" << i << std::endl;
+      else if(j!=0 && j!=7){
+        NumericMatrix Before_othercompsMat = MC_chain(Range(i, i), Range(5, 5+j*Rsize-1));
+        NumericMatrix After_othercompsMat = MC_chain(Range(i, i), Range(5+(j+1)*Rsize, 5+time-1));
+        NumericMatrix tempCov = covBlocks[j];
+        NumericMatrix newtempCov = -1 * tempCov;
+        NumericMatrix firsttempRW2Mat = currentRW2PrecMat(Range(j*Rsize, (j+1)*Rsize-1), Range(0, j*Rsize-1));
+        NumericMatrix secondtempRW2Mat = currentRW2PrecMat(Range(j*Rsize, (j+1)*Rsize-1), Range((j+1)*Rsize, time-1));
+        NumericMatrix RconditionalmeanMat1 = multiply2matrices_cpp(firsttempRW2Mat, transpose(Before_othercompsMat));
+        NumericMatrix RconditionalmeanMat2 = multiply2matrices_cpp(secondtempRW2Mat, transpose(After_othercompsMat));
+        //Rcpp::Rcout << "Succesful" << j << std::endl;
+        NumericMatrix RconditionalmeanMat = multiply2matrices_cpp(newtempCov, add2matrices_cpp(RconditionalmeanMat1, RconditionalmeanMat2));
+
+        // RconditionalmeanMat = add2matrices_cpp(multiply2matrices_cpp(multiply2matrices_cpp(newtempCov, firsttempRW2Mat), transpose(Before_othercompsMat)), multiply2matrices_cpp(secondtempRW2Mat, transpose(After_othercompsMat)));
+        Rconditionalmean = RconditionalmeanMat(_, 0);
+        blockproposedRcomps = rcpp_rmvn(1, Rconditionalmean, covBlocks[j]);
+        for(int t = 0; t < j*Rsize; ++t){
+          proposedRcomps[t] = MC_chain(i, 5+t);
+        }
+        for(int tt = j*Rsize; tt < (j+1)*Rsize; ++tt){
+          proposedRcomps[tt] = blockproposedRcomps[tt-j*Rsize];
+        }
+        for(int ttt = (j+1)*Rsize; ttt < time; ++ttt){
+          proposedRcomps[ttt] = MC_chain(i, 5+ttt);
+        }
+      }
+      else if(j==7){
+        NumericMatrix lastproposedRconditionalmeanMat(time-7*Rsize, 1);
+        NumericMatrix othercompsMat = MC_chain(Range(i, i), Range(5, 5+(7*Rsize)-1));
+        NumericMatrix tempCov = covBlocks[j];
+        NumericMatrix newtempCov = -1 * tempCov;
+        NumericMatrix tempRW2Mat = currentRW2PrecMat(Range(7*Rsize, time-1), Range(0, 7*Rsize-1));
+        lastproposedRconditionalmeanMat = multiply2matrices_cpp(multiply2matrices_cpp(newtempCov, tempRW2Mat), transpose(othercompsMat));
+        //Rcpp::Rcout << "Succesful" << j << std::endl;
+        lastproposedRconditionalmean = lastproposedRconditionalmeanMat(_, 0);
+        blockproposedRcomps = rcpp_rmvn(1, lastproposedRconditionalmean, covBlocks[j]);
+        for(int t = 0; t < 7*Rsize; ++t){
+          proposedRcomps[t] = MC_chain(i, 5+t);
+        }
+        for(int tt = 7*Rsize; tt < time; ++tt){
+          proposedRcomps[tt] = blockproposedRcomps[tt-7*Rsize];
+        }
+      }
+
+      double likelihoodcurrentR = multGeneralLoglikelihood_cpp2(y,ndept,time,nstrain,currenta_k, currentR,currentS,acceptedU,Gmat,e_it, currentB, Model, Bits, independentChains);
+      double likelihoodproposedR = multGeneralLoglikelihood_cpp2(y,ndept,time,nstrain,currenta_k,proposedRcomps,currentS,acceptedU,Gmat,e_it, currentB, Model, Bits, independentChains);
+
+      double mh_ratioR = exp(likelihoodproposedR - likelihoodcurrentR);
+
+      if(R::runif(0,1) < mh_ratioR){
+        for(int t = 0; t < time; ++t){
+          MC_chain(i, 5+t) = proposedRcomps[t];
+          acceptedR[t] = proposedRcomps[t];
+          currentR[t] = proposedRcomps[t];
+        }
+      }
+      else{
+        if(j==0){
+          for(int t = 0; t < time; ++t){
+            MC_chain(i, 5+t) = MC_chain(i-1, 5+t);
+            acceptedR[t] = MC_chain(i-1, 5+t);
+            currentR[t] = MC_chain(i-1, 5+t);
+          }
+        }
+        else if(j!=0){
+          for(int t = 0; t < time; ++t){
+            MC_chain(i, 5+t) = MC_chain(i, 5+t);
+            acceptedR[t] = MC_chain(i, 5+t);
+            currentR[t] = MC_chain(i, 5+t);
+          }
+        }
+      }
+    }
+    //Rcpp::Rcout << "Condprior" << i << std::endl;
 
     //seasonal components update (S)
     NumericVector tempS = currentS;
@@ -1250,37 +1319,37 @@ NumericMatrix multInfer_cpp(IntegerVector y, NumericMatrix e_it, int nstrain, in
         acceptedB[b] = 0.0;
       }
     }else{
-    for (int j = 0; j < nstrain; ++j) {
-      proposedB[j] = std::abs(R::rnorm(currentB[j], 0.1));
-      priorcurrentB += R::dgamma(currentB[j], 2, 1.0 / 2.0, true);
-      priorproposedB += R::dgamma(proposedB[j], 2, 1.0 / 2.0, true);
+      for (int j = 0; j < nstrain; ++j) {
+        proposedB[j] = std::abs(R::rnorm(currentB[j], 0.1));
+        priorcurrentB += R::dgamma(currentB[j], 2, 1.0 / 2.0, true);
+        priorproposedB += R::dgamma(proposedB[j], 2, 1.0 / 2.0, true);
       }
 
-    double likelihoodcurrentB = multGeneralLoglikelihood_cpp2(y, ndept, time, nstrain, currenta_k, acceptedR, acceptedS, acceptedU,Gmat, e_it, currentB, Model, Bits, independentChains);
-    double likelihoodproposedB = multGeneralLoglikelihood_cpp2(y, ndept, time, nstrain, currenta_k, acceptedR, acceptedS, acceptedU,Gmat, e_it, proposedB, Model, Bits, independentChains);
+      double likelihoodcurrentB = multGeneralLoglikelihood_cpp2(y, ndept, time, nstrain, currenta_k, acceptedR, acceptedS, acceptedU,Gmat, e_it, currentB, Model, Bits, independentChains);
+      double likelihoodproposedB = multGeneralLoglikelihood_cpp2(y, ndept, time, nstrain, currenta_k, acceptedR, acceptedS, acceptedU,Gmat, e_it, proposedB, Model, Bits, independentChains);
 
-    double mh_ratioB = exp(likelihoodproposedB + priorproposedB
-                             - likelihoodcurrentB - priorcurrentB);
+      double mh_ratioB = exp(likelihoodproposedB + priorproposedB
+                               - likelihoodcurrentB - priorcurrentB);
 
-    if(R::runif(0, 1) < mh_ratioB) {
-      for (int b = 0; b < nstrain; ++b) {
-        MC_chain(i, 5 + time + 12 + ndept + b) = proposedB[b];
-        acceptedB[b] = proposedB[b];
-      }
-    } else {
-      for (int b = 0; b < nstrain; ++b) {
-        MC_chain(i, 5 + time + 12 + ndept + b) = currentB[b];
-        acceptedB[b] = currentB[b];
+      if(R::runif(0, 1) < mh_ratioB) {
+        for (int b = 0; b < nstrain; ++b) {
+          MC_chain(i, 5 + time + 12 + ndept + b) = proposedB[b];
+          acceptedB[b] = proposedB[b];
+        }
+      } else {
+        for (int b = 0; b < nstrain; ++b) {
+          MC_chain(i, 5 + time + 12 + ndept + b) = currentB[b];
+          acceptedB[b] = currentB[b];
+        }
       }
     }
-  }
     //Rcpp::Rcout << "Beta update" << i << std::endl;
 
     // update a_k's
     NumericVector proposeda_k(nstrain);
-      for (int j = 0; j < nstrain; ++j) {
-        proposeda_k[j] = R::rnorm(currenta_k[j], 0.07);
-      }
+    for (int j = 0; j < nstrain; ++j) {
+      proposeda_k[j] = R::rnorm(currenta_k[j], 0.07);
+    }
 
     double likelihoodcurrenta_k = multGeneralLoglikelihood_cpp2(y, ndept, time, nstrain, currenta_k, acceptedR, acceptedS, acceptedU,Gmat, e_it, acceptedB, Model, Bits, independentChains);
     double likelihoodproposeda_k = multGeneralLoglikelihood_cpp2(y, ndept, time, nstrain, proposeda_k, acceptedR, acceptedS, acceptedU,Gmat, e_it, acceptedB, Model, Bits, independentChains);
@@ -1309,20 +1378,20 @@ NumericMatrix multInfer_cpp(IntegerVector y, NumericMatrix e_it, int nstrain, in
     double priorcurrentGs = 0.0;
     double priorproposedGs = 0.0;
     for(int g = 0; g < 2; ++g){
-    currentGs[g] = MC_chain(i-1, g);
-    tempGs[g] = std::abs(R::rnorm(currentGs[g], 0.1));
-    if(tempGs[0]>1){
-      proposedGs[0]=2-tempGs[0];
-    }else{
-      proposedGs[0]=tempGs[0];
-    }
-    if(tempGs[1]>1){
-      proposedGs[1]=2-tempGs[1];
-    }else{
-      proposedGs[1]=tempGs[1];
+      currentGs[g] = MC_chain(i-1, g);
+      tempGs[g] = std::abs(R::rnorm(currentGs[g], 0.1));
+      if(tempGs[0]>1){
+        proposedGs[0]=2-tempGs[0];
+      }else{
+        proposedGs[0]=tempGs[0];
       }
-    priorcurrentGs += R::dbeta(currentGs[g], 2.0, 2.0, true);
-    priorproposedGs += R::dbeta(proposedGs[g], 2.0, 2.0, true);
+      if(tempGs[1]>1){
+        proposedGs[1]=2-tempGs[1];
+      }else{
+        proposedGs[1]=tempGs[1];
+      }
+      priorcurrentGs += R::dbeta(currentGs[g], 2.0, 2.0, true);
+      priorproposedGs += R::dbeta(proposedGs[g], 2.0, 2.0, true);
     }
     NumericMatrix proposedGmat = makematrix_cpp(proposedGs[0], proposedGs[1]);
 
@@ -1330,7 +1399,7 @@ NumericMatrix multInfer_cpp(IntegerVector y, NumericMatrix e_it, int nstrain, in
     double likelihoodproposedGs = multGeneralLoglikelihood_cpp2(y, ndept, time, nstrain, accepteda_k, acceptedR, acceptedS, acceptedU,proposedGmat, e_it, acceptedB, Model, Bits, independentChains);
 
     double mh_ratioG = exp(likelihoodproposedGs + priorproposedGs
-                         - likelihoodcurrentGs - priorcurrentGs);
+                             - likelihoodcurrentGs - priorcurrentGs);
 
     if(R::runif(0,1) < mh_ratioG){
       MC_chain(i, 0) = proposedGs[0];
@@ -1343,21 +1412,21 @@ NumericMatrix multInfer_cpp(IntegerVector y, NumericMatrix e_it, int nstrain, in
     MC_chain(i, 5+time+12+ndept+nstrain+nstrain) = state_dist_cpp(MC_chain(i, 0), MC_chain(i, 1))[1];
     //Rcpp::Rcout << "gamma update" << i << std::endl;
 
- //Gibbs update for a_k's
-//    NumericVector stationDist = state_dist_cpp(MC_chain(i, 0), MC_chain(i, 1));
-//      double poisMean = 0.0;
-//      for(int a = 0; a < ndept; ++a){
-//        for(int b = 0; b < time; ++b){
-//          int month_index = b % 12;
-//          poisMean +=  e_it(a, b) * exp(acceptedR[b] + acceptedS[month_index] + acceptedU[a] + dotproduct_cpp(acceptedB, stationDist));
-//        }
-//      }
+    //Gibbs update for a_k's
+    //    NumericVector stationDist = state_dist_cpp(MC_chain(i, 0), MC_chain(i, 1));
+    //      double poisMean = 0.0;
+    //      for(int a = 0; a < ndept; ++a){
+    //        for(int b = 0; b < time; ++b){
+    //          int month_index = b % 12;
+    //          poisMean +=  e_it(a, b) * exp(acceptedR[b] + acceptedS[month_index] + acceptedU[a] + dotproduct_cpp(acceptedB, stationDist));
+    //        }
+    //      }
 
-//      double scale = 1.0 / (poisMean + 0.01/exp(-15));
-//      for(int a = 0; a < nstrain; ++a){
-//      MC_chain(i, 5+time+12+ndept+nstrain+a) = log(R::rgamma(0.01+SumYk_vec[a],  scale));
-//      accepteda_k[a] = MC_chain(i, 5+time+12+ndept+nstrain+a);
-//      }
+    //      double scale = 1.0 / (poisMean + 0.01/exp(-15));
+    //      for(int a = 0; a < nstrain; ++a){
+    //      MC_chain(i, 5+time+12+ndept+nstrain+a) = log(R::rgamma(0.01+SumYk_vec[a],  scale));
+    //      accepteda_k[a] = MC_chain(i, 5+time+12+ndept+nstrain+a);
+    //      }
 
     //Adapting zigmaR
     if(i==5){
@@ -1403,7 +1472,7 @@ NumericMatrix multInfer_cpp(IntegerVector y, NumericMatrix e_it, int nstrain, in
       currentzigmaR = lambdaR * optconstantR * tempzigmaR;
     }
 
-//Adapting zigmaS
+    //Adapting zigmaS
     if(i==5){
       XnS = MC_chain(Range(0,i), Range(5+time, 5+time+10));
       XnbarS = ColMeans_cpp(XnS);
@@ -1450,200 +1519,7 @@ NumericMatrix multInfer_cpp(IntegerVector y, NumericMatrix e_it, int nstrain, in
 
 // [[Rcpp::export]]
 List gradmultstrainLoglikelihood2_cpp(arma::cube y, arma::mat e_it, int nstrain, arma::vec r, arma::vec s,
-                                      arma::vec u, NumericMatrix Gamma, NumericVector B, NumericMatrix Bits, arma::vec a_k,
-                                      int Model, arma::mat Q_r, arma::mat Q_s, arma::mat Q_u){
-
-  int ndept = e_it.n_rows;
-  int time = e_it.n_cols;
-  int nstate = intPower(2, nstrain);
-
-if(Model == 0){
-  arma::uvec month_indexes(time);
-  for (int t = 0; t < time; t++) {
-    month_indexes(t) = (t % 12);
-  }
-  arma::mat r_mat = arma::repmat(r.t(), ndept, 1);
-
-  arma::vec s_sub = s.elem(month_indexes);
-  arma::mat s_mat = arma::repmat(s_sub.t(), ndept, 1);
-
-  arma::mat u_mat = arma::repmat(u, 1, time);
-
-  arma::mat log_risk = r_mat + s_mat + u_mat;
-
-  arma::mat poisMean(ndept, time, arma::fill::zeros);
-  arma::cube allPoisMean(ndept, time, nstrain, arma::fill::zeros);
-  arma::mat delta(ndept, time, arma::fill::zeros);
-
-  for (int k = 0; k < nstrain; ++k) {
-    arma::mat lambda = e_it % arma::exp(log_risk + a_k[k]);
-    delta   += y.slice(k) - lambda;
-    poisMean += lambda;
-    allPoisMean.slice(k) = lambda;
-  }
-
-  // compute log-likelihood
-  double loglike = 0.0;
-  for (int k = 0; k < nstrain; ++k){
-    arma::mat Y = y.slice(k);
-    arma::mat Lambda = allPoisMean.slice(k);
-    arma::mat safeLambda = Lambda;
-    safeLambda.transform( [](double val) { return (val <= 0) ? 1e-12 : val; } );
-    loglike += arma::accu(Y % arma::log(safeLambda) - Lambda - lgamma(Y + 1));
-    }
-
-  // Temporal trend r gradients
-  arma::vec grad_r = arma::sum(delta, 0).t() - Q_r * r;
-  arma::mat diag_pois_colsum = arma::diagmat(arma::sum(poisMean, 0));
-  arma::mat cov_r = arma::inv_sympd(diag_pois_colsum + Q_r + arma::eye(time, time) * 1e-8);
-
-  // Seasonal s gradients
-  arma::vec grad_s(12, arma::fill::zeros);
-  arma::vec fishervec_s(12, arma::fill::zeros);
-
-  for (int month_index = 0; month_index < 12; ++month_index) {
-    for (int t = 0; t < time; ++t) {
-      if ((t % 12) == month_index) {
-        grad_s(month_index)     += arma::accu(delta.col(t));
-        fishervec_s(month_index)+= arma::accu(poisMean.col(t));
-      }
-    }
-  }
-  grad_s -= Q_s * s;
-  arma::mat cov_s = arma::inv_sympd(arma::diagmat(fishervec_s) + Q_s);
-
-
-  // Spatial u gradients
-  arma::vec grad_u = arma::sum(delta, 1) - Q_u * u;
-
-  return List::create(
-    Named("loglike") = loglike,
-    Named("grad_r") = grad_r,
-    Named("grad_s") = grad_s,
-    Named("grad_u") = grad_u,
-    Named("cov_r") = cov_r,
-    Named("cov_s") = cov_s
-  );
-    }else{
-
-      double loglike_total = 0;
-
-      NumericMatrix jointTPM = JointTransitionMatrix_cpp(Gamma, nstrain);
-      arma::mat armajointTPM = Rcpp::as<arma::mat>(jointTPM);
-      arma::mat safeTPM = armajointTPM;
-      safeTPM.transform([](double val){ return (val <= 0) ? 1e-12 : val; });
-      arma::mat logjointTPM = arma::log(safeTPM);
-
-      arma::cube E_lambda_itk(ndept, time, nstrain, arma::fill::zeros);
-
-      for(int i = 0; i < ndept; ++i){
-        arma::mat logEmissions(time, nstate, arma::fill::zeros);
-        arma::cube lambda_array(time, nstate, nstrain, arma::fill::zeros);
-        for(int t = 0; t < time; ++t){
-          int month_index = t % 12;
-          for(int n = 0; n < nstate; ++n){
-            for(int k = 0; k < nstrain; ++k){
-              NumericVector newB(nstrain);
-              std::fill(newB.begin(), newB.end(), 0.0);
-              newB[k] = B[k];
-              lambda_array(t, n, k) = e_it(i, t) * std::exp(a_k[k] + r[t] + s[month_index] + u[i] + dotproduct_cpp(newB, Bits(n, _)));
-            }
-            arma::vec y_vec = y.tube(i, t);
-            arma::vec lambda_vec = lambda_array.tube(t, n);
-            arma::vec safelambda_vec = lambda_vec;
-            safelambda_vec.transform( [](double val) { return (val <= 0) ? 1e-12 : val; });
-            logEmissions(t, n) = arma::accu(y_vec % arma::log(safelambda_vec) - lambda_vec - lgamma(y_vec + 1));
-          }
-        }
-        //forward pass
-        NumericVector init_density = state_dist_cpp2(jointTPM);
-        arma::vec armainit_density = Rcpp::as<arma::vec>(init_density);
-        arma::vec safeinitdensity = init_density;
-        safeinitdensity.transform( [](double val) { return (val <= 0) ? 1e-12 : val; });
-        arma::vec loginit_density = arma::log(safeinitdensity);
-        arma::mat logalpha(time, nstate);
-
-        logalpha.row(0) = loginit_density.t() + logEmissions.row(0);
-        for(int t = 1; t < time; ++t){
-          logalpha.row(t) = (logVecMatMult2(logalpha.row(t-1).t(), logjointTPM) + logEmissions.row(t).t()).t();
-        }
-
-        double loglike_i = logSumExp_cpp2(logalpha.row(time-1).t());
-        loglike_total += loglike_i;
-
-        //backward pass
-        arma::mat logbeta(time, nstate, arma::fill::zeros);
-        arma::mat logjointTPM_t = logjointTPM.t();
-
-        for(int t = time - 2; t >= 0; --t){
-          arma::vec vec = (logEmissions.row(t + 1) + logbeta.row(t + 1)).t();
-          logbeta.row(t) = logVecMatMult2(vec, logjointTPM_t).t();
-        }
-        //Marginal posterior probabilities
-        arma::mat logP_s = (logalpha + logbeta) - loglike_i;
-        arma::mat P_s = arma::exp(logP_s);
-
-        for(int t = 0; t < time; ++t){
-          for(int k = 0; k < nstrain; ++k){
-            arma::vec newlambtube(nstate);
-            for(int n = 0; n < nstate; ++n){
-              newlambtube[n] = lambda_array(t, n, k);
-            }
-            arma::vec probvec = P_s.row(t).t();
-            E_lambda_itk(i, t, k) = arma::dot(probvec, newlambtube);
-          }
-        }
-      }
-
-      arma::mat poisMean(ndept, time, arma::fill::zeros);
-      arma::mat delta(ndept, time, arma::fill::zeros);
-
-      for (int k = 0; k < nstrain; ++k){
-        arma::mat currentY = y.slice(k);
-        arma::mat currentE_lambda = E_lambda_itk.slice(k);
-        delta   += (currentY - currentE_lambda);
-        poisMean += currentE_lambda;
-      }
-
-      // Temporal trend r gradients
-      arma::vec grad_r = arma::sum(delta, 0).t() - Q_r * r;
-      arma::mat diag_pois_colsum = arma::diagmat(arma::sum(poisMean, 0));
-      arma::mat cov_r = arma::inv_sympd(diag_pois_colsum + Q_r + arma::eye(time, time) * 1e-8);
-
-      // Seasonal s gradients
-      arma::vec grad_s(12, arma::fill::zeros);
-      arma::vec fishervec_s(12, arma::fill::zeros);
-
-      for(int month_index = 0; month_index < 12; ++month_index){
-        for(int t = 0; t < time; ++t){
-          if((t % 12) == month_index){
-            grad_s(month_index)     += arma::accu(delta.col(t));
-            fishervec_s(month_index)+= arma::accu(poisMean.col(t));
-          }
-        }
-      }
-      grad_s -= Q_s * s;
-      arma::mat cov_s = arma::inv_sympd(arma::diagmat(fishervec_s) + Q_s);
-
-
-      // Spatial u gradients
-      arma::vec grad_u = arma::sum(delta, 1) - Q_u * u;
-
-      return List::create(
-        Named("loglike") = loglike_total,
-        Named("grad_r") = grad_r,
-        Named("grad_s") = grad_s,
-        Named("grad_u") = grad_u,
-        Named("cov_r") = cov_r,
-        Named("cov_s") = cov_s
-      );
-  }
-}
-
-
-// [[Rcpp::export]]
-List perstraingradmultstrainLoglikelihood2_cpp(arma::cube y, arma::mat e_it, int nstrain, arma::vec r, arma::vec s,
-                                      arma::vec u, List Gamma, NumericVector B, NumericMatrix Bits, arma::vec a_k,
+                                      arma::vec u, arma::mat Gamma, arma::vec B, arma::mat Bits, arma::vec a_k,
                                       int Model, arma::mat Q_r, arma::mat Q_s, arma::mat Q_u){
 
   int ndept = e_it.n_rows;
@@ -1719,13 +1595,18 @@ List perstraingradmultstrainLoglikelihood2_cpp(arma::cube y, arma::mat e_it, int
     );
   }else{
 
-    double loglike_total = 0;
+    double loglike_total = 0.0;
 
-    NumericMatrix jointTPM = JointTransitionMatrix_per_strain_cpp(Gamma, nstrain);
-    arma::mat armajointTPM = Rcpp::as<arma::mat>(jointTPM);
-    arma::mat safeTPM = armajointTPM;
+    arma::mat jointTPM = JointTransitionMatrix_arma_cpp(Gamma, nstrain);
+    arma::mat safeTPM = jointTPM;
     safeTPM.transform([](double val){ return (val <= 0) ? 1e-12 : val; });
     arma::mat logjointTPM = arma::log(safeTPM);
+    arma::mat logjointTPM_t = logjointTPM.t();
+
+    arma::vec init_density = stationarydistArma_cpp(jointTPM);
+    arma::vec safeinitdensity = init_density;
+    safeinitdensity.transform( [](double val) { return (val <= 0) ? 1e-12 : val; });
+    arma::vec loginit_density = arma::log(safeinitdensity);
 
     arma::cube E_lambda_itk(ndept, time, nstrain, arma::fill::zeros);
 
@@ -1736,10 +1617,7 @@ List perstraingradmultstrainLoglikelihood2_cpp(arma::cube y, arma::mat e_it, int
         int month_index = t % 12;
         for(int n = 0; n < nstate; ++n){
           for(int k = 0; k < nstrain; ++k){
-            NumericVector newB(nstrain);
-            std::fill(newB.begin(), newB.end(), 0.0);
-            newB[k] = B[k];
-            lambda_array(t, n, k) = e_it(i, t) * std::exp(a_k[k] + r[t] + s[month_index] + u[i] + dotproduct_cpp(newB, Bits(n, _)));
+            lambda_array(t, n, k) = e_it(i, t) * std::exp(a_k[k] + r[t] + s[month_index] + u[i] + Bits(n, k) * B[k]);
           }
           arma::vec y_vec = y.tube(i, t);
           arma::vec lambda_vec = lambda_array.tube(t, n);
@@ -1749,12 +1627,7 @@ List perstraingradmultstrainLoglikelihood2_cpp(arma::cube y, arma::mat e_it, int
         }
       }
       //forward pass
-      NumericVector init_density = state_dist_cpp2(jointTPM);
-      arma::vec armainit_density = Rcpp::as<arma::vec>(init_density);
-      arma::vec safeinitdensity = init_density;
-      safeinitdensity.transform( [](double val) { return (val <= 0) ? 1e-12 : val; });
-      arma::vec loginit_density = arma::log(safeinitdensity);
-      arma::mat logalpha(time, nstate);
+      arma::mat logalpha(time, nstate, arma::fill::zeros);
 
       logalpha.row(0) = loginit_density.t() + logEmissions.row(0);
       for(int t = 1; t < time; ++t){
@@ -1766,7 +1639,6 @@ List perstraingradmultstrainLoglikelihood2_cpp(arma::cube y, arma::mat e_it, int
 
       //backward pass
       arma::mat logbeta(time, nstate, arma::fill::zeros);
-      arma::mat logjointTPM_t = logjointTPM.t();
 
       for(int t = time - 2; t >= 0; --t){
         arma::vec vec = (logEmissions.row(t + 1) + logbeta.row(t + 1)).t();
@@ -1778,7 +1650,196 @@ List perstraingradmultstrainLoglikelihood2_cpp(arma::cube y, arma::mat e_it, int
 
       for(int t = 0; t < time; ++t){
         for(int k = 0; k < nstrain; ++k){
-          arma::vec newlambtube(nstate);
+          arma::vec newlambtube(nstate, arma::fill::zeros);
+          for(int n = 0; n < nstate; ++n){
+            newlambtube[n] = lambda_array(t, n, k);
+          }
+          arma::vec probvec = P_s.row(t).t();
+          E_lambda_itk(i, t, k) = arma::dot(probvec, newlambtube);
+        }
+      }
+    }
+
+    arma::mat poisMean(ndept, time, arma::fill::zeros);
+    arma::mat delta(ndept, time, arma::fill::zeros);
+
+    for (int k = 0; k < nstrain; ++k){
+      arma::mat currentY = y.slice(k);
+      arma::mat currentE_lambda = E_lambda_itk.slice(k);
+      delta   += (currentY - currentE_lambda);
+      poisMean += currentE_lambda;
+    }
+
+    // Temporal trend r gradients
+    arma::vec grad_r = arma::sum(delta, 0).t() - Q_r * r;
+    arma::mat diag_pois_colsum = arma::diagmat(arma::sum(poisMean, 0));
+    arma::mat cov_r = arma::inv_sympd(diag_pois_colsum + Q_r + arma::eye(time, time) * 1e-8);
+
+    // Seasonal s gradients
+    arma::vec grad_s(12, arma::fill::zeros);
+    arma::vec fishervec_s(12, arma::fill::zeros);
+
+    for(int month_index = 0; month_index < 12; ++month_index){
+      for(int t = 0; t < time; ++t){
+        if((t % 12) == month_index){
+          grad_s(month_index)     += arma::accu(delta.col(t));
+          fishervec_s(month_index)+= arma::accu(poisMean.col(t));
+        }
+      }
+    }
+    grad_s -= Q_s * s;
+    arma::mat cov_s = arma::inv_sympd(arma::diagmat(fishervec_s) + Q_s);
+
+
+    // Spatial u gradients
+    arma::vec grad_u = arma::sum(delta, 1) - Q_u * u;
+
+    return List::create(
+      Named("loglike") = loglike_total,
+      Named("grad_r") = grad_r,
+      Named("grad_s") = grad_s,
+      Named("grad_u") = grad_u,
+      Named("cov_r") = cov_r,
+      Named("cov_s") = cov_s
+    );
+  }
+}
+
+
+// [[Rcpp::export]]
+List perstraingradmultstrainLoglikelihood2_cpp(arma::cube y, arma::mat e_it, int nstrain, arma::vec r, arma::vec s,
+                                               arma::vec u, List Gamma, arma::vec B, arma::mat Bits, arma::vec a_k,
+                                               int Model, arma::mat Q_r, arma::mat Q_s, arma::mat Q_u){
+
+  int ndept = e_it.n_rows;
+  int time = e_it.n_cols;
+  int nstate = intPower(2, nstrain);
+
+  if(Model == 0){
+    arma::uvec month_indexes(time);
+    for (int t = 0; t < time; t++) {
+      month_indexes(t) = (t % 12);
+    }
+    arma::mat r_mat = arma::repmat(r.t(), ndept, 1);
+
+    arma::vec s_sub = s.elem(month_indexes);
+    arma::mat s_mat = arma::repmat(s_sub.t(), ndept, 1);
+
+    arma::mat u_mat = arma::repmat(u, 1, time);
+
+    arma::mat log_risk = r_mat + s_mat + u_mat;
+
+    arma::mat poisMean(ndept, time, arma::fill::zeros);
+    arma::cube allPoisMean(ndept, time, nstrain, arma::fill::zeros);
+    arma::mat delta(ndept, time, arma::fill::zeros);
+
+    for (int k = 0; k < nstrain; ++k) {
+      arma::mat lambda = e_it % arma::exp(log_risk + a_k[k]);
+      delta   += y.slice(k) - lambda;
+      poisMean += lambda;
+      allPoisMean.slice(k) = lambda;
+    }
+
+    // compute log-likelihood
+    double loglike = 0.0;
+    for (int k = 0; k < nstrain; ++k){
+      arma::mat Y = y.slice(k);
+      arma::mat Lambda = allPoisMean.slice(k);
+      arma::mat safeLambda = Lambda;
+      safeLambda.transform( [](double val) { return (val <= 0) ? 1e-12 : val; } );
+      loglike += arma::accu(Y % arma::log(safeLambda) - Lambda - lgamma(Y + 1));
+    }
+
+    // Temporal trend r gradients
+    arma::vec grad_r = arma::sum(delta, 0).t() - Q_r * r;
+    arma::mat diag_pois_colsum = arma::diagmat(arma::sum(poisMean, 0));
+    arma::mat cov_r = arma::inv_sympd(diag_pois_colsum + Q_r + arma::eye(time, time) * 1e-8);
+
+    // Seasonal s gradients
+    arma::vec grad_s(12, arma::fill::zeros);
+    arma::vec fishervec_s(12, arma::fill::zeros);
+
+    for (int month_index = 0; month_index < 12; ++month_index) {
+      for (int t = 0; t < time; ++t) {
+        if ((t % 12) == month_index) {
+          grad_s(month_index)     += arma::accu(delta.col(t));
+          fishervec_s(month_index)+= arma::accu(poisMean.col(t));
+        }
+      }
+    }
+    grad_s -= Q_s * s;
+    arma::mat cov_s = arma::inv_sympd(arma::diagmat(fishervec_s) + Q_s);
+
+
+    // Spatial u gradients
+    arma::vec grad_u = arma::sum(delta, 1) - Q_u * u;
+
+    return List::create(
+      Named("loglike") = loglike,
+      Named("grad_r") = grad_r,
+      Named("grad_s") = grad_s,
+      Named("grad_u") = grad_u,
+      Named("cov_r") = cov_r,
+      Named("cov_s") = cov_s
+    );
+  }else{
+
+    double loglike_total = 0.0;
+
+    arma::mat jointTPM = JointTransitionMatrix_per_strain_cpp(Gamma, nstrain);
+    arma::mat safeTPM = jointTPM;
+    safeTPM.transform([](double val){ return (val <= 0) ? 1e-12 : val; });
+    arma::mat logjointTPM = arma::log(safeTPM);
+    arma::mat logjointTPM_t = logjointTPM.t();
+
+    arma::vec init_density = stationarydistArma_cpp(jointTPM);
+    arma::vec safeinitdensity = init_density;
+    safeinitdensity.transform( [](double val) { return (val <= 0) ? 1e-12 : val; });
+    arma::vec loginit_density = arma::log(safeinitdensity);
+
+    arma::cube E_lambda_itk(ndept, time, nstrain, arma::fill::zeros);
+
+    for(int i = 0; i < ndept; ++i){
+      arma::mat logEmissions(time, nstate, arma::fill::zeros);
+      arma::cube lambda_array(time, nstate, nstrain, arma::fill::zeros);
+      for(int t = 0; t < time; ++t){
+        int month_index = t % 12;
+        for(int n = 0; n < nstate; ++n){
+          for(int k = 0; k < nstrain; ++k){
+            lambda_array(t, n, k) = e_it(i, t) * std::exp(a_k[k] + r[t] + s[month_index] + u[i] + Bits(n, k) * B[k]);
+          }
+          arma::vec y_vec = y.tube(i, t);
+          arma::vec lambda_vec = lambda_array.tube(t, n);
+          arma::vec safelambda_vec = lambda_vec;
+          safelambda_vec.transform( [](double val) { return (val <= 0) ? 1e-12 : val; });
+          logEmissions(t, n) = arma::accu(y_vec % arma::log(safelambda_vec) - lambda_vec - lgamma(y_vec + 1));
+        }
+      }
+      //forward pass
+      arma::mat logalpha(time, nstate, arma::fill::zeros);
+
+      logalpha.row(0) = loginit_density.t() + logEmissions.row(0);
+      for(int t = 1; t < time; ++t){
+        logalpha.row(t) = (logVecMatMult2(logalpha.row(t-1).t(), logjointTPM) + logEmissions.row(t).t()).t();
+      }
+
+      double loglike_i = logSumExp_cpp2(logalpha.row(time-1).t());
+      loglike_total += loglike_i;
+
+      //backward pass
+      arma::mat logbeta(time, nstate, arma::fill::zeros);
+
+      for(int t = time - 2; t >= 0; --t){
+        arma::vec vec = (logEmissions.row(t + 1) + logbeta.row(t + 1)).t();
+        logbeta.row(t) = logVecMatMult2(vec, logjointTPM_t).t();
+      }
+      //Marginal posterior probabilities
+      arma::mat logP_s = (logalpha + logbeta) - loglike_i;
+      arma::mat P_s = arma::exp(logP_s);
+
+      for(int t = 0; t < time; ++t){
+        for(int k = 0; k < nstrain; ++k){
+          arma::vec newlambtube(nstate, arma::fill::zeros);
           for(int n = 0; n < nstate; ++n){
             newlambtube[n] = lambda_array(t, n, k);
           }
@@ -1835,13 +1896,13 @@ List perstraingradmultstrainLoglikelihood2_cpp(arma::cube y, arma::mat e_it, int
 
 //MALA and Riemann Manifold MALA - MCMC updates
 // [[Rcpp::export]]
-arma::mat MMALA_cpp(arma::cube y, arma::mat e_it, int Model, NumericMatrix Bits, arma::vec CrudeR,
-                            arma::vec CrudeS, arma::vec CrudeU, arma::mat RW2PrecMat, arma::mat RW1PrecMat,
-                            arma::mat Ru, int rankdef, int independentChains, int num_iteration, double meanR, List step_sizes){
+arma::mat MMALA_cpp(arma::cube y, arma::mat e_it, int Model, arma::mat Bits, arma::vec CrudeR,
+                    arma::vec CrudeS, arma::vec CrudeU, arma::mat RW2PrecMat, arma::mat RW1PrecMat,
+                    arma::mat Ru, int rankdef, int independentChains, int num_iteration, double meanR, List step_sizes){
 
   int time = e_it.n_cols;
   int ndept = e_it.n_rows;
-  int nstrain = Bits.ncol();
+  int nstrain = Bits.n_cols;
   arma::mat MC_chain(num_iteration, 5+time+12+ndept+nstrain+nstrain+1);
   //initials
   MC_chain(0, 0) = R::runif(0,1);
@@ -1860,10 +1921,9 @@ arma::mat MMALA_cpp(arma::cube y, arma::mat e_it, int Model, NumericMatrix Bits,
   arma::mat Q_s = MC_chain(0,3) * RW1PrecMat;
   arma::mat Q_u = MC_chain(0,4) * Ru;
 
-  NumericMatrix Gmat = makematrix_cpp(MC_chain(0, 0), MC_chain(0, 1));
-  NumericVector B(nstrain);
-  arma::vec a_k(nstrain);
-  a_k = MC_chain(arma::span(0,0), arma::span(5+time+12+ndept+nstrain, 5+time+12+ndept+nstrain+nstrain-1)).t();
+  arma::mat Gmat = makematrix_arma_cpp(MC_chain(0, 0), MC_chain(0, 1));
+  arma::vec B(nstrain, arma::fill::zeros);
+  arma::vec a_k(nstrain, arma::fill::zeros);
 
   List Allquantities = gradmultstrainLoglikelihood2_cpp(y, e_it, nstrain, CrudeR, CrudeS, CrudeU, Gmat,
                                                         B, Bits, a_k, Model, Q_r, Q_s, Q_u);
@@ -1927,7 +1987,7 @@ arma::mat MMALA_cpp(arma::cube y, arma::mat e_it, int Model, NumericMatrix Bits,
     proposedScomps = proposedScomps - mean(proposedScomps);
 
     Allquantities = gradmultstrainLoglikelihood2_cpp(y, e_it, nstrain, currentR, proposedScomps, currentU, Gmat,
-                                                          B, Bits, a_k, Model, Q_r, Q_s, Q_u);
+                                                     B, Bits, a_k, Model, Q_r, Q_s, Q_u);
 
     likelihoodproposed = as<double>(Allquantities["loglike"]);
 
@@ -1950,8 +2010,8 @@ arma::mat MMALA_cpp(arma::cube y, arma::mat e_it, int Model, NumericMatrix Bits,
       priorcurrentScomps = priorproposedScomps;
       grad_current = grad_proposed;
     }else{
-        MC_chain(arma::span(i,i), arma::span(5+time, 5+time+11)) = currentS.t();
-  }
+      MC_chain(arma::span(i,i), arma::span(5+time, 5+time+11)) = currentS.t();
+    }
 
     //Update r
     double steps_r = as<double>(step_sizes["r"]);
@@ -2080,7 +2140,7 @@ arma::mat MMALA_cpp(arma::cube y, arma::mat e_it, int Model, NumericMatrix Bits,
         priorcurrentGs += R::dbeta(currentGs[g], 2.0, 2.0, true);
         priorproposedGs += R::dbeta(proposedGs[g], 2.0, 2.0, true);
       }
-      Gmat = makematrix_cpp(proposedGs[0], proposedGs[1]);
+      Gmat = makematrix_arma_cpp(proposedGs[0], proposedGs[1]);
 
       Allquantities = gradmultstrainLoglikelihood2_cpp(y, e_it, nstrain, currentR, currentS, currentU, Gmat,
                                                        B, Bits, a_k, Model, Q_r, Q_s, Q_u);
@@ -2101,7 +2161,7 @@ arma::mat MMALA_cpp(arma::cube y, arma::mat e_it, int Model, NumericMatrix Bits,
         MC_chain(i, 1) = currentGs[1];
       }
     }
-      MC_chain(i, 5+time+12+ndept+nstrain+nstrain) = state_dist_cpp(MC_chain(i, 0), MC_chain(i, 1))[1];
+    MC_chain(i, 5+time+12+ndept+nstrain+nstrain) = state_dist_cpp(MC_chain(i, 0), MC_chain(i, 1))[1];
 
 
     // update a_k's
