@@ -710,6 +710,9 @@ fullCPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_ite
 #perstrainOutbreakfigures(perstPostOutP, Outbreaktype = "Decoded outbreaks")
 
 
+
+#GmultMmalaRes2<- GeneralCPPmultMMALAInference(y=perstrainmultmod1nstrain5[[1]], e_it = perstrainmultmod1nstrain5[[2]], Model = 0, adjmat = sim_adjmat, step_sizes = list("r"=0.3,"s"=0.3,"u"=0.025), num_iteration = 2000)
+
 #Riemann Manifold Langevin updates
 GeneralCPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_iteration = 15000){
   start_time <- Sys.time()
@@ -864,22 +867,16 @@ GeneralCPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_
     q_curr <- sum(dnorm(MC_chain[i-1, 2*nstrain+3+time+12+(1:ndept)], mean = proposedUcomps + 0.5 * step_sizes$u^2 * grad_proposed$grad_u, sd = step_sizes$u, log = TRUE))
 
     priorproposedUcomps<- logIGMRF1(proposedUcomps, MC_chain[i, 2*nstrain+3], R, rankdef)
+    priorcurrentUcomps<- logIGMRF1(MC_chain[i-1, 2*nstrain+3+time+12+(1:ndept)], MC_chain[i, 2*nstrain+3], R, rankdef)
 
     log_alpha_u <- likelihoodproposed + priorproposedUcomps + q_curr - likelihoodcurrent - priorcurrentUcomps - q_prop
     if (is.finite(log_alpha_u) && log(runif(1)) < log_alpha_u){
       MC_chain[i, 2*nstrain+3+time+12+(1:ndept)]<- proposedUcomps
       likelihoodcurrent<- likelihoodproposed
-      priorcurrentUcomps<- priorproposedUcomps
+      #priorcurrentUcomps<- priorproposedUcomps
       grad_current<- grad_proposed
     }else{
       MC_chain[i, 2*nstrain+3+time+12+(1:ndept)]<- MC_chain[i-1, 2*nstrain+3+time+12+(1:ndept)]
-      print(paste("rejected u", exp(log_alpha_u)))
-      cat("likelihoodproposed:", likelihoodproposed,
-          "priorproposed:", priorproposedUcomps,
-          "q_curr:", q_curr,
-          "likelihoodcurrent:", likelihoodcurrent,
-          "priorcurrent:", priorcurrentUcomps,
-          "q_prop:", q_prop, "\n")
     }
 
     if(Model == 0){
@@ -966,14 +963,14 @@ GeneralCPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_
 }
 
 #sourceCpp("cppFun.cpp")
-#replicate(300, perstraingradmultstrainLoglikelihood2_cpp(
+#replicate(300, SpatMet:::perstraingradmultstrainLoglikelihood2_cpp(
 #  y=testdata[["y"]], e_it=testdata[["e_it"]], nstrain=5,
 #  r=testdata[["r"]], s=testdata[["s"]], u=testdata[["u"]],
 #  Gamma=SpatMet:::BuildGamma_list(testdata[["T.probs"]]), B=testdata[["B"]],
 #  Bits=SpatMet:::encodeBits(5), a_k=testdata[["a_k"]],
 #  Model=1, Q_r=diag(1, 60), Q_s=diag(1, 12), Q_u=diag(1,9)
 #)$loglike)
-#replicate(300, gradmultstrainLoglikelihood2_cpp(
+#replicate(300, SpatMet:::gradmultstrainLoglikelihood2_cpp(
 #  y=testdata[["y"]], e_it=testdata[["e_it"]], nstrain=5,
 #  r=testdata[["r"]], s=testdata[["s"]], u=testdata[["u"]],
 #  Gamma=SpatMet:::G(0.1,0.2), B=testdata[["B"]],
