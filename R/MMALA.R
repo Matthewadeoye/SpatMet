@@ -127,7 +127,7 @@ gradmultstrainLoglikelihood2<- function(y, e_it, nstrain, r, s, u, Gamma, B, Bit
 }
 
 #Riemann Manifold Langevin updates
-multMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_iteration = 15000, independentChains=0) {
+multMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_iteration = 15000, sdGs=0.1, sdBs=0.03, sdAs=0.03) {
   start_time <- Sys.time()
   ndept <- nrow(e_it)
   time <- ncol(e_it)
@@ -294,7 +294,7 @@ multMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_iteration 
       MC_chain[i, 5+time+12+ndept+(1:nstrain)]<-  MC_chain[i-1, 5+time+12+ndept+(1:nstrain)]
       MC_chain[i, 1:2]<- MC_chain[i-1, 1:2]
     }else{
-      proposedB <- abs(rnorm(nstrain, mean = MC_chain[i-1, 5+time+12+ndept+(1:nstrain)], sd = rep(0.03, nstrain)))
+      proposedB <- abs(rnorm(nstrain, mean = MC_chain[i-1, 5+time+12+ndept+(1:nstrain)], sd = rep(sdBs, nstrain)))
       priorcurrentB<- sum(dgamma(MC_chain[i-1, 5+time+12+ndept+(1:nstrain)], shape = rep(2, nstrain), rate = rep(2,nstrain), log=TRUE))
       priorproposedB<- sum(dgamma(proposedB, shape = rep(2, nstrain), rate = rep(2, nstrain), log=TRUE))
 
@@ -317,7 +317,7 @@ multMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_iteration 
       MC_chain[i, 5+time+12+ndept+(1:nstrain)]<- MC_chain[i-1, 5+time+12+ndept+(1:nstrain)]
     }
 
-    proposedGs<- abs(rnorm(2,mean=c(MC_chain[i-1,1], MC_chain[i-1, 2]), sd=c(0.1, 0.1)))
+    proposedGs<- abs(rnorm(2,mean=c(MC_chain[i-1,1], MC_chain[i-1, 2]), sd=c(sdGs, sdGs)))
     if(proposedGs[1]>1) proposedGs[1]=2-proposedGs[1]
     if(proposedGs[2]>1) proposedGs[2]=2-proposedGs[2]
 
@@ -346,7 +346,7 @@ multMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_iteration 
     MC_chain[i, 5+time+12+ndept+nstrain+nstrain+1]<- stationarydist(G(MC_chain[i, 1], MC_chain[i, 2]))[2]
 
     #Random-wal Ak's update
-    proposeda_k <- rnorm(nstrain, mean = MC_chain[i-1, 5+time+12+ndept+nstrain+(1:nstrain)], sd = rep(0.03, nstrain))
+    proposeda_k <- rnorm(nstrain, mean = MC_chain[i-1, 5+time+12+ndept+nstrain+(1:nstrain)], sd = rep(sdAs, nstrain))
 
     Allquantities<- gradmultstrainLoglikelihood2(y=y, e_it=e_it, nstrain=nstrain,  r=MC_chain[i, 5+(1:time)], s=MC_chain[i, 5+time+(1:12)], u=MC_chain[i, 5+time+12+(1:ndept)], Gamma=G(MC_chain[i, 1],MC_chain[i, 2]), B=MC_chain[i, 5+time+12+ndept+(1:nstrain)], Bits=Bits, a_k=proposeda_k, Model=Model,Q_r=Q_r,Q_s = Q_s,Q_u=Q_u)
     grad_proposed <- list(grad_r=Allquantities$grad_r, grad_s=Allquantities$grad_s, grad_u=Allquantities$grad_u, cov_r=Allquantities$cov_r, cov_s=Allquantities$cov_s)
@@ -381,7 +381,7 @@ multMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_iteration 
 
 
 #Riemann Manifold Langevin updates
-CPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_iteration = 15000, independentChains=0) {
+CPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_iteration = 15000, sdGs=0.1, sdBs=0.03, sdAs=0.03) {
   start_time <- Sys.time()
   ndept <- nrow(e_it)
   time <- ncol(e_it)
@@ -549,7 +549,7 @@ CPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_iterati
       MC_chain[i, 5+time+12+ndept+(1:nstrain)]<-  MC_chain[i-1, 5+time+12+ndept+(1:nstrain)]
       MC_chain[i, 1:2]<- MC_chain[i-1, 1:2]
     }else{
-      proposedB <- abs(rnorm(nstrain, mean = MC_chain[i-1, 5+time+12+ndept+(1:nstrain)], sd = rep(0.03, nstrain)))
+      proposedB <- abs(rnorm(nstrain, mean = MC_chain[i-1, 5+time+12+ndept+(1:nstrain)], sd = rep(sdBs, nstrain)))
       priorcurrentB<- sum(dgamma(MC_chain[i-1, 5+time+12+ndept+(1:nstrain)], shape = rep(2, nstrain), rate = rep(2,nstrain), log=TRUE))
       priorproposedB<- sum(dgamma(proposedB, shape = rep(2, nstrain), rate = rep(2, nstrain), log=TRUE))
 
@@ -572,7 +572,7 @@ CPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_iterati
         MC_chain[i, 5+time+12+ndept+(1:nstrain)]<- MC_chain[i-1, 5+time+12+ndept+(1:nstrain)]
       }
 
-      proposedGs<- abs(rnorm(2,mean=c(MC_chain[i-1,1], MC_chain[i-1, 2]), sd=c(0.1, 0.1)))
+      proposedGs<- abs(rnorm(2,mean=c(MC_chain[i-1,1], MC_chain[i-1, 2]), sd=c(sdGs, sdGs)))
       if(proposedGs[1]>1) proposedGs[1]=2-proposedGs[1]
       if(proposedGs[2]>1) proposedGs[2]=2-proposedGs[2]
 
@@ -601,7 +601,7 @@ CPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_iterati
     MC_chain[i, 5+time+12+ndept+nstrain+nstrain+1]<- stationarydist(G(MC_chain[i, 1], MC_chain[i, 2]))[2]
 
     #Random-wal Ak's update
-    proposeda_k <- rnorm(nstrain, mean = MC_chain[i-1, 5+time+12+ndept+nstrain+(1:nstrain)], sd = rep(0.03, nstrain))
+    proposeda_k <- rnorm(nstrain, mean = MC_chain[i-1, 5+time+12+ndept+nstrain+(1:nstrain)], sd = rep(sdAs, nstrain))
 
     Allquantities<- gradmultstrainLoglikelihood2_cpp(y=y, e_it=e_it, nstrain=nstrain,  r=MC_chain[i, 5+(1:time)], s=MC_chain[i, 5+time+(1:12)], u=MC_chain[i, 5+time+12+(1:ndept)], Gamma=G(MC_chain[i, 1],MC_chain[i, 2]), B=MC_chain[i, 5+time+12+ndept+(1:nstrain)], Bits=Bits, a_k=proposeda_k, Model=Model,Q_r=Q_r,Q_s = Q_s,Q_u=Q_u)
     grad_proposed <- list(grad_r=as.numeric(Allquantities$grad_r), grad_s=as.numeric(Allquantities$grad_s), grad_u=as.numeric(Allquantities$grad_u), cov_r=Allquantities$cov_r, cov_s=Allquantities$cov_s)
@@ -714,7 +714,7 @@ fullCPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_ite
 #GmultMmalaRes2<- GeneralCPPmultMMALAInference(y=perstrainmultmod1nstrain5[[1]], e_it = perstrainmultmod1nstrain5[[2]], Model = 0, adjmat = sim_adjmat, step_sizes = list("r"=0.3,"s"=0.3,"u"=0.025), num_iteration = 2000)
 
 #Riemann Manifold Langevin updates
-GeneralCPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_iteration = 15000){
+GeneralCPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_iteration = 15000, sdGs=0.05, sdBs=0.01, sdAs=0.01){
   start_time <- Sys.time()
   ndept <- nrow(e_it)
   time <- ncol(e_it)
@@ -883,7 +883,7 @@ GeneralCPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_
       MC_chain[i, 2*nstrain+3+time+12+ndept+(1:nstrain)]<-  MC_chain[i-1, 2*nstrain+3+time+12+ndept+(1:nstrain)]
       MC_chain[i, 1:(2*nstrain)]<- MC_chain[i-1, 1:(2*nstrain)]
     }else{
-      proposedB <- abs(rnorm(nstrain, mean = MC_chain[i-1, 2*nstrain+3+time+12+ndept+(1:nstrain)], sd = rep(0.01, nstrain)))
+      proposedB <- abs(rnorm(nstrain, mean = MC_chain[i-1, 2*nstrain+3+time+12+ndept+(1:nstrain)], sd = rep(sdBs, nstrain)))
       priorcurrentB<- sum(dgamma(MC_chain[i-1, 2*nstrain+3+time+12+ndept+(1:nstrain)], shape = rep(2, nstrain), rate = rep(2,nstrain), log=TRUE))
       priorproposedB<- sum(dgamma(proposedB, shape = rep(2, nstrain), rate = rep(2, nstrain), log=TRUE))
 
@@ -906,7 +906,7 @@ GeneralCPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_
         MC_chain[i, 2*nstrain+3+time+12+ndept+(1:nstrain)]<- MC_chain[i-1, 2*nstrain+3+time+12+ndept+(1:nstrain)]
       }
 
-      proposedGs<- abs(rnorm(2*nstrain,mean=MC_chain[i-1,1:(2*nstrain)], sd=rep(0.1, 2*nstrain)))
+      proposedGs<- abs(rnorm(2*nstrain,mean=MC_chain[i-1,1:(2*nstrain)], sd=rep(sdGs, 2*nstrain)))
       proposedGs<- ifelse(proposedGs<1, proposedGs, 2-proposedGs)
 
       priorcurrentGs<- sum(dbeta(MC_chain[i-1,1:(2*nstrain)], shape1 = rep(2,2*nstrain), shape2 = rep(2,2*nstrain), log=TRUE))
@@ -935,7 +935,7 @@ GeneralCPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_
     }
 
     #Random-wal Ak's update
-    proposeda_k <- rnorm(nstrain, mean = MC_chain[i-1, 2*nstrain+3+time+12+ndept+nstrain+(1:nstrain)], sd = rep(0.03, nstrain))
+    proposeda_k <- rnorm(nstrain, mean = MC_chain[i-1, 2*nstrain+3+time+12+ndept+nstrain+(1:nstrain)], sd = rep(sdAs, nstrain))
 
     Allquantities<- perstraingradmultstrainLoglikelihood2_cpp(y=y, e_it=e_it, nstrain=nstrain,  r=MC_chain[i, 2*nstrain+3+(1:time)], s=MC_chain[i, 2*nstrain+3+time+(1:12)], u=MC_chain[i, 2*nstrain+3+time+12+(1:ndept)], Gamma=Gamma_lists, B=MC_chain[i, 2*nstrain+3+time+12+ndept+(1:nstrain)], Bits=Bits, a_k=proposeda_k, Model=Model,Q_r=Q_r,Q_s = Q_s,Q_u=Q_u)
     grad_proposed <- list(grad_r=as.numeric(Allquantities$grad_r), grad_s=as.numeric(Allquantities$grad_s), grad_u=as.numeric(Allquantities$grad_u), cov_r=Allquantities$cov_r, cov_s=Allquantities$cov_s)
