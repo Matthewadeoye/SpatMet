@@ -279,12 +279,13 @@ multMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_iteration 
     q_curr <- sum(dnorm(MC_chain[i-1, 5+time+12+(1:ndept)], mean = proposedUcomps + 0.5 * step_sizes$u^2 * grad_proposed$grad_u, sd = step_sizes$u, log = TRUE))
 
     priorproposedUcomps<- logIGMRF1(proposedUcomps, MC_chain[i, 5], R, rankdef)
+    priorcurrentUcomps<- logIGMRF1(MC_chain[i-1, 5+time+12+(1:ndept)], MC_chain[i, 5], R, rankdef)
 
     log_alpha_u <- likelihoodproposed + priorproposedUcomps + q_curr - likelihoodcurrent - priorcurrentUcomps - q_prop
     if (is.finite(log_alpha_u) && log(runif(1)) < log_alpha_u){
       MC_chain[i, 5+time+12+(1:ndept)]<- proposedUcomps
       likelihoodcurrent<- likelihoodproposed
-      priorcurrentUcomps<- priorproposedUcomps
+      #priorcurrentUcomps<- priorproposedUcomps
       grad_current<- grad_proposed
     }else{
       MC_chain[i, 5+time+12+(1:ndept)]<- MC_chain[i-1, 5+time+12+(1:ndept)]
@@ -533,13 +534,13 @@ CPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_iterati
     q_curr <- sum(dnorm(MC_chain[i-1, 5+time+12+(1:ndept)], mean = proposedUcomps + 0.5 * step_sizes$u^2 * grad_proposed$grad_u, sd = step_sizes$u, log = TRUE))
 
     priorproposedUcomps<- logIGMRF1(proposedUcomps, MC_chain[i, 5], R, rankdef)
+    priorcurrentUcomps<- logIGMRF1(MC_chain[i-1, 5+time+12+(1:ndept)], MC_chain[i, 5], R, rankdef)
 
     log_alpha_u <- likelihoodproposed + priorproposedUcomps + q_curr - likelihoodcurrent - priorcurrentUcomps - q_prop
-    print(exp(log_alpha_u))
     if (is.finite(log_alpha_u) && log(runif(1)) < log_alpha_u){
       MC_chain[i, 5+time+12+(1:ndept)]<- proposedUcomps
       likelihoodcurrent<- likelihoodproposed
-      priorcurrentUcomps<- priorproposedUcomps
+      #priorcurrentUcomps<- priorproposedUcomps
       grad_current<- grad_proposed
     }else{
       MC_chain[i, 5+time+12+(1:ndept)]<- MC_chain[i-1, 5+time+12+(1:ndept)]
