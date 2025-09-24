@@ -962,7 +962,7 @@ GeneralCPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_
     }
 
     #Gibbs Ak's update
-    MC_chain[i, 5+time+12+ndept+nstrain+(1:nstrain)]<- log(rgamma(nstrain, shape = 0.01+SumYk_vec, rate = as.numeric(Allquantities$poisMean4GibbsUpdate) + 0.01/exp(-15)))
+    MC_chain[i, 2*nstrain+3+time+12+ndept+nstrain+(1:nstrain)]<- log(rgamma(nstrain, shape = 0.01+SumYk_vec, rate = as.numeric(Allquantities$poisMean4GibbsUpdate) + 0.01/exp(-15)))
 
     #Random-walk Ak's update
 #    proposeda_k <- rnorm(nstrain, mean = MC_chain[i-1, 2*nstrain+3+time+12+ndept+nstrain+(1:nstrain)], sd = rep(sdAs, nstrain))
