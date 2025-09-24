@@ -40,7 +40,9 @@ gradmultstrainLoglikelihood2<- function(y, e_it, nstrain, r, s, u, Gamma, B, Bit
     # Spatial u
     grad_u <- rowSums(delta) - as.numeric(Q_u %*% u)
 
-    return(list(loglike = loglike, grad_r = grad_r, grad_s = grad_s, grad_u = grad_u, cov_r=cov_r, cov_s=cov_s))
+    poisMean4GibbsUpdate<- sum(e_it * exp(log_risk))
+
+    return(list(loglike = loglike, grad_r = grad_r, grad_s = grad_s, grad_u = grad_u, cov_r=cov_r, cov_s=cov_s, poisMean4GibbsUpdate=poisMean4GibbsUpdate))
   }else{
 
     loglike_total <- 0
@@ -49,11 +51,13 @@ gradmultstrainLoglikelihood2<- function(y, e_it, nstrain, r, s, u, Gamma, B, Bit
     logJointTPM <- log(JointTPM)
 
     E_lambda_tk <- array(0, dim = c(ndept,time,nstrain))   #Expected Poisson mean
+    E_lambda_tk2 <- array(0, dim = c(ndept,time,nstrain))   #for Gibbs update of a_k's
 
     for(i in 1:ndept){
 
       logEmissions <- matrix(NA, nrow = time, ncol = nstate)
       lambda_array  <- array(0, dim = c(time, nstate, nstrain))
+      lambda_array2  <- array(0, dim = c(time, nstate, nstrain)) #for Gibbs update of a_k's
 
       for(t in 1:time){
         month_index <- (t-1) %% 12 + 1
@@ -62,6 +66,7 @@ gradmultstrainLoglikelihood2<- function(y, e_it, nstrain, r, s, u, Gamma, B, Bit
             newB<- rep(0, nstrain)
             newB[k]<- B[k]
             lambda_array[t,n,k] <- e_it[i,t] * exp(a_k[k] + r[t] + s[month_index] + u[i] + as.numeric(newB %*% Bits[n, ]))
+            lambda_array2[t,n,k] <- e_it[i,t] * exp(r[t] + s[month_index] + u[i] + as.numeric(newB %*% Bits[n, ]))  #for Gibbs update of a_k's
           }
           logEmissions[t,n] <- sum(dpois(y[i,t,], lambda = lambda_array[t,n,], log = TRUE))
         }
@@ -93,15 +98,18 @@ gradmultstrainLoglikelihood2<- function(y, e_it, nstrain, r, s, u, Gamma, B, Bit
       for(t in 1:time){
         for(k in 1:nstrain){
           E_lambda_tk[i,t,k] <- sum(P_s[t, ] * lambda_array[t, , k])
+          E_lambda_tk2[i,t,k] <- sum(P_s[t, ] * lambda_array2[t, , k])  #for Gibbs update of a_k's
         }
       }
     }
 
+    poisMean4GibbsUpdate<- numeric(nstrain)
     poisMean<- matrix(0, nrow = ndept, ncol = time)
     delta<- matrix(0, nrow = ndept, ncol = time)
     for(k in 1:nstrain){
       delta<- delta + (y[,,k] - E_lambda_tk[,,k])
       poisMean<- poisMean + E_lambda_tk[,,k]
+      poisMean4GibbsUpdate[k]<- sum(E_lambda_tk2[,,k])  #for Gibbs update of a_k's
     }
 
     # Temporal trend r
@@ -122,7 +130,7 @@ gradmultstrainLoglikelihood2<- function(y, e_it, nstrain, r, s, u, Gamma, B, Bit
     # Spatial u
     grad_u <- rowSums(delta) - as.numeric(Q_u %*% u)
 
-    return(list(loglike = loglike_total, grad_r = grad_r, grad_s = grad_s, grad_u = grad_u, cov_r=cov_r, cov_s=cov_s))
+    return(list(loglike = loglike_total, grad_r = grad_r, grad_s = grad_s, grad_u = grad_u, cov_r=cov_r, cov_s=cov_s, poisMean4GibbsUpdate=poisMean4GibbsUpdate))
   }
 }
 
@@ -158,9 +166,12 @@ multMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_iteration 
     RW2PrecMat[i+1, ((i-1):(i+3))]<- c(1,-4,6,-4,1)
   }
 
+  SumYk_vec<- numeric(nstrain)
+  SumYk_vec[1]<- sum(y[,,1])
   sumY<- y[,,1]
   for(k in 2:nstrain){
     sumY<- sumY + y[,,k]
+    SumYk_vec[k]<- sum(y[,,k])
   }
 
   crudeResults<- DetectOutbreaks:::crudeEst(sumY, e_it)
@@ -346,24 +357,27 @@ multMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_iteration 
   }
     MC_chain[i, 5+time+12+ndept+nstrain+nstrain+1]<- stationarydist(G(MC_chain[i, 1], MC_chain[i, 2]))[2]
 
-    #Random-wal Ak's update
-    proposeda_k <- rnorm(nstrain, mean = MC_chain[i-1, 5+time+12+ndept+nstrain+(1:nstrain)], sd = rep(sdAs, nstrain))
+    #Gibbs Ak's update
+    MC_chain[i, 5+time+12+ndept+nstrain+(1:nstrain)]<- log(rgamma(nstrain, shape = 0.01+SumYk_vec, rate = Allquantities$poisMean4GibbsUpdate + 0.01/exp(-15)))
 
-    Allquantities<- gradmultstrainLoglikelihood2(y=y, e_it=e_it, nstrain=nstrain,  r=MC_chain[i, 5+(1:time)], s=MC_chain[i, 5+time+(1:12)], u=MC_chain[i, 5+time+12+(1:ndept)], Gamma=G(MC_chain[i, 1],MC_chain[i, 2]), B=MC_chain[i, 5+time+12+ndept+(1:nstrain)], Bits=Bits, a_k=proposeda_k, Model=Model,Q_r=Q_r,Q_s = Q_s,Q_u=Q_u)
-    grad_proposed <- list(grad_r=Allquantities$grad_r, grad_s=Allquantities$grad_s, grad_u=Allquantities$grad_u, cov_r=Allquantities$cov_r, cov_s=Allquantities$cov_s)
+    #Random-walk Ak's update
+#    proposeda_k <- rnorm(nstrain, mean = MC_chain[i-1, 5+time+12+ndept+nstrain+(1:nstrain)], sd = rep(sdAs, nstrain))
 
-    likelihoodproposed<- Allquantities$loglike
+#    Allquantities<- gradmultstrainLoglikelihood2(y=y, e_it=e_it, nstrain=nstrain,  r=MC_chain[i, 5+(1:time)], s=MC_chain[i, 5+time+(1:12)], u=MC_chain[i, 5+time+12+(1:ndept)], Gamma=G(MC_chain[i, 1],MC_chain[i, 2]), B=MC_chain[i, 5+time+12+ndept+(1:nstrain)], Bits=Bits, a_k=proposeda_k, Model=Model,Q_r=Q_r,Q_s = Q_s,Q_u=Q_u)
+#    grad_proposed <- list(grad_r=Allquantities$grad_r, grad_s=Allquantities$grad_s, grad_u=Allquantities$grad_u, cov_r=Allquantities$cov_r, cov_s=Allquantities$cov_s)
 
-    mh.ratio<- exp(likelihoodproposed - likelihoodcurrent)
+#    likelihoodproposed<- Allquantities$loglike
 
-    if(!is.na(mh.ratio) && runif(1) < mh.ratio){
-      MC_chain[i, 5+time+12+ndept+nstrain+(1:nstrain)]<- proposeda_k
-      likelihoodcurrent<- likelihoodproposed
-      grad_current<- grad_proposed
-    }
-    else{
-      MC_chain[i, 5+time+12+ndept+nstrain+(1:nstrain)]<- MC_chain[i-1, 5+time+12+ndept+nstrain+(1:nstrain)]
-    }
+#    mh.ratio<- exp(likelihoodproposed - likelihoodcurrent)
+
+#    if(!is.na(mh.ratio) && runif(1) < mh.ratio){
+#      MC_chain[i, 5+time+12+ndept+nstrain+(1:nstrain)]<- proposeda_k
+#      likelihoodcurrent<- likelihoodproposed
+#      grad_current<- grad_proposed
+#    }
+#    else{
+#      MC_chain[i, 5+time+12+ndept+nstrain+(1:nstrain)]<- MC_chain[i-1, 5+time+12+ndept+nstrain+(1:nstrain)]
+#    }
     if(i %% 1000 == 0) cat("Iteration:", i, "\n")
   }
   colnames(MC_chain) <- paste(c("G12", "G21", "kappa_r", "kappa_s", "kappa_u", paste("r", 1:time, sep=""), paste("s", 1:12, sep=""), paste("u", 1:ndept, sep=""), paste("B", 1:nstrain, sep=""), paste("a_k", 1:nstrain, sep=""), "StationaryDistribution"))
@@ -413,9 +427,12 @@ CPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_iterati
     RW2PrecMat[i+1, ((i-1):(i+3))]<- c(1,-4,6,-4,1)
   }
 
+  SumYk_vec<- numeric(nstrain)
+  SumYk_vec[1]<- sum(y[,,1])
   sumY<- y[,,1]
   for(k in 2:nstrain){
     sumY<- sumY + y[,,k]
+    SumYk_vec[k]<- sum(y[,,k])
   }
 
   crudeResults<- DetectOutbreaks:::crudeEst(sumY, e_it)
@@ -601,24 +618,27 @@ CPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_iterati
     }
     MC_chain[i, 5+time+12+ndept+nstrain+nstrain+1]<- stationarydist(G(MC_chain[i, 1], MC_chain[i, 2]))[2]
 
-    #Random-wal Ak's update
-    proposeda_k <- rnorm(nstrain, mean = MC_chain[i-1, 5+time+12+ndept+nstrain+(1:nstrain)], sd = rep(sdAs, nstrain))
+    #Gibbs Ak's update
+    MC_chain[i, 5+time+12+ndept+nstrain+(1:nstrain)]<- log(rgamma(nstrain, shape = 0.01+SumYk_vec, rate = as.numeric(Allquantities$poisMean4GibbsUpdate) + 0.01/exp(-15)))
 
-    Allquantities<- gradmultstrainLoglikelihood2_cpp(y=y, e_it=e_it, nstrain=nstrain,  r=MC_chain[i, 5+(1:time)], s=MC_chain[i, 5+time+(1:12)], u=MC_chain[i, 5+time+12+(1:ndept)], Gamma=G(MC_chain[i, 1],MC_chain[i, 2]), B=MC_chain[i, 5+time+12+ndept+(1:nstrain)], Bits=Bits, a_k=proposeda_k, Model=Model,Q_r=Q_r,Q_s = Q_s,Q_u=Q_u)
-    grad_proposed <- list(grad_r=as.numeric(Allquantities$grad_r), grad_s=as.numeric(Allquantities$grad_s), grad_u=as.numeric(Allquantities$grad_u), cov_r=Allquantities$cov_r, cov_s=Allquantities$cov_s)
+    #Random-walk Ak's update
+#    proposeda_k <- rnorm(nstrain, mean = MC_chain[i-1, 5+time+12+ndept+nstrain+(1:nstrain)], sd = rep(sdAs, nstrain))
 
-    likelihoodproposed<- Allquantities$loglike
+#    Allquantities<- gradmultstrainLoglikelihood2_cpp(y=y, e_it=e_it, nstrain=nstrain,  r=MC_chain[i, 5+(1:time)], s=MC_chain[i, 5+time+(1:12)], u=MC_chain[i, 5+time+12+(1:ndept)], Gamma=G(MC_chain[i, 1],MC_chain[i, 2]), B=MC_chain[i, 5+time+12+ndept+(1:nstrain)], Bits=Bits, a_k=proposeda_k, Model=Model,Q_r=Q_r,Q_s = Q_s,Q_u=Q_u)
+#    grad_proposed <- list(grad_r=as.numeric(Allquantities$grad_r), grad_s=as.numeric(Allquantities$grad_s), grad_u=as.numeric(Allquantities$grad_u), cov_r=Allquantities$cov_r, cov_s=Allquantities$cov_s)
 
-    mh.ratio<- exp(likelihoodproposed - likelihoodcurrent)
+#    likelihoodproposed<- Allquantities$loglike
 
-    if(!is.na(mh.ratio) && runif(1) < mh.ratio){
-      MC_chain[i, 5+time+12+ndept+nstrain+(1:nstrain)]<- proposeda_k
-      likelihoodcurrent<- likelihoodproposed
-      grad_current<- grad_proposed
-    }
-    else{
-      MC_chain[i, 5+time+12+ndept+nstrain+(1:nstrain)]<- MC_chain[i-1, 5+time+12+ndept+nstrain+(1:nstrain)]
-    }
+#    mh.ratio<- exp(likelihoodproposed - likelihoodcurrent)
+
+#    if(!is.na(mh.ratio) && runif(1) < mh.ratio){
+#      MC_chain[i, 5+time+12+ndept+nstrain+(1:nstrain)]<- proposeda_k
+#      likelihoodcurrent<- likelihoodproposed
+#      grad_current<- grad_proposed
+#    }
+#    else{
+#      MC_chain[i, 5+time+12+ndept+nstrain+(1:nstrain)]<- MC_chain[i-1, 5+time+12+ndept+nstrain+(1:nstrain)]
+#    }
     if(i %% 1000 == 0) cat("Iteration:", i, "\n")
   }
   colnames(MC_chain) <- paste(c("G12", "G21", "kappa_r", "kappa_s", "kappa_u", paste("r", 1:time, sep=""), paste("s", 1:12, sep=""), paste("u", 1:ndept, sep=""), paste("B", 1:nstrain, sep=""), paste("a_k", 1:nstrain, sep=""), "StationaryDistribution"))
@@ -662,9 +682,12 @@ fullCPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_ite
     RW2PrecMat[i+1, ((i-1):(i+3))]<- c(1,-4,6,-4,1)
   }
 
+  SumYk_vec<- numeric(nstrain)
+  SumYk_vec[1]<- sum(y[,,1])
   sumY<- y[,,1]
   for(k in 2:nstrain){
     sumY<- sumY + y[,,k]
+    SumYk_vec[k]<- sum(y[,,k])
   }
 
   crudeResults<- DetectOutbreaks:::crudeEst(sumY, e_it)
@@ -746,9 +769,12 @@ GeneralCPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_
     RW2PrecMat[i+1, ((i-1):(i+3))]<- c(1,-4,6,-4,1)
   }
 
+  SumYk_vec<- numeric(nstrain)
+  SumYk_vec[1]<- sum(y[,,1])
   sumY<- y[,,1]
   for(k in 2:nstrain){
     sumY<- sumY + y[,,k]
+    SumYk_vec[k]<- sum(y[,,k])
   }
 
   crudeResults<- DetectOutbreaks:::crudeEst(sumY, e_it)
@@ -935,24 +961,27 @@ GeneralCPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_
       }
     }
 
-    #Random-wal Ak's update
-    proposeda_k <- rnorm(nstrain, mean = MC_chain[i-1, 2*nstrain+3+time+12+ndept+nstrain+(1:nstrain)], sd = rep(sdAs, nstrain))
+    #Gibbs Ak's update
+    MC_chain[i, 5+time+12+ndept+nstrain+(1:nstrain)]<- log(rgamma(nstrain, shape = 0.01+SumYk_vec, rate = as.numeric(Allquantities$poisMean4GibbsUpdate) + 0.01/exp(-15)))
 
-    Allquantities<- perstraingradmultstrainLoglikelihood2_cpp(y=y, e_it=e_it, nstrain=nstrain,  r=MC_chain[i, 2*nstrain+3+(1:time)], s=MC_chain[i, 2*nstrain+3+time+(1:12)], u=MC_chain[i, 2*nstrain+3+time+12+(1:ndept)], Gamma=Gamma_lists, B=MC_chain[i, 2*nstrain+3+time+12+ndept+(1:nstrain)], Bits=Bits, a_k=proposeda_k, Model=Model,Q_r=Q_r,Q_s = Q_s,Q_u=Q_u)
-    grad_proposed <- list(grad_r=as.numeric(Allquantities$grad_r), grad_s=as.numeric(Allquantities$grad_s), grad_u=as.numeric(Allquantities$grad_u), cov_r=Allquantities$cov_r, cov_s=Allquantities$cov_s)
+    #Random-walk Ak's update
+#    proposeda_k <- rnorm(nstrain, mean = MC_chain[i-1, 2*nstrain+3+time+12+ndept+nstrain+(1:nstrain)], sd = rep(sdAs, nstrain))
 
-    likelihoodproposed<- Allquantities$loglike
+#    Allquantities<- perstraingradmultstrainLoglikelihood2_cpp(y=y, e_it=e_it, nstrain=nstrain,  r=MC_chain[i, 2*nstrain+3+(1:time)], s=MC_chain[i, 2*nstrain+3+time+(1:12)], u=MC_chain[i, 2*nstrain+3+time+12+(1:ndept)], Gamma=Gamma_lists, B=MC_chain[i, 2*nstrain+3+time+12+ndept+(1:nstrain)], Bits=Bits, a_k=proposeda_k, Model=Model,Q_r=Q_r,Q_s = Q_s,Q_u=Q_u)
+#    grad_proposed <- list(grad_r=as.numeric(Allquantities$grad_r), grad_s=as.numeric(Allquantities$grad_s), grad_u=as.numeric(Allquantities$grad_u), cov_r=Allquantities$cov_r, cov_s=Allquantities$cov_s)
 
-    mh.ratio<- exp(likelihoodproposed - likelihoodcurrent)
+#    likelihoodproposed<- Allquantities$loglike
 
-    if(!is.na(mh.ratio) && runif(1) < mh.ratio){
-      MC_chain[i, 2*nstrain+3+time+12+ndept+nstrain+(1:nstrain)]<- proposeda_k
-      likelihoodcurrent<- likelihoodproposed
-      grad_current<- grad_proposed
-    }
-    else{
-      MC_chain[i, 2*nstrain+3+time+12+ndept+nstrain+(1:nstrain)]<- MC_chain[i-1, 2*nstrain+3+time+12+ndept+nstrain+(1:nstrain)]
-    }
+#    mh.ratio<- exp(likelihoodproposed - likelihoodcurrent)
+
+#    if(!is.na(mh.ratio) && runif(1) < mh.ratio){
+#      MC_chain[i, 2*nstrain+3+time+12+ndept+nstrain+(1:nstrain)]<- proposeda_k
+#      likelihoodcurrent<- likelihoodproposed
+#      grad_current<- grad_proposed
+#    }
+#    else{
+#      MC_chain[i, 2*nstrain+3+time+12+ndept+nstrain+(1:nstrain)]<- MC_chain[i-1, 2*nstrain+3+time+12+ndept+nstrain+(1:nstrain)]
+#    }
     if(i %% 1000 == 0) cat("Iteration:", i, "\n")
   }
   colnames(MC_chain) <- paste(c(paste0(rep(c("G12", "G21"), nstrain), "Strain", rep(1:nstrain,each=2)), "kappa_r", "kappa_s", "kappa_u", paste("r", 1:time, sep=""), paste("s", 1:12, sep=""), paste("u", 1:ndept, sep=""), paste("B", 1:nstrain, sep=""), paste("a_k", 1:nstrain, sep="")))

@@ -1585,13 +1585,16 @@ List gradmultstrainLoglikelihood2_cpp(arma::cube y, arma::mat e_it, int nstrain,
     // Spatial u gradients
     arma::vec grad_u = arma::sum(delta, 1) - Q_u * u;
 
+    double poisMean4GibbsUpdate = arma::accu(e_it % arma::exp(log_risk));
+
     return List::create(
       Named("loglike") = loglike,
       Named("grad_r") = grad_r,
       Named("grad_s") = grad_s,
       Named("grad_u") = grad_u,
       Named("cov_r") = cov_r,
-      Named("cov_s") = cov_s
+      Named("cov_s") = cov_s,
+      Named("poisMean4GibbsUpdate") = poisMean4GibbsUpdate
     );
   }else{
 
@@ -1609,15 +1612,18 @@ List gradmultstrainLoglikelihood2_cpp(arma::cube y, arma::mat e_it, int nstrain,
     arma::vec loginit_density = arma::log(safeinitdensity);
 
     arma::cube E_lambda_itk(ndept, time, nstrain, arma::fill::zeros);
+    arma::cube E_lambda_itk2(ndept, time, nstrain, arma::fill::zeros);
 
     for(int i = 0; i < ndept; ++i){
       arma::mat logEmissions(time, nstate, arma::fill::zeros);
       arma::cube lambda_array(time, nstate, nstrain, arma::fill::zeros);
+      arma::cube lambda_array2(time, nstate, nstrain, arma::fill::zeros);
       for(int t = 0; t < time; ++t){
         int month_index = t % 12;
         for(int n = 0; n < nstate; ++n){
           for(int k = 0; k < nstrain; ++k){
             lambda_array(t, n, k) = e_it(i, t) * std::exp(a_k[k] + r[t] + s[month_index] + u[i] + Bits(n, k) * B[k]);
+            lambda_array2(t, n, k) = e_it(i, t) * std::exp(r[t] + s[month_index] + u[i] + Bits(n, k) * B[k]);
           }
           arma::vec y_vec = y.tube(i, t);
           arma::vec lambda_vec = lambda_array.tube(t, n);
@@ -1651,23 +1657,29 @@ List gradmultstrainLoglikelihood2_cpp(arma::cube y, arma::mat e_it, int nstrain,
       for(int t = 0; t < time; ++t){
         for(int k = 0; k < nstrain; ++k){
           arma::vec newlambtube(nstate, arma::fill::zeros);
+          arma::vec newlambtube2(nstate, arma::fill::zeros);
           for(int n = 0; n < nstate; ++n){
             newlambtube[n] = lambda_array(t, n, k);
+            newlambtube2[n] = lambda_array2(t, n, k);
           }
           arma::vec probvec = P_s.row(t).t();
           E_lambda_itk(i, t, k) = arma::dot(probvec, newlambtube);
+          E_lambda_itk2(i, t, k) = arma::dot(probvec, newlambtube2);
         }
       }
     }
 
+    arma::vec poisMean4GibbsUpdate(nstrain, arma::fill::zeros);
     arma::mat poisMean(ndept, time, arma::fill::zeros);
     arma::mat delta(ndept, time, arma::fill::zeros);
 
     for (int k = 0; k < nstrain; ++k){
       arma::mat currentY = y.slice(k);
       arma::mat currentE_lambda = E_lambda_itk.slice(k);
+      arma::mat currentE_lambda2 = E_lambda_itk2.slice(k);
       delta   += (currentY - currentE_lambda);
       poisMean += currentE_lambda;
+      poisMean4GibbsUpdate[k] = arma::accu(currentE_lambda2);
     }
 
     // Temporal trend r gradients
@@ -1700,7 +1712,8 @@ List gradmultstrainLoglikelihood2_cpp(arma::cube y, arma::mat e_it, int nstrain,
       Named("grad_s") = grad_s,
       Named("grad_u") = grad_u,
       Named("cov_r") = cov_r,
-      Named("cov_s") = cov_s
+      Named("cov_s") = cov_s,
+      Named("poisMean4GibbsUpdate") = poisMean4GibbsUpdate
     );
   }
 }
@@ -1774,13 +1787,16 @@ List perstraingradmultstrainLoglikelihood2_cpp(arma::cube y, arma::mat e_it, int
     // Spatial u gradients
     arma::vec grad_u = arma::sum(delta, 1) - Q_u * u;
 
+    double poisMean4GibbsUpdate = arma::accu(e_it % arma::exp(log_risk));
+
     return List::create(
       Named("loglike") = loglike,
       Named("grad_r") = grad_r,
       Named("grad_s") = grad_s,
       Named("grad_u") = grad_u,
       Named("cov_r") = cov_r,
-      Named("cov_s") = cov_s
+      Named("cov_s") = cov_s,
+      Named("poisMean4GibbsUpdate") = poisMean4GibbsUpdate
     );
   }else{
 
@@ -1798,15 +1814,18 @@ List perstraingradmultstrainLoglikelihood2_cpp(arma::cube y, arma::mat e_it, int
     arma::vec loginit_density = arma::log(safeinitdensity);
 
     arma::cube E_lambda_itk(ndept, time, nstrain, arma::fill::zeros);
+    arma::cube E_lambda_itk2(ndept, time, nstrain, arma::fill::zeros);
 
     for(int i = 0; i < ndept; ++i){
       arma::mat logEmissions(time, nstate, arma::fill::zeros);
       arma::cube lambda_array(time, nstate, nstrain, arma::fill::zeros);
+      arma::cube lambda_array2(time, nstate, nstrain, arma::fill::zeros);
       for(int t = 0; t < time; ++t){
         int month_index = t % 12;
         for(int n = 0; n < nstate; ++n){
           for(int k = 0; k < nstrain; ++k){
             lambda_array(t, n, k) = e_it(i, t) * std::exp(a_k[k] + r[t] + s[month_index] + u[i] + Bits(n, k) * B[k]);
+            lambda_array2(t, n, k) = e_it(i, t) * std::exp(r[t] + s[month_index] + u[i] + Bits(n, k) * B[k]);
           }
           arma::vec y_vec = y.tube(i, t);
           arma::vec lambda_vec = lambda_array.tube(t, n);
@@ -1840,23 +1859,29 @@ List perstraingradmultstrainLoglikelihood2_cpp(arma::cube y, arma::mat e_it, int
       for(int t = 0; t < time; ++t){
         for(int k = 0; k < nstrain; ++k){
           arma::vec newlambtube(nstate, arma::fill::zeros);
+          arma::vec newlambtube2(nstate, arma::fill::zeros);
           for(int n = 0; n < nstate; ++n){
             newlambtube[n] = lambda_array(t, n, k);
+            newlambtube2[n] = lambda_array2(t, n, k);
           }
           arma::vec probvec = P_s.row(t).t();
           E_lambda_itk(i, t, k) = arma::dot(probvec, newlambtube);
+          E_lambda_itk2(i, t, k) = arma::dot(probvec, newlambtube2);
         }
       }
     }
 
+    arma::vec poisMean4GibbsUpdate(nstrain, arma::fill::zeros);
     arma::mat poisMean(ndept, time, arma::fill::zeros);
     arma::mat delta(ndept, time, arma::fill::zeros);
 
     for (int k = 0; k < nstrain; ++k){
       arma::mat currentY = y.slice(k);
       arma::mat currentE_lambda = E_lambda_itk.slice(k);
+      arma::mat currentE_lambda2 = E_lambda_itk2.slice(k);
       delta   += (currentY - currentE_lambda);
       poisMean += currentE_lambda;
+      poisMean4GibbsUpdate[k] = arma::accu(currentE_lambda2);
     }
 
     // Temporal trend r gradients
@@ -1889,7 +1914,8 @@ List perstraingradmultstrainLoglikelihood2_cpp(arma::cube y, arma::mat e_it, int
       Named("grad_s") = grad_s,
       Named("grad_u") = grad_u,
       Named("cov_r") = cov_r,
-      Named("cov_s") = cov_s
+      Named("cov_s") = cov_s,
+      Named("poisMean4GibbsUpdate") = poisMean4GibbsUpdate
     );
   }
 }
