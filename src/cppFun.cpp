@@ -1920,6 +1920,208 @@ List perstraingradmultstrainLoglikelihood2_cpp(arma::cube y, arma::mat e_it, int
   }
 }
 
+
+// [[Rcpp::export]]
+List dependentgradmultstrainLoglikelihood2_cpp(arma::cube y, arma::mat e_it, int nstrain, arma::vec r, arma::vec s,
+                                               arma::vec u, arma::mat jointTPM, arma::vec B, arma::mat Bits, arma::vec a_k,
+                                               int Model, arma::mat Q_r, arma::mat Q_s, arma::mat Q_u){
+
+  int ndept = e_it.n_rows;
+  int time = e_it.n_cols;
+  int nstate = intPower(2, nstrain);
+
+  if(Model == 0){
+    arma::uvec month_indexes(time);
+    for (int t = 0; t < time; t++) {
+      month_indexes(t) = (t % 12);
+    }
+    arma::mat r_mat = arma::repmat(r.t(), ndept, 1);
+
+    arma::vec s_sub = s.elem(month_indexes);
+    arma::mat s_mat = arma::repmat(s_sub.t(), ndept, 1);
+
+    arma::mat u_mat = arma::repmat(u, 1, time);
+
+    arma::mat log_risk = r_mat + s_mat + u_mat;
+
+    arma::mat poisMean(ndept, time, arma::fill::zeros);
+    arma::cube allPoisMean(ndept, time, nstrain, arma::fill::zeros);
+    arma::mat delta(ndept, time, arma::fill::zeros);
+
+    for (int k = 0; k < nstrain; ++k) {
+      arma::mat lambda = e_it % arma::exp(log_risk + a_k[k]);
+      delta   += y.slice(k) - lambda;
+      poisMean += lambda;
+      allPoisMean.slice(k) = lambda;
+    }
+
+    // compute log-likelihood
+    double loglike = 0.0;
+    for (int k = 0; k < nstrain; ++k){
+      arma::mat Y = y.slice(k);
+      arma::mat Lambda = allPoisMean.slice(k);
+      arma::mat safeLambda = Lambda;
+      safeLambda.transform( [](double val) { return (val <= 0) ? 1e-12 : val; } );
+      loglike += arma::accu(Y % arma::log(safeLambda) - Lambda - lgamma(Y + 1));
+    }
+
+    // Temporal trend r gradients
+    arma::vec grad_r = arma::sum(delta, 0).t() - Q_r * r;
+    arma::mat diag_pois_colsum = arma::diagmat(arma::sum(poisMean, 0));
+    arma::mat cov_r = arma::inv_sympd(diag_pois_colsum + Q_r + arma::eye(time, time) * 1e-8);
+
+    // Seasonal s gradients
+    arma::vec grad_s(12, arma::fill::zeros);
+    arma::vec fishervec_s(12, arma::fill::zeros);
+
+    for (int month_index = 0; month_index < 12; ++month_index) {
+      for (int t = 0; t < time; ++t) {
+        if ((t % 12) == month_index) {
+          grad_s(month_index)     += arma::accu(delta.col(t));
+          fishervec_s(month_index)+= arma::accu(poisMean.col(t));
+        }
+      }
+    }
+    grad_s -= Q_s * s;
+    arma::mat cov_s = arma::inv_sympd(arma::diagmat(fishervec_s) + Q_s);
+
+
+    // Spatial u gradients
+    arma::vec grad_u = arma::sum(delta, 1) - Q_u * u;
+
+    double poisMean4GibbsUpdate = arma::accu(e_it % arma::exp(log_risk));
+
+    return List::create(
+      Named("loglike") = loglike,
+      Named("grad_r") = grad_r,
+      Named("grad_s") = grad_s,
+      Named("grad_u") = grad_u,
+      Named("cov_r") = cov_r,
+      Named("cov_s") = cov_s,
+      Named("poisMean4GibbsUpdate") = poisMean4GibbsUpdate
+    );
+  }else{
+
+    double loglike_total = 0.0;
+
+    arma::mat safeTPM = jointTPM;
+    safeTPM.transform([](double val){ return (val <= 0) ? 1e-12 : val; });
+    arma::mat logjointTPM = arma::log(safeTPM);
+    arma::mat logjointTPM_t = logjointTPM.t();
+
+    arma::vec init_density = stationarydistArma_cpp(jointTPM);
+    arma::vec safeinitdensity = init_density;
+    safeinitdensity.transform( [](double val) { return (val <= 0) ? 1e-12 : val; });
+    arma::vec loginit_density = arma::log(safeinitdensity);
+
+    arma::cube E_lambda_itk(ndept, time, nstrain, arma::fill::zeros);
+    arma::cube E_lambda_itk2(ndept, time, nstrain, arma::fill::zeros);
+
+    for(int i = 0; i < ndept; ++i){
+      arma::mat logEmissions(time, nstate, arma::fill::zeros);
+      arma::cube lambda_array(time, nstate, nstrain, arma::fill::zeros);
+      arma::cube lambda_array2(time, nstate, nstrain, arma::fill::zeros);
+      for(int t = 0; t < time; ++t){
+        int month_index = t % 12;
+        for(int n = 0; n < nstate; ++n){
+          for(int k = 0; k < nstrain; ++k){
+            lambda_array(t, n, k) = e_it(i, t) * std::exp(a_k[k] + r[t] + s[month_index] + u[i] + Bits(n, k) * B[k]);
+            lambda_array2(t, n, k) = e_it(i, t) * std::exp(r[t] + s[month_index] + u[i] + Bits(n, k) * B[k]);
+          }
+          arma::vec y_vec = y.tube(i, t);
+          arma::vec lambda_vec = lambda_array.tube(t, n);
+          arma::vec safelambda_vec = lambda_vec;
+          safelambda_vec.transform( [](double val) { return (val <= 0) ? 1e-12 : val; });
+          logEmissions(t, n) = arma::accu(y_vec % arma::log(safelambda_vec) - lambda_vec - lgamma(y_vec + 1));
+        }
+      }
+      //forward pass
+      arma::mat logalpha(time, nstate, arma::fill::zeros);
+
+      logalpha.row(0) = loginit_density.t() + logEmissions.row(0);
+      for(int t = 1; t < time; ++t){
+        logalpha.row(t) = (logVecMatMult2(logalpha.row(t-1).t(), logjointTPM) + logEmissions.row(t).t()).t();
+      }
+
+      double loglike_i = logSumExp_cpp2(logalpha.row(time-1).t());
+      loglike_total += loglike_i;
+
+      //backward pass
+      arma::mat logbeta(time, nstate, arma::fill::zeros);
+
+      for(int t = time - 2; t >= 0; --t){
+        arma::vec vec = (logEmissions.row(t + 1) + logbeta.row(t + 1)).t();
+        logbeta.row(t) = logVecMatMult2(vec, logjointTPM_t).t();
+      }
+      //Marginal posterior probabilities
+      arma::mat logP_s = (logalpha + logbeta) - loglike_i;
+      arma::mat P_s = arma::exp(logP_s);
+
+      for(int t = 0; t < time; ++t){
+        for(int k = 0; k < nstrain; ++k){
+          arma::vec newlambtube(nstate, arma::fill::zeros);
+          arma::vec newlambtube2(nstate, arma::fill::zeros);
+          for(int n = 0; n < nstate; ++n){
+            newlambtube[n] = lambda_array(t, n, k);
+            newlambtube2[n] = lambda_array2(t, n, k);
+          }
+          arma::vec probvec = P_s.row(t).t();
+          E_lambda_itk(i, t, k) = arma::dot(probvec, newlambtube);
+          E_lambda_itk2(i, t, k) = arma::dot(probvec, newlambtube2);
+        }
+      }
+    }
+
+    arma::vec poisMean4GibbsUpdate(nstrain, arma::fill::zeros);
+    arma::mat poisMean(ndept, time, arma::fill::zeros);
+    arma::mat delta(ndept, time, arma::fill::zeros);
+
+    for (int k = 0; k < nstrain; ++k){
+      arma::mat currentY = y.slice(k);
+      arma::mat currentE_lambda = E_lambda_itk.slice(k);
+      arma::mat currentE_lambda2 = E_lambda_itk2.slice(k);
+      delta   += (currentY - currentE_lambda);
+      poisMean += currentE_lambda;
+      poisMean4GibbsUpdate[k] = arma::accu(currentE_lambda2);
+    }
+
+    // Temporal trend r gradients
+    arma::vec grad_r = arma::sum(delta, 0).t() - Q_r * r;
+    arma::mat diag_pois_colsum = arma::diagmat(arma::sum(poisMean, 0));
+    arma::mat cov_r = arma::inv_sympd(diag_pois_colsum + Q_r + arma::eye(time, time) * 1e-8);
+
+    // Seasonal s gradients
+    arma::vec grad_s(12, arma::fill::zeros);
+    arma::vec fishervec_s(12, arma::fill::zeros);
+
+    for(int month_index = 0; month_index < 12; ++month_index){
+      for(int t = 0; t < time; ++t){
+        if((t % 12) == month_index){
+          grad_s(month_index)     += arma::accu(delta.col(t));
+          fishervec_s(month_index)+= arma::accu(poisMean.col(t));
+        }
+      }
+    }
+    grad_s -= Q_s * s;
+    arma::mat cov_s = arma::inv_sympd(arma::diagmat(fishervec_s) + Q_s);
+
+
+    // Spatial u gradients
+    arma::vec grad_u = arma::sum(delta, 1) - Q_u * u;
+
+    return List::create(
+      Named("loglike") = loglike_total,
+      Named("grad_r") = grad_r,
+      Named("grad_s") = grad_s,
+      Named("grad_u") = grad_u,
+      Named("cov_r") = cov_r,
+      Named("cov_s") = cov_s,
+      Named("poisMean4GibbsUpdate") = poisMean4GibbsUpdate
+    );
+  }
+}
+
+
 //MALA and Riemann Manifold MALA - MCMC updates
 // [[Rcpp::export]]
 arma::mat MMALA_cpp(arma::cube y, arma::mat e_it, int Model, arma::mat Bits, arma::vec CrudeR,

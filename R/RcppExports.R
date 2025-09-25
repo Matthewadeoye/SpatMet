@@ -169,6 +169,10 @@ perstraingradmultstrainLoglikelihood2_cpp <- function(y, e_it, nstrain, r, s, u,
     .Call(`_SpatMet_perstraingradmultstrainLoglikelihood2_cpp`, y, e_it, nstrain, r, s, u, Gamma, B, Bits, a_k, Model, Q_r, Q_s, Q_u)
 }
 
+dependentgradmultstrainLoglikelihood2_cpp <- function(y, e_it, nstrain, r, s, u, jointTPM, B, Bits, a_k, Model, Q_r, Q_s, Q_u) {
+    .Call(`_SpatMet_dependentgradmultstrainLoglikelihood2_cpp`, y, e_it, nstrain, r, s, u, jointTPM, B, Bits, a_k, Model, Q_r, Q_s, Q_u)
+}
+
 MMALA_cpp <- function(y, e_it, Model, Bits, CrudeR, CrudeS, CrudeU, RW2PrecMat, RW1PrecMat, Ru, rankdef, independentChains, num_iteration, meanR, step_sizes) {
     .Call(`_SpatMet_MMALA_cpp`, y, e_it, Model, Bits, CrudeR, CrudeS, CrudeU, RW2PrecMat, RW1PrecMat, Ru, rankdef, independentChains, num_iteration, meanR, step_sizes)
 }
