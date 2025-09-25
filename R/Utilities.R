@@ -858,7 +858,7 @@ sim.RW2mean0<- function(time, sd=0.0001, init.r1 = 0, init.r2 = 0){
   return(r)
 }
 
-Multstrain.simulate<- function(Model, time, nstrain=2, adj.matrix,
+Multstrain.simulate<- function(Model, time, nstrain=2, adj.matrix, dependent=FALSE,
                                e_it=matrix(c(rep(c(rpois(time, 500000), rpois(time, 1000000)), 4), rpois(time, 500000)),
                                            byrow = T, ncol = time),
                                B = runif(nstrain), T.prob = matrix(c(0.9, 0.1, 0.2, 0.8), nrow = 2, byrow = T),
@@ -867,8 +867,13 @@ Multstrain.simulate<- function(Model, time, nstrain=2, adj.matrix,
   ndept<- nrow(adj.matrix)
   y_itk<- array(NA, dim=c(ndept, time, nstrain))
   EpidemicIndicator<- matrix(NA, ndept, time)
-  JointTPM<- JointTransitionMatrix(T.prob, nstrain)
   Jointstates<- 2^nstrain
+  if(dependent){
+    JointTPM<- gtools::rdirichlet(Jointstates, sample(2:5, size = Jointstates, replace = TRUE))
+  }else{
+  JointTPM<- JointTransitionMatrix(T.prob, nstrain)
+  }
+
   Bits<- encodeBits(K=nstrain)
   aVec<- numeric(nstrain)
   for(k in 1:nstrain){
@@ -908,7 +913,7 @@ Multstrain.simulate<- function(Model, time, nstrain=2, adj.matrix,
         }
       }
     }
-    return(list("y" =y_itk, "e_it"=e_it, "r"=r, "s"=s, "u"=u, "states"=EpidemicIndicator, "B"=B, "a_k"=aVec))
+    return(list("y" =y_itk, "e_it"=e_it, "r"=r, "s"=s, "u"=u, "states"=EpidemicIndicator, "B"=B, "a_k"=aVec, "JointTPM"=JointTPM))
   }
 }
 

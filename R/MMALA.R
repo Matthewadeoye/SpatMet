@@ -1011,6 +1011,8 @@ GeneralCPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_
 #perstrainfit<- GeneralCPPmultMMALAInference(y=perstrainmultmod1nstrain5[[1]], e_it = perstrainmultmod1nstrain5[[2]], Model = 1, adjmat = sim_adjmat, step_sizes = list("r"=0.3,"s"=0.3,"u"=0.025), num_iteration = 25)
 
 
+#set.seed(212);dependentmultmod1nstrain5<- Multstrain.simulate(Model = 1, time=60, adj.matrix = sim_adjmat, dependent = TRUE, nstrain=5, B=c(1.65,0.95,1.4,1.1,1.7))
+
 #Riemann Manifold Langevin updates
 dependentCPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_iteration = 15000, sdGs=0.05, sdBs=0.01, sdAs=0.01){
   start_time <- Sys.time()
@@ -1207,7 +1209,7 @@ dependentCPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, nu
         grad_current<- grad_proposed
       }
       else{
-        MC_chain[i, nstate*nstate+3+time+12+ndept+(1:nstrain)]<- MC_chain[i-1, 2*nstrain+3+time+12+ndept+(1:nstrain)]
+        MC_chain[i, nstate*nstate+3+time+12+ndept+(1:nstrain)]<- MC_chain[i-1, nstate*nstate+3+time+12+ndept+(1:nstrain)]
       }
 
       proposedGs<- gtools::rdirichlet(nstate, deltaP * MC_chain[i-1, 1:nstate])
@@ -1218,7 +1220,7 @@ dependentCPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, nu
       priorcurrentGs<- sum(log(gtools::ddirichlet(matrix(MC_chain[i-1, 1:(nstate*nstate)], nrow=nstate, byrow = TRUE), rep(1, nstate))))
       priorproposedGs<- sum(log(gtools::ddirichlet(proposedGs, rep(1, nstate))))
 
-      Allquantities<- dependentgradmultstrainLoglikelihood2_cpp(y=y, e_it=e_it, nstrain=nstrain,  r=MC_chain[i, nstate*nstate+3+(1:time)], s=MC_chain[i, nstate*nstate+3+time+(1:12)], u=MC_chain[i, nstate*nstate+3+time+12+(1:ndept)], jointTPM=proposedGs, B=MC_chain[i, nstate*nstate+3+time+12+ndept+(1:nstrain)], Bits=Bits, a_k=MC_chain[i-1, nstate*nstate3+time+12+ndept+nstrain+(1:nstrain)], Model=Model,Q_r=Q_r,Q_s = Q_s,Q_u=Q_u)
+      Allquantities<- dependentgradmultstrainLoglikelihood2_cpp(y=y, e_it=e_it, nstrain=nstrain,  r=MC_chain[i, nstate*nstate+3+(1:time)], s=MC_chain[i, nstate*nstate+3+time+(1:12)], u=MC_chain[i, nstate*nstate+3+time+12+(1:ndept)], jointTPM=proposedGs, B=MC_chain[i, nstate*nstate+3+time+12+ndept+(1:nstrain)], Bits=Bits, a_k=MC_chain[i-1, nstate*nstate+3+time+12+ndept+nstrain+(1:nstrain)], Model=Model,Q_r=Q_r,Q_s = Q_s,Q_u=Q_u)
       grad_proposed <- list(grad_r=as.numeric(Allquantities$grad_r), grad_s=as.numeric(Allquantities$grad_s), grad_u=as.numeric(Allquantities$grad_u), cov_r=Allquantities$cov_r, cov_s=Allquantities$cov_s)
 
       likelihoodproposed<- Allquantities$loglike
