@@ -584,8 +584,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // dependentgradmultstrainLoglikelihood2_cpp
-List dependentgradmultstrainLoglikelihood2_cpp(arma::cube y, arma::mat e_it, int nstrain, arma::vec r, arma::vec s, arma::vec u, arma::mat jointTPM, arma::vec B, arma::mat Bits, arma::vec a_k, int Model, arma::mat Q_r, arma::mat Q_s, arma::mat Q_u);
-RcppExport SEXP _SpatMet_dependentgradmultstrainLoglikelihood2_cpp(SEXP ySEXP, SEXP e_itSEXP, SEXP nstrainSEXP, SEXP rSEXP, SEXP sSEXP, SEXP uSEXP, SEXP jointTPMSEXP, SEXP BSEXP, SEXP BitsSEXP, SEXP a_kSEXP, SEXP ModelSEXP, SEXP Q_rSEXP, SEXP Q_sSEXP, SEXP Q_uSEXP) {
+List dependentgradmultstrainLoglikelihood2_cpp(arma::cube y, arma::mat e_it, int nstrain, arma::vec r, arma::vec s, arma::vec u, arma::mat jointTPM, arma::vec B, arma::mat Bits, arma::vec a_k, int Model, arma::mat Q_r, arma::mat Q_s, arma::mat Q_u, int gradients);
+RcppExport SEXP _SpatMet_dependentgradmultstrainLoglikelihood2_cpp(SEXP ySEXP, SEXP e_itSEXP, SEXP nstrainSEXP, SEXP rSEXP, SEXP sSEXP, SEXP uSEXP, SEXP jointTPMSEXP, SEXP BSEXP, SEXP BitsSEXP, SEXP a_kSEXP, SEXP ModelSEXP, SEXP Q_rSEXP, SEXP Q_sSEXP, SEXP Q_uSEXP, SEXP gradientsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -603,7 +603,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< arma::mat >::type Q_r(Q_rSEXP);
     Rcpp::traits::input_parameter< arma::mat >::type Q_s(Q_sSEXP);
     Rcpp::traits::input_parameter< arma::mat >::type Q_u(Q_uSEXP);
-    rcpp_result_gen = Rcpp::wrap(dependentgradmultstrainLoglikelihood2_cpp(y, e_it, nstrain, r, s, u, jointTPM, B, Bits, a_k, Model, Q_r, Q_s, Q_u));
+    Rcpp::traits::input_parameter< int >::type gradients(gradientsSEXP);
+    rcpp_result_gen = Rcpp::wrap(dependentgradmultstrainLoglikelihood2_cpp(y, e_it, nstrain, r, s, u, jointTPM, B, Bits, a_k, Model, Q_r, Q_s, Q_u, gradients));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -676,7 +677,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_SpatMet_multInfer_cpp", (DL_FUNC) &_SpatMet_multInfer_cpp, 16},
     {"_SpatMet_gradmultstrainLoglikelihood2_cpp", (DL_FUNC) &_SpatMet_gradmultstrainLoglikelihood2_cpp, 14},
     {"_SpatMet_perstraingradmultstrainLoglikelihood2_cpp", (DL_FUNC) &_SpatMet_perstraingradmultstrainLoglikelihood2_cpp, 14},
-    {"_SpatMet_dependentgradmultstrainLoglikelihood2_cpp", (DL_FUNC) &_SpatMet_dependentgradmultstrainLoglikelihood2_cpp, 14},
+    {"_SpatMet_dependentgradmultstrainLoglikelihood2_cpp", (DL_FUNC) &_SpatMet_dependentgradmultstrainLoglikelihood2_cpp, 15},
     {"_SpatMet_MMALA_cpp", (DL_FUNC) &_SpatMet_MMALA_cpp, 15},
     {NULL, NULL, 0}
 };

@@ -1924,7 +1924,7 @@ List perstraingradmultstrainLoglikelihood2_cpp(arma::cube y, arma::mat e_it, int
 // [[Rcpp::export]]
 List dependentgradmultstrainLoglikelihood2_cpp(arma::cube y, arma::mat e_it, int nstrain, arma::vec r, arma::vec s,
                                                arma::vec u, arma::mat jointTPM, arma::vec B, arma::mat Bits, arma::vec a_k,
-                                               int Model, arma::mat Q_r, arma::mat Q_s, arma::mat Q_u){
+                                               int Model, arma::mat Q_r, arma::mat Q_s, arma::mat Q_u, int gradients){
 
   int ndept = e_it.n_rows;
   int time = e_it.n_cols;
@@ -2017,6 +2017,44 @@ List dependentgradmultstrainLoglikelihood2_cpp(arma::cube y, arma::mat e_it, int
     arma::cube E_lambda_itk(ndept, time, nstrain, arma::fill::zeros);
     arma::cube E_lambda_itk2(ndept, time, nstrain, arma::fill::zeros);
 
+    arma::vec grad_r(time, arma::fill::zeros);
+    arma::vec grad_s(12, arma::fill::zeros);
+    arma::vec grad_u(ndept, arma::fill::zeros);
+    arma::mat cov_r(time, time, arma::fill::zeros);
+    arma::mat cov_s(12, 12, arma::fill::zeros);
+    arma::vec poisMean4GibbsUpdate(nstrain, arma::fill::zeros);
+
+    if(gradients == 0){
+
+      for(int i = 0; i < ndept; ++i){
+        arma::mat logEmissions(time, nstate, arma::fill::zeros);
+        arma::cube lambda_array(time, nstate, nstrain, arma::fill::zeros);
+        for(int t = 0; t < time; ++t){
+          int month_index = t % 12;
+          for(int n = 0; n < nstate; ++n){
+            for(int k = 0; k < nstrain; ++k){
+              lambda_array(t, n, k) = e_it(i, t) * std::exp(a_k[k] + r[t] + s[month_index] + u[i] + Bits(n, k) * B[k]);
+            }
+            arma::vec y_vec = y.tube(i, t);
+            arma::vec lambda_vec = lambda_array.tube(t, n);
+            arma::vec safelambda_vec = lambda_vec;
+            safelambda_vec.transform( [](double val) { return (val <= 0) ? 1e-12 : val; });
+            logEmissions(t, n) = arma::accu(y_vec % arma::log(safelambda_vec) - lambda_vec - lgamma(y_vec + 1));
+          }
+        }
+        //forward pass
+        arma::mat logalpha(time, nstate, arma::fill::zeros);
+
+        logalpha.row(0) = loginit_density.t() + logEmissions.row(0);
+        for(int t = 1; t < time; ++t){
+          logalpha.row(t) = (logVecMatMult2(logalpha.row(t-1).t(), logjointTPM) + logEmissions.row(t).t()).t();
+        }
+
+        double loglike_i = logSumExp_cpp2(logalpha.row(time-1).t());
+        loglike_total += loglike_i;
+      }
+    }else{
+
     for(int i = 0; i < ndept; ++i){
       arma::mat logEmissions(time, nstate, arma::fill::zeros);
       arma::cube lambda_array(time, nstate, nstrain, arma::fill::zeros);
@@ -2072,7 +2110,6 @@ List dependentgradmultstrainLoglikelihood2_cpp(arma::cube y, arma::mat e_it, int
       }
     }
 
-    arma::vec poisMean4GibbsUpdate(nstrain, arma::fill::zeros);
     arma::mat poisMean(ndept, time, arma::fill::zeros);
     arma::mat delta(ndept, time, arma::fill::zeros);
 
@@ -2086,12 +2123,11 @@ List dependentgradmultstrainLoglikelihood2_cpp(arma::cube y, arma::mat e_it, int
     }
 
     // Temporal trend r gradients
-    arma::vec grad_r = arma::sum(delta, 0).t() - Q_r * r;
+    grad_r = arma::sum(delta, 0).t() - Q_r * r;
     arma::mat diag_pois_colsum = arma::diagmat(arma::sum(poisMean, 0));
-    arma::mat cov_r = arma::inv_sympd(diag_pois_colsum + Q_r + arma::eye(time, time) * 1e-8);
+    cov_r = arma::inv_sympd(diag_pois_colsum + Q_r + arma::eye(time, time) * 1e-8);
 
     // Seasonal s gradients
-    arma::vec grad_s(12, arma::fill::zeros);
     arma::vec fishervec_s(12, arma::fill::zeros);
 
     for(int month_index = 0; month_index < 12; ++month_index){
@@ -2103,11 +2139,12 @@ List dependentgradmultstrainLoglikelihood2_cpp(arma::cube y, arma::mat e_it, int
       }
     }
     grad_s -= Q_s * s;
-    arma::mat cov_s = arma::inv_sympd(arma::diagmat(fishervec_s) + Q_s);
+    cov_s = arma::inv_sympd(arma::diagmat(fishervec_s) + Q_s);
 
 
     // Spatial u gradients
-    arma::vec grad_u = arma::sum(delta, 1) - Q_u * u;
+    grad_u = arma::sum(delta, 1) - Q_u * u;
+    }
 
     return List::create(
       Named("loglike") = loglike_total,

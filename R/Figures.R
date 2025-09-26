@@ -529,7 +529,7 @@ RecoverInfU.plot<- function(inf.object, true_u, burn.in=100){
   if(!is.data.frame(inf.object)){
     fullu.draws<- as.data.frame(inf.object$draws(variables = "uconstrained")[,1,])
   }else{
-    fullu.draws<- inf.object[-(1:burn.in), 5+time+12+(1:ndept)]
+    fullu.draws<- inf.object[-(1:burn.in), startsWith(colnames(inf.object), "u")]
   }
 
   thinning<- numeric(floor(nrow(fullu.draws)/10))
@@ -586,8 +586,8 @@ RecoverInfU_ak.plot<- function(inf.object, true_u, true_a_k, Modeltype="", burn.
       fullu.draws<- as.data.frame(inf.object$draws(variables = "uconstrained")[,1,])
       fullak.draws<- as.data.frame(inf.object$draws(variables = "a_k")[,1,])
     }else{
-      fullu.draws<- inf.object[-(1:burn.in), 5+time+12+(1:ndept)]
-      fullak.draws<- inf.object[-(1:burn.in), 5+time+12+ndept+nstrain+(1:nstrain)]
+      fullu.draws<- inf.object[-(1:burn.in), startsWith(colnames(inf.object), "u")]
+      fullak.draws<- inf.object[-(1:burn.in), startsWith(colnames(inf.object), "a")]
     }
 
     thinning<- numeric(floor(nrow(fullu.draws)/10))
@@ -674,10 +674,10 @@ RecoverInfUABG.plot<- function(inf.object, true_u, true_a_k, true_B, true_G, Mod
     fullB.draws<- as.data.frame(inf.object$draws(variables = "B")[,1,])
     fullG.draws<- as.data.frame(inf.object$draws(variables = c("G12","G21"))[,1,])
   }else{
-    fullu.draws<- inf.object[-(1:burn.in), 5+time+12+(1:ndept)]
-    fullak.draws<- inf.object[-(1:burn.in), 5+time+12+ndept+nstrain+(1:nstrain)]
-    fullB.draws<- inf.object[-(1:burn.in), 5+time+12+ndept+(1:nstrain)]
-    fullG.draws<- inf.object[-(1:burn.in), 1:2]
+    fullu.draws<- inf.object[-(1:burn.in), startsWith(colnames(inf.object), "u")]
+    fullak.draws<- inf.object[-(1:burn.in), startsWith(colnames(inf.object), "a")]
+    fullB.draws<- inf.object[-(1:burn.in), startsWith(colnames(inf.object), "B")]
+    fullG.draws<- inf.object[-(1:burn.in), startsWith(colnames(inf.object), "G")]
   }
 
   thinning<- numeric(floor(nrow(fullu.draws)/10))
@@ -832,13 +832,19 @@ Outbreakfigures<- function(matrix_list, BitsMatrix, labelLetter=""){
 }
 
 
-perstrainOutbreakfigures<- function(matrix_array, Outbreaktype=""){
+# Super-impose true values
+perstrainOutbreakfigures<- function(Truth_array, matrix_array, Outbreaktype=""){
   time<- ncol(matrix_array[,,1])
   ndept<- nrow(matrix_array[,,1])
   nstrain<- dim(matrix_array)[3]
   pdf(paste0("Alloutbreaksperstrain",Outbreaktype,".pdf"), paper="special", width=15,height=9, pointsize=12)
   par(mfrow=c(2,3))
   for(i in 1:nstrain){
+    Truth<- Truth_array[,,i]
+    smallTruth<- Truth[c(1,3,5,7,9), ]
+    bigTruth<- Truth[c(2,4,6,8), ]
+    bigsmallTruth<- Truth[c(2,4,6,8,1,3,5,7,9), ]
+
     X_it<- matrix_array[,,i]
     smallxit<- X_it[c(1,3,5,7,9), ]
     bigxit<- X_it[c(2,4,6,8), ]
@@ -850,10 +856,29 @@ perstrainOutbreakfigures<- function(matrix_array, Outbreaktype=""){
     axis(2, at=seq(5, 9, length.out=5), labels=c("u1", "u3", "u5", "u7", "u9"), col = "blue", col.axis="blue", lwd.ticks = 1, las = 1, lwd=0, cex.axis = 1.8, cex.lab=1.8)
     #custom X-axis
     axis(1, cex.axis = 1.8)
+    # Build grid of row/col indices
+    grid <- expand.grid(x = seq(nrow(bigsmallTruth)),
+                        y = seq(ncol(bigsmallTruth)))
+    out <- transform(grid, z = bigsmallTruth[as.matrix(grid)])
+
+    # Select true outbreak cells
+    outbreakcell <- out$z == 1
+
+    # Overlay truth as colored dots at cell centers
+    points(out$y[outbreakcell],   # time axis
+           out$x[outbreakcell],   # location axis
+           pch = 16, cex = 1.5, col = "magenta")
   }
-  add_legend(0.38, -0.4, legend=substitute(paste(bold(Outbreaktype))),
-             col="black",
+  add_legend(0.58, -0.4, legend=substitute(paste(bold("Truth"))),
+             pch=16, col="magenta",
              horiz=TRUE, bty='n', cex=3.0)
+
+  #add_legend(0.38, -0.4, legend=substitute(paste(bold(Outbreaktype))),
+  #           col="black",
+  #           horiz=TRUE, bty='n', cex=3.0)
 
   dev.off()
 }
+
+
+

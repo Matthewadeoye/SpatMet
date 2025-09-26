@@ -858,7 +858,7 @@ sim.RW2mean0<- function(time, sd=0.0001, init.r1 = 0, init.r2 = 0){
   return(r)
 }
 
-Multstrain.simulate<- function(Model, time, nstrain=2, adj.matrix, dependent=FALSE,
+Multstrain.simulate<- function(Model, time, nstrain=2, adj.matrix, Modeltype=1,
                                e_it=matrix(c(rep(c(rpois(time, 500000), rpois(time, 1000000)), 4), rpois(time, 500000)),
                                            byrow = T, ncol = time),
                                B = runif(nstrain), T.prob = matrix(c(0.9, 0.1, 0.2, 0.8), nrow = 2, byrow = T),
@@ -868,17 +868,22 @@ Multstrain.simulate<- function(Model, time, nstrain=2, adj.matrix, dependent=FAL
   y_itk<- array(NA, dim=c(ndept, time, nstrain))
   EpidemicIndicator<- matrix(NA, ndept, time)
   Jointstates<- 2^nstrain
-  if(dependent){
-    JointTPM<- gtools::rdirichlet(Jointstates, sample(2:5, size = Jointstates, replace = TRUE))
-  }else{
-  JointTPM<- JointTransitionMatrix(T.prob, nstrain)
-  }
-
   Bits<- encodeBits(K=nstrain)
   aVec<- numeric(nstrain)
   for(k in 1:nstrain){
     a_k<- runif(1, min = -14, max = -12)
     aVec[k]<- a_k
+  }
+
+  if(Modeltype == 1){
+    JointTPM<- JointTransitionMatrix(T.prob, nstrain)
+  }else if(Modeltype == 2){
+    T.prob<- runif(2*nstrain, min = 0.1, max = 0.2)
+    matlist<- BuildGamma_list(T.prob)
+    JointTPM<- JointTransitionMatrix_per_strain(matlist)
+  }else if(Modeltype == 3){
+    T.prob<- 0
+    JointTPM<- gtools::rdirichlet(Jointstates, sample(2:7, size = Jointstates, replace = TRUE))
   }
 
   if(Model == 0){
@@ -913,63 +918,7 @@ Multstrain.simulate<- function(Model, time, nstrain=2, adj.matrix, dependent=FAL
         }
       }
     }
-    return(list("y" =y_itk, "e_it"=e_it, "r"=r, "s"=s, "u"=u, "states"=EpidemicIndicator, "B"=B, "a_k"=aVec, "JointTPM"=JointTPM))
-  }
-}
-
-perstrainMultstrain.simulate<- function(Model, time, nstrain=2, adj.matrix,
-                               e_it=matrix(c(rep(c(rpois(time, 500000), rpois(time, 1000000)), 4), rpois(time, 500000)),
-                                           byrow = T, ncol = time),
-                               B = runif(nstrain),
-                               r = sim.RW2mean0(time, sd=0.009), s = DetectOutbreaks:::sim.Seasonals2(Amplitude = 1.4),
-                               u = DetectOutbreaks:::sim.Spatials(adj.matrix)){
-  ndept<- nrow(adj.matrix)
-  y_itk<- array(NA, dim=c(ndept, time, nstrain))
-  EpidemicIndicator<- matrix(NA, ndept, time)
-  tprobs<- runif(2*nstrain, min = 0.1, max = 0.2)
-  T.prob<- BuildGamma_list(tprobs)
-  JointTPM<- JointTransitionMatrix_per_strain(T.prob)
-  Jointstates<- 2^nstrain
-  Bits<- encodeBits(K=nstrain)
-  aVec<- numeric(nstrain)
-  for(k in 1:nstrain){
-    a_k<- runif(1, min = -14, max = -12)
-    aVec[k]<- a_k
-  }
-
-  if(Model == 0){
-    for(i in 1:ndept){
-      for(t in 1:time){
-        m<- (t - 1) %% 12 + 1
-        for(k in 1:nstrain){
-          lograte <- aVec[k] + r[t] + s[m] + u[i]
-          y_itk[i, t, k]<- rpois(1, lambda = e_it[i, t] * exp(lograte))
-        }
-      }
-    }
-    return(list("y" =y_itk, "e_it"=e_it, "r"=r, "s"=s, "u"=u, "states"=EpidemicIndicator, "a_k"=aVec, "T.probs"= tprobs))
-  }
-  else{
-    for(i in 1:ndept){
-      for(k in 1:nstrain){
-        lograte<- aVec[k] + r[1] + s[1] + u[i]
-        y_itk[i, 1, k]<- rpois(1, lambda = e_it[i, 1] * exp(lograte))
-      }
-      EpidemicIndicator[i, ]<- simulateMarkovChain(nstep=time, JointTPM)
-    }
-
-    for(t in 2:time){
-      m<- (t - 1) %% 12 + 1
-      for(i in 1:ndept){
-        for(k in 1:nstrain){
-          newB<- rep(0, nstrain)
-          newB[k]<- B[k]
-          lograte<- aVec[k] + r[t] + s[m] + u[i] + (newB %*% Bits[EpidemicIndicator[i, t]+1, ])
-          y_itk[i, t, k]<- rpois(1, lambda = e_it[i, t] * exp(lograte))
-        }
-      }
-    }
-    return(list("y" =y_itk, "e_it"=e_it, "r"=r, "s"=s, "u"=u, "states"=EpidemicIndicator, "B"=B, "a_k"=aVec, "T.probs"= tprobs))
+    return(list("y" =y_itk, "e_it"=e_it, "r"=r, "s"=s, "u"=u, "states"=EpidemicIndicator, "B"=B, "a_k"=aVec, "T.prob"=T.prob, "JointTPM"=JointTPM))
   }
 }
 

@@ -189,39 +189,39 @@ for (i in 1:n_patches) {
 grid()
 
 #Phase plot
-par(mfrow=c(3,3))
-for(j in 1:n_patches){
-  plot(results[,18+j]/N[j], results[,9+j]/N[j], xlim=c(0,1), ylim=c(0,1), type = "l", xlab = "R", ylab = "I", main = paste("Subpopulation ", j))
-}
+#par(mfrow=c(3,3))
+#for(j in 1:n_patches){
+#  plot(results[,18+j]/N[j], results[,9+j]/N[j], xlim=c(0,1), ylim=c(0,1), type = "l", xlab = "R", ylab = "I", main = paste("Subpopulation ", j))
+#}
 
 
-n_time <- nrow(results)
+#n_time <- nrow(results)
 #colors <- viridis::viridis(n_time - 1)
-seg_len <- floor(n_time/3)
-segcolors <- c("blue", "yellow", "red")
-par(mfrow = c(3, 3))
-for (j in 1:n_patches) {
-  I_vals <- results[, 9 + j] / N[j]
-  R_vals <- results[, 18 + j] / N[j]
-  plot(NA, xlim = c(0, 1), ylim = c(0, 1), xlab = "R", ylab = "I", main = paste("Subpopulation", j))
-  grid()
-  for (i in 1:(n_time - 1)) {
-    segment_color <- if (i <= seg_len) {
-      segcolors[1]
-    } else if (i <= 2 * seg_len) {
-      segcolors[2]
-    } else {
-      segcolors[3]
-    }
-    segments(
-      x0 = R_vals[i],
-      y0 = I_vals[i],
-      x1 = R_vals[i + 1],
-      y1 = I_vals[i + 1],
-      col = segment_color
-    )
-  }
-}
+#seg_len <- floor(n_time/3)
+#segcolors <- c("blue", "yellow", "red")
+#par(mfrow = c(3, 3))
+#for (j in 1:n_patches) {
+#  I_vals <- results[, 9 + j] / N[j]
+#  R_vals <- results[, 18 + j] / N[j]
+#  plot(NA, xlim = c(0, 1), ylim = c(0, 1), xlab = "R", ylab = "I", main = paste("Subpopulation", j))
+#  grid()
+#  for (i in 1:(n_time - 1)) {
+#    segment_color <- if (i <= seg_len) {
+#      segcolors[1]
+#    } else if (i <= 2 * seg_len) {
+#      segcolors[2]
+#    } else {
+#      segcolors[3]
+#    }
+#    segments(
+#      x0 = R_vals[i],
+#      y0 = I_vals[i],
+#      x1 = R_vals[i + 1],
+#      y1 = I_vals[i + 1],
+#      col = segment_color
+#    )
+#  }
+#}
 
 
 #Model fitting
