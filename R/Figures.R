@@ -524,288 +524,461 @@ RecoverInf.plot<- function(inf.object, true_r, true_s, Modeltype=""){
 
 }
 
-RecoverInfU.plot<- function(inf.object, true_u, burn.in=100){
-
-  if(!is.data.frame(inf.object)){
-    fullu.draws<- as.data.frame(inf.object$draws(variables = "uconstrained")[,1,])
-  }else{
-    fullu.draws<- inf.object[-(1:burn.in), startsWith(colnames(inf.object), "u")]
-  }
-
-  thinning<- numeric(floor(nrow(fullu.draws)/10))
-  thinning[1]<- 10
-  for(i in 2:length(thinning)){
-    thinning[i]<- thinning[i-1] + 10
-  }
-  u.draws<- fullu.draws[thinning, ]
-  sim.u<- true_u
-
-  # Violin plot for spatial components and intercepts
-  spatcomp<- data.frame(value = c(u.draws[, 1], u.draws[, 2], u.draws[, 3], u.draws[, 4],
-                                  u.draws[, 5], u.draws[, 6], u.draws[, 7], u.draws[, 8],
-                                  u.draws[, 9]), group = factor(rep(c("u1", "u2", "u3", "u4", "u5", "u6", "u7", "u8", "u9"), each = nrow(u.draws))))
-  spatcomp$group <- factor(spatcomp$group, levels = unique(spatcomp$group))
+RecoverInfUA.plot <- function(inf.object, true_u, true_a_k,
+                               Modeltype = "", burn.in = 100) {
   library(ggplot2)
-  library(RColorBrewer)
-  mycolors <- c(rep(c("blue", "red"), 4), "blue")
-  rfigs<- ggplot(spatcomp, aes(x = group, y = value, fill = group)) +
+  library(cowplot)
+
+  # parameter dimensions
+  n_u  <- length(true_u)
+  n_ak <- length(true_a_k)
+
+  # Extract posterior draws
+  if (!is.data.frame(inf.object)) {
+    fullu.draws <- as.data.frame(inf.object$draws(variables = "uconstrained")[, 1, ])
+    fullak.draws <- as.data.frame(inf.object$draws(variables = "a_k")[, 1, ])
+  } else {
+    fullu.draws <- inf.object[-(1:burn.in), startsWith(colnames(inf.object), "u")]
+    fullak.draws <- inf.object[-(1:burn.in), startsWith(colnames(inf.object), "a")]
+  }
+
+  # thinning every 10
+  thinning <- seq(10, nrow(fullu.draws), by = 10)
+  u.draws  <- fullu.draws[thinning, , drop = FALSE]
+  ak.draws <- fullak.draws[thinning, , drop = FALSE]
+
+  # ---- U violin plot ----
+  u_labels <- do.call(expression, lapply(1:n_u, function(i) {
+    bquote(u[.(i)])
+  }))
+
+  spatcomp_u <- data.frame(
+    value = as.vector(as.matrix(u.draws)),
+    group = factor(rep(paste0("u", 1:n_u), each = nrow(u.draws)))
+  )
+
+  rfigs_u <- ggplot(spatcomp_u, aes(x = group, y = value, fill = group)) +
     geom_violin(trim = FALSE, alpha = 0.7) +
-    geom_point(x = 1, y = sim.u[1], size = 2, shape = 19) +
-    geom_point(x = 2, y = sim.u[2], size = 2, shape = 19) +
-    geom_point(x = 3, y = sim.u[3], size = 2, shape = 19) +
-    geom_point(x = 4, y = sim.u[4], size = 2, shape = 19) +
-    geom_point(x = 5, y = sim.u[5], size = 2, shape = 19) +
-    geom_point(x = 6, y = sim.u[6], size = 2, shape = 19) +
-    geom_point(x = 7, y = sim.u[7], size = 2, shape = 19) +
-    geom_point(x = 8, y = sim.u[8], size = 2, shape = 19) +
-    geom_point(x = 9, y = sim.u[9], size = 2, shape = 19) +
-    #ylim(-0.90, 0.70) +
-    labs(title = "", x = "Location", y = "Value", fill = "") +
+    geom_point(data = data.frame(x = factor(paste0("u", 1:n_u), levels = levels(spatcomp_u$group)),
+                                 y = true_u),
+               aes(x = x, y = y),
+               size = 2, shape = 19, inherit.aes = FALSE) +
+    ylim(-0.40, 0.40) +
+    labs(x = "Location", y = "Value", fill = "") +
     theme_minimal() +
-    scale_fill_manual(values = mycolors) +
-    theme(axis.title.y = element_text(size=18),
-          axis.title.x = element_text(size=18),
-          axis.text.x = element_text(size=16),
-          axis.text.y = element_text(size=16),
-          legend.title = element_text(size = 18),
-          legend.text = element_text(size = 16),legend.position = "none")
+    scale_fill_manual(values = rep(c("blue", "red"), length.out = n_u)) +
+    scale_x_discrete(labels = u_labels) +   # <-- add dynamic labels here
+    theme(axis.title = element_text(size = 17),
+          axis.text = element_text(size = 16),
+          legend.position = "none")
 
-  print(rfigs)
-  add_legend(0.85, 1.15, legend="Truth",
-             pch=19, col="black",
-             horiz=TRUE, bty='n', cex=1.8)
-  #add_legend("topright", legend="Truth",
-  #           pch=19, col="black",
-  #           horiz=TRUE, bty='n', cex=1.1)
-}
+  # ---- a_k violin plot ----
+  ak_labels <- do.call(expression, lapply(1:n_ak, function(i) {
+    bquote(a[.(i)])
+  }))
 
-RecoverInfU_ak.plot<- function(inf.object, true_u, true_a_k, Modeltype="", burn.in=100){
+  comp_ak <- data.frame(
+    value = as.vector(as.matrix(ak.draws)),
+    group = factor(rep(paste0("a", 1:n_ak), each = nrow(ak.draws)))
+  )
 
-  nstrain<- length(true_a_k)
-    if(!is.data.frame(inf.object)){
-      fullu.draws<- as.data.frame(inf.object$draws(variables = "uconstrained")[,1,])
-      fullak.draws<- as.data.frame(inf.object$draws(variables = "a_k")[,1,])
-    }else{
-      fullu.draws<- inf.object[-(1:burn.in), startsWith(colnames(inf.object), "u")]
-      fullak.draws<- inf.object[-(1:burn.in), startsWith(colnames(inf.object), "a")]
-    }
+  rfigs_ak <- ggplot(comp_ak, aes(x = group, y = value, fill = group)) +
+    geom_violin(trim = FALSE, alpha = 0.7) +
+    geom_point(data = data.frame(x = factor(paste0("a", 1:n_ak), levels = levels(comp_ak$group)),
+                                 y = true_a_k),
+               aes(x = x, y = y),
+               size = 2, shape = 19, inherit.aes = FALSE) +
+    ylim(-14.5, -12) +
+    labs(x = "Intercepts", y = "Value", fill = "") +
+    theme_minimal() +
+    scale_fill_manual(values = rep("purple", n_ak)) +
+    scale_x_discrete(labels = ak_labels) +   # <-- add dynamic labels here
+    theme(axis.title = element_text(size = 17),
+          axis.text = element_text(size = 16),
+          legend.position = "none")
 
-    thinning<- numeric(floor(nrow(fullu.draws)/10))
-    thinning[1]<- 10
-    for(i in 2:length(thinning)){
-      thinning[i]<- thinning[i-1] + 10
-    }
-    u.draws<- fullu.draws[thinning, ]
-    ak.draws<- fullak.draws[thinning, ]
-    sim.u<- true_u
-    sim.ak<- true_a_k
+  # ---- combine plots ----
+  plotlists <- list(rfigs_u, rfigs_ak)
+  print(cowplot::plot_grid(plotlist = plotlists, ncol = 2,
+                           labels = c("A", "B"),
+                           rel_widths = c(1.25, 1), label_size = 17))
 
-    # Violin plot for spatial components and intercepts
-    spatcomp<- data.frame(value = c(u.draws[, 1], u.draws[, 2], u.draws[, 3], u.draws[, 4],
-                                    u.draws[, 5], u.draws[, 6], u.draws[, 7], u.draws[, 8],
-                                    u.draws[, 9]), group = factor(rep(c("u1", "u2", "u3", "u4", "u5", "u6", "u7", "u8", "u9"), each = nrow(u.draws))))
-    spatcomp$group <- factor(spatcomp$group, levels = unique(spatcomp$group))
-    library(ggplot2)
-    library(RColorBrewer)
-    mycolors <- c(rep(c("blue", "red"), 4), "blue")
-    rfigs<- ggplot(spatcomp, aes(x = group, y = value, fill = group)) +
-      geom_violin(trim = FALSE, alpha = 0.7) +
-      geom_point(x = 1, y = sim.u[1], size = 2, shape = 19) +
-      geom_point(x = 2, y = sim.u[2], size = 2, shape = 19) +
-      geom_point(x = 3, y = sim.u[3], size = 2, shape = 19) +
-      geom_point(x = 4, y = sim.u[4], size = 2, shape = 19) +
-      geom_point(x = 5, y = sim.u[5], size = 2, shape = 19) +
-      geom_point(x = 6, y = sim.u[6], size = 2, shape = 19) +
-      geom_point(x = 7, y = sim.u[7], size = 2, shape = 19) +
-      geom_point(x = 8, y = sim.u[8], size = 2, shape = 19) +
-      geom_point(x = 9, y = sim.u[9], size = 2, shape = 19) +
-      ylim(-0.90, 0.70) +
-      labs(title = "", x = "Location", y = "Value", fill = "") +
-      theme_minimal() +
-      scale_fill_manual(values = mycolors) +
-      theme(axis.title.y = element_text(size=18),
-            axis.title.x = element_text(size=18),
-            axis.text.x = element_text(size=16),
-            axis.text.y = element_text(size=16),
-            legend.title = element_text(size = 18),
-            legend.text = element_text(size = 16),legend.position = "none")
-
-    spatcomp<- data.frame(value = c(ak.draws[, 1], ak.draws[, 2], ak.draws[, 3], ak.draws[, 4],
-                                    ak.draws[, 5]), group = factor(rep(c("a1", "a2", "a3", "a4", "a5"), each = nrow(ak.draws))))
-    spatcomp$group <- factor(spatcomp$group, levels = unique(spatcomp$group))
-    mycolors <- c(rep("purple", 5))
-    rfigs2<- ggplot(spatcomp, aes(x = group, y = value, fill = group)) +
-      geom_violin(trim = FALSE, alpha = 0.7) +
-      geom_point(x = 1, y = sim.ak[1], size = 2, shape = 19) +
-      geom_point(x = 2, y = sim.ak[2], size = 2, shape = 19) +
-      geom_point(x = 3, y = sim.ak[3], size = 2, shape = 19) +
-      geom_point(x = 4, y = sim.ak[4], size = 2, shape = 19) +
-      geom_point(x = 5, y = sim.ak[5], size = 2, shape = 19) +
-      #ylim(-0.90, 0.70) +
-      labs(title = "", x = "Location", y = "Value", fill = "") +
-      theme_minimal() +
-      scale_fill_manual(values = mycolors) +
-      theme(axis.title.y = element_text(size=18),
-            axis.title.x = element_text(size=18),
-            axis.text.x = element_text(size=16),
-            axis.text.y = element_text(size=16),
-            legend.title = element_text(size = 18),
-            legend.text = element_text(size = 16),legend.position = "none")
-    plotlists<- list(rfigs,rfigs2)
-    print(cowplot::plot_grid(plotlist = plotlists, ncol = 2, labels = c("A", "B"), label_size = 17))
-  add_legend(0.85, 1.15, legend="Truth",
-             pch=19, col="black",
-             horiz=TRUE, bty='n', cex=1.8)
-  add_legend("topleft", legend=substitute(paste(bold(Modeltype))),
-             col=c("black", "red"),
-             horiz=TRUE, bty='n', cex=1.5)
-  #add_legend("topright", legend="Truth",
-  #           pch=19, col="black",
-  #           horiz=TRUE, bty='n', cex=1.1)
+  # Legends
+  add_legend(0.85, 1.15, legend = "Truth",
+             pch = 19, col = "black",
+             horiz = TRUE, bty = 'n', cex = 1.8)
+  add_legend("topleft", legend = substitute(paste(bold(Modeltype))),
+             horiz = TRUE, bty = 'n', cex = 1.5)
 }
 
 
-RecoverInfUABG.plot<- function(inf.object, true_u, true_a_k, true_B, true_G, Modeltype="", time=60, ndept=9, burn.in=100){
-
-  nstrain<- length(true_a_k)
-  if(!is.data.frame(inf.object)){
-    fullu.draws<- as.data.frame(inf.object$draws(variables = "uconstrained")[,1,])
-    fullak.draws<- as.data.frame(inf.object$draws(variables = "a_k")[,1,])
-    fullB.draws<- as.data.frame(inf.object$draws(variables = "B")[,1,])
-    fullG.draws<- as.data.frame(inf.object$draws(variables = c("G12","G21"))[,1,])
-  }else{
-    fullu.draws<- inf.object[-(1:burn.in), startsWith(colnames(inf.object), "u")]
-    fullak.draws<- inf.object[-(1:burn.in), startsWith(colnames(inf.object), "a")]
-    fullB.draws<- inf.object[-(1:burn.in), startsWith(colnames(inf.object), "B")]
-    fullG.draws<- inf.object[-(1:burn.in), startsWith(colnames(inf.object), "G")]
-  }
-
-  thinning<- numeric(floor(nrow(fullu.draws)/10))
-  thinning[1]<- 10
-  for(i in 2:length(thinning)){
-    thinning[i]<- thinning[i-1] + 10
-  }
-  u.draws<- fullu.draws[thinning, ]
-  ak.draws<- fullak.draws[thinning, ]
-  B.draws<- fullB.draws[thinning, ]
-  G.draws<- fullG.draws[thinning, ]
-  sim.u<- true_u
-  sim.ak<- true_a_k
-  sim.B<- true_B
-  sim.G<- true_G
-
-  # Violin plot for spatial components and intercepts
-  spatcomp<- data.frame(value = c(u.draws[, 1], u.draws[, 2], u.draws[, 3], u.draws[, 4],
-                                  u.draws[, 5], u.draws[, 6], u.draws[, 7], u.draws[, 8],
-                                  u.draws[, 9]), group = factor(rep(c("u1", "u2", "u3", "u4", "u5", "u6", "u7", "u8", "u9"), each = nrow(u.draws))))
-  spatcomp$group <- factor(spatcomp$group, levels = unique(spatcomp$group))
+RecoverInfUAB.plot <- function(inf.object, true_u, true_a_k, true_B,
+                                 Modeltype = "", burn.in = 100) {
   library(ggplot2)
-  library(RColorBrewer)
-  mycolors <- c(rep(c("blue", "red"), 4), "blue")
-  rfigs<- ggplot(spatcomp, aes(x = group, y = value, fill = group)) +
-    geom_violin(trim = FALSE, alpha = 0.7) +
-    geom_point(x = 1, y = sim.u[1], size = 2, shape = 19) +
-    geom_point(x = 2, y = sim.u[2], size = 2, shape = 19) +
-    geom_point(x = 3, y = sim.u[3], size = 2, shape = 19) +
-    geom_point(x = 4, y = sim.u[4], size = 2, shape = 19) +
-    geom_point(x = 5, y = sim.u[5], size = 2, shape = 19) +
-    geom_point(x = 6, y = sim.u[6], size = 2, shape = 19) +
-    geom_point(x = 7, y = sim.u[7], size = 2, shape = 19) +
-    geom_point(x = 8, y = sim.u[8], size = 2, shape = 19) +
-    geom_point(x = 9, y = sim.u[9], size = 2, shape = 19) +
-    ylim(-0.90, 0.70) +
-    labs(title = "", x = "Location", y = "Value", fill = "") +
-    theme_minimal() +
-    scale_fill_manual(values = mycolors) +
-    theme(axis.title.y = element_text(size=18),
-          axis.title.x = element_text(size=18),
-          axis.text.x = element_text(size=16),
-          axis.text.y = element_text(size=16),
-          legend.title = element_text(size = 18),
-          legend.text = element_text(size = 16),legend.position = "none")
+  library(cowplot)
 
-  Acomp<- data.frame(value = c(ak.draws[, 1], ak.draws[, 2], ak.draws[, 3], ak.draws[, 4],
-                                  ak.draws[, 5]), group = factor(rep(c("a1", "a2", "a3", "a4", "a5"), each = nrow(ak.draws))))
-  Acomp$group <- factor(Acomp$group, levels = unique(Acomp$group))
-  mycolors <- c(rep("purple", 5))
-  rfigs2<- ggplot(Acomp, aes(x = group, y = value, fill = group)) +
-    geom_violin(trim = FALSE, alpha = 0.7) +
-    geom_point(x = 1, y = sim.ak[1], size = 2, shape = 19) +
-    geom_point(x = 2, y = sim.ak[2], size = 2, shape = 19) +
-    geom_point(x = 3, y = sim.ak[3], size = 2, shape = 19) +
-    geom_point(x = 4, y = sim.ak[4], size = 2, shape = 19) +
-    geom_point(x = 5, y = sim.ak[5], size = 2, shape = 19) +
-    #ylim(-0.90, 0.70) +
-    labs(title = "", x = "Location", y = "Value", fill = "") +
-    theme_minimal() +
-    scale_x_discrete(labels = c("a1" = expression(a[1]),
-                                "a2" = expression(a[2]),
-                                "a3" = expression(a[3]),
-                                "a4" = expression(a[4]),
-                                "a5" = expression(a[5]))) +
-    scale_fill_manual(values = c(rep("purple", 5)),
-                      labels = c(expression(a[1]),
-                                 expression(a[2]),
-                                 expression(a[3]),
-                                 expression(a[4]),
-                                 expression(a[5])),
-                      name = "True value") +
-    theme(axis.title.y = element_text(size=18),
-          axis.title.x = element_text(size=18),
-          axis.text.x = element_text(size=16),
-          axis.text.y = element_text(size=16),
-          legend.title = element_text(size = 18),
-          legend.text = element_text(size = 16),legend.position = "none")
+  # parameter dimensions
+  n_u  <- length(true_u)
+  n_ak <- length(true_a_k)
+  n_B  <- length(true_B)
 
-  Bcomp<- data.frame(value = c(G.draws[, 1], G.draws[, 2], B.draws[, 1], B.draws[, 2], B.draws[, 3], B.draws[, 4],
-                               B.draws[, 5]), group = factor(rep(paste0("B",1:(nstrain+2)), each = nrow(B.draws))))
-  Bcomp$group <- factor(Bcomp$group, levels = unique(Bcomp$group))
-  rfigs3<- ggplot(Bcomp, aes(x = group, y = value, fill = group)) +
+  # Extract posterior draws
+  if (!is.data.frame(inf.object)) {
+    fullu.draws <- as.data.frame(inf.object$draws(variables = "uconstrained")[, 1, ])
+    fullak.draws <- as.data.frame(inf.object$draws(variables = "a_k")[, 1, ])
+    fullB.draws <- as.data.frame(inf.object$draws(variables = "B")[, 1, ])
+  } else {
+    fullu.draws <- inf.object[-(1:burn.in), startsWith(colnames(inf.object), "u")]
+    fullak.draws <- inf.object[-(1:burn.in), startsWith(colnames(inf.object), "a")]
+    fullB.draws <- inf.object[-(1:burn.in), startsWith(colnames(inf.object), "B")]
+  }
+
+  # thinning every 10
+  thinning <- seq(10, nrow(fullu.draws), by = 10)
+  u.draws  <- fullu.draws[thinning, , drop = FALSE]
+  ak.draws <- fullak.draws[thinning, , drop = FALSE]
+  B.draws  <- fullB.draws[thinning, , drop = FALSE]
+
+  # ---- U violin plot ----
+  u_labels <- do.call(expression, lapply(1:n_u, function(i) {
+    bquote(u[.(i)])
+  }))
+
+  spatcomp_u <- data.frame(
+    value = as.vector(as.matrix(u.draws)),
+    group = factor(rep(paste0("u", 1:n_u), each = nrow(u.draws)))
+  )
+
+  rfigs_u <- ggplot(spatcomp_u, aes(x = group, y = value, fill = group)) +
     geom_violin(trim = FALSE, alpha = 0.7) +
-    geom_point(x = 1, y = sim.G[1], size = 2, shape = 19) +
-    geom_point(x = 2, y = sim.G[2], size = 2, shape = 19) +
-    geom_point(x = 3, y = sim.B[1], size = 2, shape = 19) +
-    geom_point(x = 4, y = sim.B[2], size = 2, shape = 19) +
-    geom_point(x = 5, y = sim.B[3], size = 2, shape = 19) +
-    geom_point(x = 6, y = sim.B[4], size = 2, shape = 19) +
-    geom_point(x = 7, y = sim.B[5], size = 2, shape = 19) +
-    #ylim(-0.90, 0.70) +
-    labs(title = "", x = "Location", y = "Value", fill = "") +
+    geom_point(data = data.frame(x = factor(paste0("u", 1:n_u), levels = levels(spatcomp_u$group)),
+                                 y = true_u),
+               aes(x = x, y = y),
+               size = 2, shape = 19, inherit.aes = FALSE) +
+    ylim(-0.40, 0.40) +
+    labs(x = "Location", y = "Value", fill = "") +
     theme_minimal() +
-    scale_fill_brewer(palette = "Set2") +
-    scale_x_discrete(labels = c("B1" = expression(gamma[0][1]),
-                                "B2" = expression(gamma[1][0]),
-                                "B3" = expression(beta[1]),
-                                "B4" = expression(beta[2]),
-                                "B5" = expression(beta[3]),
-                                "B6" = expression(beta[4]),
-                                "B7" = expression(beta[5]))) +
-    scale_fill_manual(values = c(rep("purple", 7)),
-                      labels = c(expression(gamma[0][1]),
-                                 expression(gamma[1][0]),
-                                 expression(beta[1]),
-                                 expression(beta[2]),
-                                 expression(beta[3]),
-                                 expression(beta[4]),
-                                 expression(beta[5])),
-                      name = "True value") +
-    theme(axis.title.y = element_text(size=18),
-          axis.title.x = element_text(size=18),
-          axis.text.x = element_text(size=16),
-          axis.text.y = element_text(size=16),
-          legend.title = element_text(size = 18),
-          legend.text = element_text(size = 16),legend.position = "none")
-  plotlists<- list(rfigs,rfigs2,rfigs3)
-  print(cowplot::plot_grid(plotlist = plotlists, ncol = 3, labels = c("A", "B", "C"), rel_widths = c(1,0.8,1.2), label_size = 17))
-  add_legend(0.85, 1.15, legend="Truth",
-             pch=19, col="black",
-             horiz=TRUE, bty='n', cex=1.8)
-  add_legend("topleft", legend=substitute(paste(bold(Modeltype))),
-             horiz=TRUE, bty='n', cex=1.5)
-  #add_legend("topright", legend="Truth",
-  #           pch=19, col="black",
-  #           horiz=TRUE, bty='n', cex=1.1)
+    scale_fill_manual(values = rep(c("blue", "red"), length.out = n_u)) +
+    scale_x_discrete(labels = u_labels) +   # <-- add dynamic labels here
+    theme(axis.title = element_text(size = 17),
+          axis.text = element_text(size = 16),
+          legend.position = "none")
+
+  # ---- a_k violin plot ----
+  ak_labels <- do.call(expression, lapply(1:n_ak, function(i) {
+    bquote(a[.(i)])
+  }))
+
+  comp_ak <- data.frame(
+    value = as.vector(as.matrix(ak.draws)),
+    group = factor(rep(paste0("a", 1:n_ak), each = nrow(ak.draws)))
+  )
+
+  rfigs_ak <- ggplot(comp_ak, aes(x = group, y = value, fill = group)) +
+    geom_violin(trim = FALSE, alpha = 0.7) +
+    geom_point(data = data.frame(x = factor(paste0("a", 1:n_ak), levels = levels(comp_ak$group)),
+                                 y = true_a_k),
+               aes(x = x, y = y),
+               size = 2, shape = 19, inherit.aes = FALSE) +
+    ylim(-14.5, -12) +
+    labs(x = "Intercepts", y = "Value", fill = "") +
+    theme_minimal() +
+    scale_fill_manual(values = rep("purple", n_ak)) +
+    scale_x_discrete(labels = ak_labels) +   # <-- add dynamic labels here
+    theme(axis.title = element_text(size = 17),
+          axis.text = element_text(size = 16),
+          legend.position = "none")
+
+  # ---- B violin plot ----
+  B_labels <- do.call(expression, lapply(1:n_B, function(i) {
+    bquote(beta[.(i)])
+  }))
+
+  comp_B <- data.frame(
+    value = as.vector(as.matrix(B.draws)),
+    group = factor(rep(paste0("B", 1:n_B), each = nrow(B.draws)))
+  )
+
+  rfigs_B <- ggplot(comp_B, aes(x = group, y = value, fill = group)) +
+    geom_violin(trim = FALSE, alpha = 0.7) +
+    geom_point(data = data.frame(x = factor(paste0("B", 1:n_B), levels = levels(comp_B$group)),
+                                 y = true_B),
+               aes(x = x, y = y),
+               size = 2, shape = 19, inherit.aes = FALSE) +
+    ylim(0.5, 2.5) +
+    labs(x = "Regression coeff.", y = "Value", fill = "") +
+    theme_minimal() +
+    scale_fill_manual(values = rep("purple", n_B)) +
+    scale_x_discrete(labels = B_labels) +   # <-- add dynamic labels here
+    theme(axis.title = element_text(size = 17),
+          axis.text = element_text(size = 16),
+          legend.position = "none")
+
+  # ---- combine plots ----
+  plotlists <- list(rfigs_u, rfigs_ak, rfigs_B)
+  print(cowplot::plot_grid(plotlist = plotlists, ncol = 3,
+                           labels = c("A", "B", "C"),
+                           rel_widths = c(1.25, 1, 1), label_size = 17))
+
+  # Legends
+  add_legend(0.85, 1.15, legend = "Truth",
+             pch = 19, col = "black",
+             horiz = TRUE, bty = 'n', cex = 1.8)
+  add_legend("topleft", legend = substitute(paste(bold(Modeltype))),
+             horiz = TRUE, bty = 'n', cex = 1.5)
 }
+
+
+RecoverInfUABG.plot <- function(inf.object, true_u, true_a_k, true_B, true_G,
+                                Modeltype = "", burn.in = 100) {
+  library(ggplot2)
+  library(cowplot)
+
+  # parameter dimensions
+  n_u  <- length(true_u)
+  n_ak <- length(true_a_k)
+  n_B  <- length(true_B)
+  n_G  <- length(true_G)
+
+  # Extract posterior draws
+  if (!is.data.frame(inf.object)) {
+    fullu.draws <- as.data.frame(inf.object$draws(variables = "uconstrained")[, 1, ])
+    fullak.draws <- as.data.frame(inf.object$draws(variables = "a_k")[, 1, ])
+    fullB.draws <- as.data.frame(inf.object$draws(variables = "B")[, 1, ])
+    fullG.draws <- as.data.frame(inf.object$draws(variables = paste0("G", 1:n_G))[, 1, ])
+  } else {
+    fullu.draws <- inf.object[-(1:burn.in), startsWith(colnames(inf.object), "u")]
+    fullak.draws <- inf.object[-(1:burn.in), startsWith(colnames(inf.object), "a")]
+    fullB.draws <- inf.object[-(1:burn.in), startsWith(colnames(inf.object), "B")]
+    fullG.draws <- inf.object[-(1:burn.in), startsWith(colnames(inf.object), "G")]
+  }
+
+  # thinning every 10
+  thinning <- seq(10, nrow(fullu.draws), by = 10)
+  u.draws  <- fullu.draws[thinning, , drop = FALSE]
+  ak.draws <- fullak.draws[thinning, , drop = FALSE]
+  B.draws  <- fullB.draws[thinning, , drop = FALSE]
+  G.draws  <- fullG.draws[thinning, , drop = FALSE]
+
+  # ---- U violin plot ----
+  u_labels <- do.call(expression, lapply(1:n_u, function(i) {
+    bquote(u[.(i)])
+  }))
+
+  spatcomp_u <- data.frame(
+    value = as.vector(as.matrix(u.draws)),
+    group = factor(rep(paste0("u", 1:n_u), each = nrow(u.draws)))
+  )
+
+  rfigs_u <- ggplot(spatcomp_u, aes(x = group, y = value, fill = group)) +
+    geom_violin(trim = FALSE, alpha = 0.7) +
+    geom_point(data = data.frame(x = factor(paste0("u", 1:n_u), levels = levels(spatcomp_u$group)),
+                                 y = true_u),
+               aes(x = x, y = y),
+               size = 2, shape = 19, inherit.aes = FALSE) +
+    ylim(-0.40, 0.40) +
+    labs(x = "Location", y = "Value", fill = "") +
+    theme_minimal() +
+    scale_fill_manual(values = rep(c("blue", "red"), length.out = n_u)) +
+    scale_x_discrete(labels = u_labels) +   # <-- add dynamic labels here
+    theme(axis.title = element_text(size = 17),
+          axis.text = element_text(size = 16),
+          legend.position = "none")
+
+  # ---- a_k violin plot ----
+  ak_labels <- do.call(expression, lapply(1:n_ak, function(i) {
+    bquote(a[.(i)])
+  }))
+
+  comp_ak <- data.frame(
+    value = as.vector(as.matrix(ak.draws)),
+    group = factor(rep(paste0("a", 1:n_ak), each = nrow(ak.draws)))
+  )
+
+  rfigs_ak <- ggplot(comp_ak, aes(x = group, y = value, fill = group)) +
+    geom_violin(trim = FALSE, alpha = 0.7) +
+    geom_point(data = data.frame(x = factor(paste0("a", 1:n_ak), levels = levels(comp_ak$group)),
+                                 y = true_a_k),
+               aes(x = x, y = y),
+               size = 2, shape = 19, inherit.aes = FALSE) +
+    ylim(-14.5, -12) +
+    labs(x = "Intercepts", y = "Value", fill = "") +
+    theme_minimal() +
+    scale_fill_manual(values = rep("purple", n_ak)) +
+    scale_x_discrete(labels = ak_labels) +   # <-- add dynamic labels here
+    theme(axis.title = element_text(size = 17),
+          axis.text = element_text(size = 16),
+          legend.position = "none")
+
+  # ---- B violin plot ----
+  B_labels <- do.call(expression, lapply(1:n_B, function(i) {
+    bquote(beta[.(i)])
+  }))
+
+  comp_B <- data.frame(
+    value = as.vector(as.matrix(B.draws)),
+    group = factor(rep(paste0("B", 1:n_B), each = nrow(B.draws)))
+  )
+
+  rfigs_B <- ggplot(comp_B, aes(x = group, y = value, fill = group)) +
+    geom_violin(trim = FALSE, alpha = 0.7) +
+    geom_point(data = data.frame(x = factor(paste0("B", 1:n_B), levels = levels(comp_B$group)),
+                                 y = true_B),
+               aes(x = x, y = y),
+               size = 2, shape = 19, inherit.aes = FALSE) +
+    ylim(0.5, 2.5) +
+    labs(x = "Regression coeff.", y = "Value", fill = "") +
+    theme_minimal() +
+    scale_fill_manual(values = rep("purple", n_B)) +
+    scale_x_discrete(labels = B_labels) +   # <-- add dynamic labels here
+    theme(axis.title = element_text(size = 17),
+          axis.text = element_text(size = 16),
+          legend.position = "none")
+
+  # ---- G violin plot ----
+  G_index_pairs <- rep(list(c(0,1), c(1,0)), ncol(G.draws)/2)
+
+  G_labels <- do.call(expression, lapply(G_index_pairs, function(idx) {
+    bquote(gamma[.(idx[1])][.(idx[2])])
+  }))
+
+  comp_G <- data.frame(
+    value = as.vector(as.matrix(G.draws)),
+    group = factor(rep(paste0("G", 1:n_G), each = nrow(G.draws)))
+  )
+
+  rfigs_G <- ggplot(comp_G, aes(x = group, y = value, fill = group)) +
+    geom_violin(trim = FALSE, alpha = 0.7) +
+    geom_point(data = data.frame(x = factor(paste0("G", 1:n_G),
+                                            levels = levels(comp_G$group)),
+                                 y = true_G),
+               aes(x = x, y = y),
+               size = 2, shape = 19, inherit.aes = FALSE) +
+    ylim(0, 1) +
+    labs(x = "Transition prob.", y = "Value", fill = "") +
+    theme_minimal() +
+    scale_fill_manual(values = rep("purple", n_G)) +
+    scale_x_discrete(labels = G_labels) +   # <-- add dynamic labels here
+    theme(axis.title = element_text(size = 17),
+          axis.text = element_text(size = 16),
+          legend.position = "none")
+
+  # ---- combine plots ----
+  plotlists <- list(rfigs_u, rfigs_ak, rfigs_B, rfigs_G)
+  print(cowplot::plot_grid(plotlist = plotlists, ncol = 4,
+                           labels = c("A", "B", "C", "D"),
+                           rel_widths = c(1.25, 1, 1, 1.5), label_size = 17))
+
+  # Legends
+  add_legend(0.85, 1.15, legend = "Truth",
+             pch = 19, col = "black",
+             horiz = TRUE, bty = 'n', cex = 1.8)
+  add_legend("topleft", legend = substitute(paste(bold(Modeltype))),
+             horiz = TRUE, bty = 'n', cex = 1.5)
+}
+
+RecoverInfG.plot <- function(inf.object, true_G, nstrain,
+                                 Modeltype = "", burn.in = 100) {
+  library(ggplot2)
+  library(cowplot)
+
+  # parameter dimensions
+  nstate<- 2^nstrain
+  true_G<- as.numeric(t(true_G))
+
+  # Extract posterior draws
+  if (!is.data.frame(inf.object)) {
+    fullG.draws <- as.data.frame(inf.object$draws(variables = paste0("G", 1:nstate))[, 1, ])
+  } else {
+    fullG.draws <- inf.object[-(1:burn.in), startsWith(colnames(inf.object), "G")]
+  }
+
+  # thinning every 10
+  thinning <- seq(10, nrow(fullG.draws), by = 10)
+
+  G_index_pairs <- lapply(0:(nstate-1), function(i) {
+    lapply(0:(nstate-1), function(j) c(i,j))
+  })
+  G_index_pairs <- unlist(G_index_pairs, recursive = FALSE)
+
+  G_labels <- do.call(expression, lapply(G_index_pairs, function(idx) {
+    bquote(gamma[.(idx[1])][.(idx[2])])
+  }))
+
+  allFigs<- list()
+
+  for(i in 1:nstate){
+    index<- nstate * (i-1) + 1
+    G.draws  <- fullG.draws[thinning, index:(i*nstate), drop = FALSE]
+
+  comp_G <- data.frame(
+    value = as.vector(as.matrix(G.draws)),
+    group = factor(rep(paste0("G", 1:nstate), each = nrow(G.draws)))
+  )
+
+  rfigs_G <- ggplot(comp_G, aes(x = group, y = value, fill = group)) +
+    geom_violin(trim = FALSE, alpha = 0.7) +
+    geom_point(data = data.frame(x = factor(paste0("G", 1:nstate),
+                                            levels = levels(comp_G$group)),
+                                 y = true_G[index:(i*nstate)]),
+               aes(x = x, y = y),
+               size = 2, shape = 19, inherit.aes = FALSE) +
+    labs(x = NULL, y = NULL, fill = NULL) +
+    theme_minimal() +
+    theme(
+      axis.text = element_blank(),
+      axis.ticks = element_blank(),
+      legend.position = "none"
+    ) +
+    scale_fill_manual(values = rep("purple", ncol(G.draws)))
+#    labs(x = "Transition prob.", y = "Value", fill = "") +
+#    theme_minimal() +
+#    scale_fill_manual(values = rep("purple", nstate)) +
+#    scale_x_discrete(labels = G_labels[index:(i*nstate)]) +   # <-- add dynamic labels here
+#    theme(axis.title = element_text(size = 17),
+#          axis.text = element_text(size = 16),
+#          legend.position = "none")
+
+  allFigs[[i]]<- rfigs_G
+}
+
+  # ---- combine plots ----
+  print(cowplot::plot_grid(plotlist = allFigs, ncol = 1))
+
+  # Legends
+  add_legend(0.85, 1.15, legend = "Truth",
+             pch = 19, col = "black",
+             horiz = TRUE, bty = 'n', cex = 1.8)
+  add_legend("topleft", legend = substitute(paste(bold(Modeltype))),
+             horiz = TRUE, bty = 'n', cex = 1.5)
+}
+
+RecoverInfG2.plot <- function(inf.object, true_G, burn.in = 100) {
+  # parameter dimensions
+  true_G<- as.numeric(t(true_G))
+
+  # Extract posterior draws
+  if (!is.data.frame(inf.object)) {
+    fullG.draws <- as.data.frame(inf.object$draws(variables = paste0("G", 1:nstate))[, 1, ])
+  } else {
+    fullG.draws <- inf.object[-(1:burn.in), startsWith(colnames(inf.object), "G")]
+  }
+
+  # thinning every 10
+  thinning <- seq(10, nrow(fullG.draws), by = 10)
+  G.draws  <- fullG.draws[thinning, ]
+
+  par(mfrow=c(3, 3))
+  for (i in 1:ncol(G.draws)) {
+    hist(G.draws[, i], main = colnames(fullG.draws)[i], xlab ="", col = "white", border = "black")
+    abline(v=true_G[i], col="red")
+  }
+  # Legends
+  add_legend(0.85, 1.15, legend = "Truth",
+             lty = 1, col = "red",
+             horiz = TRUE, bty = 'n', cex = 1.8)
+}
+
 
 Outbreakfigures<- function(matrix_list, BitsMatrix, labelLetter=""){
   time<- ncol(matrix_list[[1]])
@@ -869,13 +1042,13 @@ perstrainOutbreakfigures<- function(Truth_array, matrix_array, Outbreaktype=""){
            out$x[outbreakcell],   # location axis
            pch = 16, cex = 1.5, col = "magenta")
   }
-  add_legend(0.58, -0.4, legend=substitute(paste(bold("Truth"))),
+  add_legend("topright", legend=substitute(paste(bold("Truth"))),
              pch=16, col="magenta",
-             horiz=TRUE, bty='n', cex=3.0)
+             horiz=TRUE, bty='n', cex=1.8)
 
-  #add_legend(0.38, -0.4, legend=substitute(paste(bold(Outbreaktype))),
-  #           col="black",
-  #           horiz=TRUE, bty='n', cex=3.0)
+  add_legend(0.50, -0.4, legend=substitute(paste(bold(Outbreaktype))),
+             col="black",
+             horiz=TRUE, bty='n', cex=3.0)
 
   dev.off()
 }

@@ -360,24 +360,6 @@ multMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_iteration 
     #Gibbs A_k's update
     MC_chain[i, 5+time+12+ndept+nstrain+(1:nstrain)]<- log(rgamma(nstrain, shape = 0.01+SumYk_vec, rate = Allquantities$poisMean4GibbsUpdate + 0.01/exp(-15)))
 
-    #Random-walk A_k's update
-#    proposeda_k <- rnorm(nstrain, mean = MC_chain[i-1, 5+time+12+ndept+nstrain+(1:nstrain)], sd = rep(sdAs, nstrain))
-
-#    Allquantities<- gradmultstrainLoglikelihood2(y=y, e_it=e_it, nstrain=nstrain,  r=MC_chain[i, 5+(1:time)], s=MC_chain[i, 5+time+(1:12)], u=MC_chain[i, 5+time+12+(1:ndept)], Gamma=G(MC_chain[i, 1],MC_chain[i, 2]), B=MC_chain[i, 5+time+12+ndept+(1:nstrain)], Bits=Bits, a_k=proposeda_k, Model=Model,Q_r=Q_r,Q_s = Q_s,Q_u=Q_u)
-#    grad_proposed <- list(grad_r=Allquantities$grad_r, grad_s=Allquantities$grad_s, grad_u=Allquantities$grad_u, cov_r=Allquantities$cov_r, cov_s=Allquantities$cov_s)
-
-#    likelihoodproposed<- Allquantities$loglike
-
-#    mh.ratio<- exp(likelihoodproposed - likelihoodcurrent)
-
-#    if(!is.na(mh.ratio) && runif(1) < mh.ratio){
-#      MC_chain[i, 5+time+12+ndept+nstrain+(1:nstrain)]<- proposeda_k
-#      likelihoodcurrent<- likelihoodproposed
-#      grad_current<- grad_proposed
-#    }
-#    else{
-#      MC_chain[i, 5+time+12+ndept+nstrain+(1:nstrain)]<- MC_chain[i-1, 5+time+12+ndept+nstrain+(1:nstrain)]
-#    }
     if(i %% 1000 == 0) cat("Iteration:", i, "\n")
   }
   colnames(MC_chain) <- paste(c("G12", "G21", "kappa_r", "kappa_s", "kappa_u", paste("r", 1:time, sep=""), paste("s", 1:12, sep=""), paste("u", 1:ndept, sep=""), paste("B", 1:nstrain, sep=""), paste("a_k", 1:nstrain, sep=""), "StationaryDistribution"))
@@ -624,24 +606,6 @@ CPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_iterati
     #Gibbs A_k's update
     MC_chain[i, 5+time+12+ndept+nstrain+(1:nstrain)]<- log(rgamma(nstrain, shape = 0.01+SumYk_vec, rate = as.numeric(Allquantities$poisMean4GibbsUpdate) + 0.01/exp(-15)))
 
-    #Random-walk Ak's update
-#    proposeda_k <- rnorm(nstrain, mean = MC_chain[i-1, 5+time+12+ndept+nstrain+(1:nstrain)], sd = rep(sdAs, nstrain))
-
-#    Allquantities<- gradmultstrainLoglikelihood2_cpp(y=y, e_it=e_it, nstrain=nstrain,  r=MC_chain[i, 5+(1:time)], s=MC_chain[i, 5+time+(1:12)], u=MC_chain[i, 5+time+12+(1:ndept)], Gamma=G(MC_chain[i, 1],MC_chain[i, 2]), B=MC_chain[i, 5+time+12+ndept+(1:nstrain)], Bits=Bits, a_k=proposeda_k, Model=Model,Q_r=Q_r,Q_s = Q_s,Q_u=Q_u)
-#    grad_proposed <- list(grad_r=as.numeric(Allquantities$grad_r), grad_s=as.numeric(Allquantities$grad_s), grad_u=as.numeric(Allquantities$grad_u), cov_r=Allquantities$cov_r, cov_s=Allquantities$cov_s)
-
-#    likelihoodproposed<- Allquantities$loglike
-
-#    mh.ratio<- exp(likelihoodproposed - likelihoodcurrent)
-
-#    if(!is.na(mh.ratio) && runif(1) < mh.ratio){
-#      MC_chain[i, 5+time+12+ndept+nstrain+(1:nstrain)]<- proposeda_k
-#      likelihoodcurrent<- likelihoodproposed
-#      grad_current<- grad_proposed
-#    }
-#    else{
-#      MC_chain[i, 5+time+12+ndept+nstrain+(1:nstrain)]<- MC_chain[i-1, 5+time+12+ndept+nstrain+(1:nstrain)]
-#    }
     if(i %% 1000 == 0) cat("Iteration:", i, "\n")
   }
   colnames(MC_chain) <- paste(c("G12", "G21", "kappa_r", "kappa_s", "kappa_u", paste("r", 1:time, sep=""), paste("s", 1:12, sep=""), paste("u", 1:ndept, sep=""), paste("B", 1:nstrain, sep=""), paste("a_k", 1:nstrain, sep=""), "StationaryDistribution"))
@@ -731,12 +695,15 @@ fullCPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_ite
 
 
 #decodedOutbreakMatrix<- Posteriormultstrain.Decoding(y=multmod1nstrain5[["y"]], e_it=multmod1nstrain5[["e_it"]], inf.object=MMALAResultscorrectmodel, thinningL=1000)
+#perstraindecodedOutbreakMatrix<- Posteriormultstrain.Decoding(y=perstrainmultmod1nstrain5[["y"]], e_it=perstrainmultmod1nstrain5[["e_it"]], inf.object=perstrainMMALAResults5strainGibbs[-(1:20000),], Modeltype = 2, thinningL=1000)
+
 #Outbreakfigures(matrix_list = decodedOutbreakMatrix, BitsMatrix = Bits, labelLetter = "B")
 
 #perstrainOutbreakfigures(perstOutP, Outbreaktype = "Simulated outbreaks")
 #perstrainOutbreakfigures(perstPostOutP, Outbreaktype = "Decoded outbreaks")
 #perstOutP<- perstrainOutbreaks(multmod1nstrain5[["states"]], nstrain = 5)
 #perstPostOutP<- perstrainPosteriorOutbreaks(decodedOutbreakMatrix, nstrain = 5)
+#perstrainOutbreakfigures(Truth_array = perstOutP, matrix_array = perstPostOutP, Outbreaktype = "Independent_")
 
 #GmultMmalaRes2<- GeneralCPPmultMMALAInference(y=perstrainmultmod1nstrain5[[1]], e_it = perstrainmultmod1nstrain5[[2]], Model = 0, adjmat = sim_adjmat, step_sizes = list("r"=0.3,"s"=0.3,"u"=0.025), num_iteration = 2000)
 
@@ -967,24 +934,6 @@ GeneralCPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_
     #Gibbs A_k's update
     MC_chain[i, 2*nstrain+3+time+12+ndept+nstrain+(1:nstrain)]<- log(rgamma(nstrain, shape = 0.01+SumYk_vec, rate = as.numeric(Allquantities$poisMean4GibbsUpdate) + 0.01/exp(-15)))
 
-    #Random-walk Ak's update
-#    proposeda_k <- rnorm(nstrain, mean = MC_chain[i-1, 2*nstrain+3+time+12+ndept+nstrain+(1:nstrain)], sd = rep(sdAs, nstrain))
-
-#    Allquantities<- perstraingradmultstrainLoglikelihood2_cpp(y=y, e_it=e_it, nstrain=nstrain,  r=MC_chain[i, 2*nstrain+3+(1:time)], s=MC_chain[i, 2*nstrain+3+time+(1:12)], u=MC_chain[i, 2*nstrain+3+time+12+(1:ndept)], Gamma=Gamma_lists, B=MC_chain[i, 2*nstrain+3+time+12+ndept+(1:nstrain)], Bits=Bits, a_k=proposeda_k, Model=Model,Q_r=Q_r,Q_s = Q_s,Q_u=Q_u)
-#    grad_proposed <- list(grad_r=as.numeric(Allquantities$grad_r), grad_s=as.numeric(Allquantities$grad_s), grad_u=as.numeric(Allquantities$grad_u), cov_r=Allquantities$cov_r, cov_s=Allquantities$cov_s)
-
-#    likelihoodproposed<- Allquantities$loglike
-
-#    mh.ratio<- exp(likelihoodproposed - likelihoodcurrent)
-
-#    if(!is.na(mh.ratio) && runif(1) < mh.ratio){
-#      MC_chain[i, 2*nstrain+3+time+12+ndept+nstrain+(1:nstrain)]<- proposeda_k
-#      likelihoodcurrent<- likelihoodproposed
-#      grad_current<- grad_proposed
-#    }
-#    else{
-#      MC_chain[i, 2*nstrain+3+time+12+ndept+nstrain+(1:nstrain)]<- MC_chain[i-1, 2*nstrain+3+time+12+ndept+nstrain+(1:nstrain)]
-#    }
     if(i %% 1000 == 0) cat("Iteration:", i, "\n")
   }
   colnames(MC_chain) <- paste(c(paste0(rep(c("G12", "G21"), nstrain), "Strain", rep(1:nstrain,each=2)), "kappa_r", "kappa_s", "kappa_u", paste("r", 1:time, sep=""), paste("s", 1:12, sep=""), paste("u", 1:ndept, sep=""), paste("B", 1:nstrain, sep=""), paste("a_k", 1:nstrain, sep="")))
@@ -1010,11 +959,10 @@ GeneralCPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_
 #  Bits=SpatMet:::encodeBits(5), a_k=testdata[["a_k"]],
 #  Model=1, Q_r=diag(1, 60), Q_s=diag(1, 12), Q_u=diag(1,9)
 #)$loglike)
-#set.seed(212);perstrainmultmod1nstrain2<- Multstrain.simulate(Model = 1, time=30, adj.matrix = sim_adjmat, nstrain=2, B=c(1.65,1.4))
-#perstrainfit<- GeneralCPPmultMMALAInference(y=perstrainmultmod1nstrain5[[1]], e_it = perstrainmultmod1nstrain5[[2]], Model = 1, adjmat = sim_adjmat, step_sizes = list("r"=0.3,"s"=0.3,"u"=0.025), num_iteration = 25)
 
 
-#set.seed(212);dependentmultmod1nstrain5<- Multstrain.simulate(Model = 1, time=60, adj.matrix = sim_adjmat, dependent = TRUE, nstrain=5, B=c(1.65,0.95,1.4,1.1,1.7))
+#set.seed(212);dependentmultmod1nstrain2<- Multstrain.simulate(Model = 1, time=60, adj.matrix = sim_adjmat, Modeltype = 3, nstrain=2, B=c(1.65,1.4));
+#dependentfit<- dependentCPPmultMMALAInference(y=dependentmultmod1nstrain2[[1]], e_it = dependentmultmod1nstrain2[[2]], Model = 1, adjmat = sim_adjmat, step_sizes = list("r"=0.3,"s"=0.3,"u"=0.025), num_iteration = 250)
 
 #Riemann Manifold Langevin updates
 dependentCPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_iteration = 15000, sdBs=0.01){
@@ -1220,10 +1168,10 @@ dependentCPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, nu
 
       index<- nstate * (n-1) + 1
 
-      JointTPM[n, ] <- gtools::rdirichlet(1, deltaP * MC_chain[i-1, (index:(n*nstate))])
+      JointTPM[n, ] <- gtools::rdirichlet(1, rep(1, nstate) + deltaP * MC_chain[i-1, (index:(n*nstate))])
 
-      proposalproposedGs<-  log(gtools::ddirichlet(JointTPM[n, ], deltaP * MC_chain[i-1, (index:(n*nstate))]))
-      proposalcurrentproposedGs<- log(gtools::ddirichlet(MC_chain[i-1, (index:(n*nstate))], deltaP * JointTPM[n, ]))
+      proposalproposedGs<-  log(gtools::ddirichlet(JointTPM[n, ], MC_chain[i-1, (index:(n*nstate))]))
+      proposalcurrentproposedGs<- log(gtools::ddirichlet(MC_chain[i-1, (index:(n*nstate))], JointTPM[n, ]))
 
       priorcurrentGs<- log(gtools::ddirichlet(MC_chain[i-1, (index:(n*nstate))], rep(1, nstate)))
       priorproposedGs<- log(gtools::ddirichlet(JointTPM[n, ], rep(1, nstate)))
@@ -1246,7 +1194,7 @@ dependentCPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, nu
         MC_chain[i, (index:(n*nstate))]<- as.numeric(JointTPM[n, ])
         likelihoodcurrent<- likelihoodproposed
         grad_current<- grad_proposed
-        deltaP<- max(1, deltaP-3)
+        deltaP<- max(0, deltaP-3)
       }
       else{
         MC_chain[i, (index:(n*nstate))]<- MC_chain[i-1, (index:(n*nstate))]
