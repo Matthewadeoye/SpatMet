@@ -877,60 +877,60 @@ RecoverInfUABG.plot <- function(inf.object, true_u, true_a_k, true_B, true_G,
              horiz = TRUE, bty = 'n', cex = 1.5)
 }
 
-RecoverInfG.plot <- function(inf.object, true_G, nstrain,
-                                 Modeltype = "", burn.in = 100) {
-  library(ggplot2)
-  library(cowplot)
+#RecoverInfG2.plot <- function(inf.object, true_G, nstrain,
+#                                 Modeltype = "", burn.in = 100) {
+#  library(ggplot2)
+#  library(cowplot)
 
   # parameter dimensions
-  nstate<- 2^nstrain
-  true_G<- as.numeric(t(true_G))
+#  nstate<- 2^nstrain
+#  true_G<- as.numeric(t(true_G))
 
   # Extract posterior draws
-  if (!is.data.frame(inf.object)) {
-    fullG.draws <- as.data.frame(inf.object$draws(variables = paste0("G", 1:nstate))[, 1, ])
-  } else {
-    fullG.draws <- inf.object[-(1:burn.in), startsWith(colnames(inf.object), "G")]
-  }
+#  if (!is.data.frame(inf.object)) {
+#    fullG.draws <- as.data.frame(inf.object$draws(variables = paste0("G", 1:nstate))[, 1, ])
+#  } else {
+#    fullG.draws <- inf.object[-(1:burn.in), startsWith(colnames(inf.object), "G")]
+#  }
 
   # thinning every 10
-  thinning <- seq(10, nrow(fullG.draws), by = 10)
+#  thinning <- seq(10, nrow(fullG.draws), by = 10)
 
-  G_index_pairs <- lapply(0:(nstate-1), function(i) {
-    lapply(0:(nstate-1), function(j) c(i,j))
-  })
-  G_index_pairs <- unlist(G_index_pairs, recursive = FALSE)
+#  G_index_pairs <- lapply(0:(nstate-1), function(i) {
+#    lapply(0:(nstate-1), function(j) c(i,j))
+#  })
+#  G_index_pairs <- unlist(G_index_pairs, recursive = FALSE)
 
-  G_labels <- do.call(expression, lapply(G_index_pairs, function(idx) {
-    bquote(gamma[.(idx[1])][.(idx[2])])
-  }))
+#  G_labels <- do.call(expression, lapply(G_index_pairs, function(idx) {
+#    bquote(gamma[.(idx[1])][.(idx[2])])
+#  }))
 
-  allFigs<- list()
+#  allFigs<- list()
 
-  for(i in 1:nstate){
-    index<- nstate * (i-1) + 1
-    G.draws  <- fullG.draws[thinning, index:(i*nstate), drop = FALSE]
+#  for(i in 1:nstate){
+#    index<- nstate * (i-1) + 1
+#    G.draws  <- fullG.draws[thinning, index:(i*nstate), drop = FALSE]
 
-  comp_G <- data.frame(
-    value = as.vector(as.matrix(G.draws)),
-    group = factor(rep(paste0("G", 1:nstate), each = nrow(G.draws)))
-  )
+#  comp_G <- data.frame(
+#    value = as.vector(as.matrix(G.draws)),
+#    group = factor(rep(paste0("G", 1:nstate), each = nrow(G.draws)))
+#  )
 
-  rfigs_G <- ggplot(comp_G, aes(x = group, y = value, fill = group)) +
-    geom_violin(trim = FALSE, alpha = 0.7) +
-    geom_point(data = data.frame(x = factor(paste0("G", 1:nstate),
-                                            levels = levels(comp_G$group)),
-                                 y = true_G[index:(i*nstate)]),
-               aes(x = x, y = y),
-               size = 2, shape = 19, inherit.aes = FALSE) +
-    labs(x = NULL, y = NULL, fill = NULL) +
-    theme_minimal() +
-    theme(
-      axis.text = element_blank(),
-      axis.ticks = element_blank(),
-      legend.position = "none"
-    ) +
-    scale_fill_manual(values = rep("purple", ncol(G.draws)))
+#  rfigs_G <- ggplot(comp_G, aes(x = group, y = value, fill = group)) +
+#    geom_violin(trim = FALSE, alpha = 0.7) +
+#    geom_point(data = data.frame(x = factor(paste0("G", 1:nstate),
+#                                            levels = levels(comp_G$group)),
+#                                 y = true_G[index:(i*nstate)]),
+#               aes(x = x, y = y),
+#               size = 2, shape = 19, inherit.aes = FALSE) +
+#    labs(x = NULL, y = NULL, fill = NULL) +
+#    theme_minimal() +
+#    theme(
+#      axis.text = element_blank(),
+#      axis.ticks = element_blank(),
+#      legend.position = "none"
+#    ) +
+#    scale_fill_manual(values = rep("purple", ncol(G.draws)))
 #    labs(x = "Transition prob.", y = "Value", fill = "") +
 #    theme_minimal() +
 #    scale_fill_manual(values = rep("purple", nstate)) +
@@ -939,21 +939,21 @@ RecoverInfG.plot <- function(inf.object, true_G, nstrain,
 #          axis.text = element_text(size = 16),
 #          legend.position = "none")
 
-  allFigs[[i]]<- rfigs_G
-}
+#  allFigs[[i]]<- rfigs_G
+#}
 
   # ---- combine plots ----
-  print(cowplot::plot_grid(plotlist = allFigs, ncol = 1))
+#  print(cowplot::plot_grid(plotlist = allFigs, ncol = 1))
 
   # Legends
-  add_legend(0.85, 1.15, legend = "Truth",
-             pch = 19, col = "black",
-             horiz = TRUE, bty = 'n', cex = 1.8)
-  add_legend("topleft", legend = substitute(paste(bold(Modeltype))),
-             horiz = TRUE, bty = 'n', cex = 1.5)
-}
+#  add_legend(0.85, 1.15, legend = "Truth",
+#             pch = 19, col = "black",
+#             horiz = TRUE, bty = 'n', cex = 1.8)
+#  add_legend("topleft", legend = substitute(paste(bold(Modeltype))),
+#             horiz = TRUE, bty = 'n', cex = 1.5)
+#}
 
-RecoverInfG2.plot <- function(inf.object, true_G, burn.in = 100) {
+RecoverInfG.plot <- function(inf.object, true_G, burn.in = 100) {
   # parameter dimensions
   true_G<- as.numeric(t(true_G))
 

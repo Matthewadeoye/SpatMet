@@ -885,8 +885,15 @@ Multstrain.simulate<- function(Model, time, nstrain=2, adj.matrix, Modeltype=1,
     matlist<- BuildGamma_list(T.prob)
     JointTPM<- JointTransitionMatrix_per_strain(matlist)
   }else if(Modeltype == 3){
+    JointTPM<- matrix(NA, nrow = Jointstates, ncol = Jointstates)
     T.prob<- 0
-    JointTPM<- gtools::rdirichlet(Jointstates, sample(2:7, size = Jointstates, replace = TRUE))
+    for(n in 1:Jointstates){
+      if(n==1 || n==Jointstates){
+        JointTPM[n, ]<- gtools::rdirichlet(1, c(sample(5:7, size = 1),0.05*(30:1),sample(3:5, size = 1)))
+      }else{
+        JointTPM[n, ]<- gtools::rdirichlet(1, 0.05*c(sample(2:3, size = Jointstates, replace = T)))
+      }
+    }
   }
 
   if(Model == 0){

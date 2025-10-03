@@ -1036,6 +1036,7 @@ dependentCPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, nu
   grad_current <- list(grad_r=as.numeric(Allquantities$grad_r), grad_s=as.numeric(Allquantities$grad_s), grad_u=as.numeric(Allquantities$grad_u), cov_r=Allquantities$cov_r, cov_s=Allquantities$cov_s)
 
   deltaP<- 1
+  priorVecGammas<- rep(0.8, nstate)/nstate
 
   for (i in 2:num_iteration) {
 
@@ -1168,13 +1169,13 @@ dependentCPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, nu
 
       index<- nstate * (n-1) + 1
 
-      JointTPM[n, ] <- gtools::rdirichlet(1, rep(1, nstate) + deltaP * MC_chain[i-1, (index:(n*nstate))])
+      JointTPM[n, ] <- gtools::rdirichlet(1, priorVecGammas + deltaP * MC_chain[i-1, (index:(n*nstate))])
 
       proposalproposedGs<-  log(gtools::ddirichlet(JointTPM[n, ], MC_chain[i-1, (index:(n*nstate))]))
       proposalcurrentproposedGs<- log(gtools::ddirichlet(MC_chain[i-1, (index:(n*nstate))], JointTPM[n, ]))
 
-      priorcurrentGs<- log(gtools::ddirichlet(MC_chain[i-1, (index:(n*nstate))], rep(1, nstate)))
-      priorproposedGs<- log(gtools::ddirichlet(JointTPM[n, ], rep(1, nstate)))
+      priorcurrentGs<- log(gtools::ddirichlet(MC_chain[i-1, (index:(n*nstate))], priorVecGammas))
+      priorproposedGs<- log(gtools::ddirichlet(JointTPM[n, ], priorVecGammas))
 
       if(n == nstate){
         Allquantities<- dependentgradmultstrainLoglikelihood2_cpp(y=y, e_it=e_it, nstrain=nstrain,  r=MC_chain[i, nstate*nstate+3+(1:time)], s=MC_chain[i, nstate*nstate+3+time+(1:12)], u=MC_chain[i, nstate*nstate+3+time+12+(1:ndept)], jointTPM=JointTPM, B=MC_chain[i, nstate*nstate+3+time+12+ndept+(1:nstrain)], Bits=Bits, a_k=MC_chain[i-1, nstate*nstate+3+time+12+ndept+nstrain+(1:nstrain)], Model=Model,Q_r=Q_r,Q_s = Q_s,Q_u=Q_u, gradients=1)
