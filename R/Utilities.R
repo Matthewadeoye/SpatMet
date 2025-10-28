@@ -796,6 +796,47 @@ JointTransitionMatrix_per_strain<- function(gamma_list){
   return(Gamma)
 }
 
+
+JointTransitionMatrix_copula<- function(gamma_list){
+  K<- length(gamma_list)
+  S<- 2^K
+  cop<- copula::normalCopula(param = 0, dim = K)
+
+  Gamma<- matrix(0, nrow = S, ncol = S)
+  for(a in 0:(S - 1)) {
+    for(b in 0:(S - 1)){
+      Indices<- c()
+      IndicesComplement<- c()
+      prob<- numeric(K)
+      for(k in 1:K){
+        from_k<- (a %/% 2^(k - 1)) %% 2
+        to_k<- (b %/% 2^(k - 1)) %% 2
+        if(from_k == 1){
+          Indices<- c(Indices, k)
+        }else{
+          IndicesComplement<- c(IndicesComplement, k)
+        }
+        gamma_k<- gamma_list[[k]]
+        gamma_k[1, ]<- gamma_k[1, ][2:1]
+        prob[k]<- gamma_k[from_k + 1, to_k + 1]
+      }
+      subsets<- sets::set_power(as.set(IndicesComplement))
+      subsets<- lapply(subsets, function(g) unlist(as.vector(g)))
+      total <- 0
+      for(Tset in subsets){
+        sign <- (-1)^length(Tset)
+        idx <- c(Indices, Tset)
+        u <- rep(1, K)
+        if(length(idx) > 0) u[idx] <- prob[idx]
+        total <- total + sign * copula::pCopula(u, cop)
+      }
+      Gamma[a + 1, b + 1]<- total
+    }
+  }
+  return(Gamma)
+}
+
+
 #Build list of per-strain transition matrices
 BuildGamma_list<- function(Gs){
   n_mat<-length(Gs)/2
@@ -887,13 +928,7 @@ Multstrain.simulate<- function(Model, time, nstrain=2, adj.matrix, Modeltype=1,
   }else if(Modeltype == 3){
     JointTPM<- matrix(NA, nrow = Jointstates, ncol = Jointstates)
     T.prob<- 0
-    for(n in 1:Jointstates){
-      if(n==1 || n==Jointstates){
-        JointTPM[n, ]<- gtools::rdirichlet(1, c(sample(5:7, size = 1),0.05*(30:1),sample(3:5, size = 1)))
-      }else{
-        JointTPM[n, ]<- gtools::rdirichlet(1, 0.05*c(sample(2:3, size = Jointstates, replace = T)))
-      }
-    }
+    JointTPM<- gtools::rdirichlet(Jointstates, sample(2:7, size = Jointstates, replace = T))
   }
 
   if(Model == 0){

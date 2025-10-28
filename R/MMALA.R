@@ -376,7 +376,7 @@ multMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_iteration 
 #set.seed(212);perstrainmultmod1nstrain5<- Multstrain.simulate(Model = 1, time=60, adj.matrix = sim_adjmat, Modeltype = 2, nstrain=5, B=c(1.65,0.95,1.4,1.1,1.7))
 #set.seed(212);dependentmultmod1nstrain5<- Multstrain.simulate(Model = 1, time=60, adj.matrix = sim_adjmat, Modeltype = 3, nstrain=5, B=c(1.65,0.95,1.4,1.1,1.7))
 
-#multMmalaRes2<- multMMALAInference(y=multmod0nstrain5[[1]], e_it = multmod0nstrain5[[2]], Model = 0, adjmat = sim_adjmat, step_sizes = list("r"=0.3,"s"=0.3,"u"=0.025), num_iteration = 20000)
+#multMmalaRes2<- CPPmultMMALAInference(y=multmod0nstrain5[[1]], e_it = multmod0nstrain5[[2]], Model = 0, adjmat = sim_adjmat, step_sizes = list("r"=0.3,"s"=0.3,"u"=0.025), num_iteration = 20000)
 #gradmultstrainLoglikelihood2(y=multmod0nstrain5[["y"]], e_it=multmod0nstrain5[["e_it"]], nstrain=5, r=multmod0nstrain5[["r"]], s=multmod0nstrain5[["s"]], u=multmod0nstrain5[["u"]], Gamma=G(0.1,0.2), B=rep(0,5), Bits=Bits, a_k=multmod0nstrain5[["a_k"]], Model=0, Q_r=RW2PrecMat, Q_s=RW1PrecMat, Q_u=R)$loglike
 
 
@@ -694,7 +694,7 @@ fullCPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_ite
 #}
 
 
-#decodedOutbreakMatrix<- Posteriormultstrain.Decoding(y=multmod1nstrain5[["y"]], e_it=multmod1nstrain5[["e_it"]], inf.object=MMALAResultscorrectmodel, thinningL=1000)
+#decodedOutbreakMatrix<- Posteriormultstrain.Decoding(y=multmod1nstrain5[["y"]], e_it=multmod1nstrain5[["e_it"]], inf.object=MMALAResultscorrectmodel, Modeltype=1, thinningL=1000)
 #perstraindecodedOutbreakMatrix<- Posteriormultstrain.Decoding(y=perstrainmultmod1nstrain5[["y"]], e_it=perstrainmultmod1nstrain5[["e_it"]], inf.object=perstrainMMALAResults5strainGibbs[-(1:20000),], Modeltype = 2, thinningL=1000)
 
 #Outbreakfigures(matrix_list = decodedOutbreakMatrix, BitsMatrix = Bits, labelLetter = "B")
@@ -1036,7 +1036,6 @@ dependentCPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, nu
   grad_current <- list(grad_r=as.numeric(Allquantities$grad_r), grad_s=as.numeric(Allquantities$grad_s), grad_u=as.numeric(Allquantities$grad_u), cov_r=Allquantities$cov_r, cov_s=Allquantities$cov_s)
 
   deltaP<- 1
-  priorVecGammas<- rep(0.8, nstate)/nstate
 
   for (i in 2:num_iteration) {
 
@@ -1169,13 +1168,13 @@ dependentCPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, nu
 
       index<- nstate * (n-1) + 1
 
-      JointTPM[n, ] <- gtools::rdirichlet(1, priorVecGammas + deltaP * MC_chain[i-1, (index:(n*nstate))])
+      JointTPM[n, ] <- gtools::rdirichlet(1, rep(1, nstate) + deltaP * MC_chain[i-1, (index:(n*nstate))])
 
       proposalproposedGs<-  log(gtools::ddirichlet(JointTPM[n, ], MC_chain[i-1, (index:(n*nstate))]))
       proposalcurrentproposedGs<- log(gtools::ddirichlet(MC_chain[i-1, (index:(n*nstate))], JointTPM[n, ]))
 
-      priorcurrentGs<- log(gtools::ddirichlet(MC_chain[i-1, (index:(n*nstate))], priorVecGammas))
-      priorproposedGs<- log(gtools::ddirichlet(JointTPM[n, ], priorVecGammas))
+      priorcurrentGs<- log(gtools::ddirichlet(MC_chain[i-1, (index:(n*nstate))], rep(1, nstate)))
+      priorproposedGs<- log(gtools::ddirichlet(JointTPM[n, ], rep(1, nstate)))
 
       if(n == nstate){
         Allquantities<- dependentgradmultstrainLoglikelihood2_cpp(y=y, e_it=e_it, nstrain=nstrain,  r=MC_chain[i, nstate*nstate+3+(1:time)], s=MC_chain[i, nstate*nstate+3+time+(1:12)], u=MC_chain[i, nstate*nstate+3+time+12+(1:ndept)], jointTPM=JointTPM, B=MC_chain[i, nstate*nstate+3+time+12+ndept+(1:nstrain)], Bits=Bits, a_k=MC_chain[i-1, nstate*nstate+3+time+12+ndept+nstrain+(1:nstrain)], Model=Model,Q_r=Q_r,Q_s = Q_s,Q_u=Q_u, gradients=1)
