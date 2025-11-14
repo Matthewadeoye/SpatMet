@@ -173,7 +173,27 @@ dependentgradmultstrainLoglikelihood2_cpp <- function(y, e_it, nstrain, r, s, u,
     .Call(`_SpatMet_dependentgradmultstrainLoglikelihood2_cpp`, y, e_it, nstrain, r, s, u, jointTPM, B, Bits, a_k, Model, Q_r, Q_s, Q_u, gradients)
 }
 
+copulagradmultstrainLoglikelihood2_cpp <- function(y, e_it, nstrain, r, s, u, Gamma, B, Bits, a_k, Model, Q_r, Q_s, Q_u) {
+    .Call(`_SpatMet_copulagradmultstrainLoglikelihood2_cpp`, y, e_it, nstrain, r, s, u, Gamma, B, Bits, a_k, Model, Q_r, Q_s, Q_u)
+}
+
+FFBSgradmultstrainLoglikelihood2_cpp <- function(y, e_it, nstrain, r, s, u, Gamma, B, Bits, a_k, Model, Q_r, Q_s, Q_u) {
+    .Call(`_SpatMet_FFBSgradmultstrainLoglikelihood2_cpp`, y, e_it, nstrain, r, s, u, Gamma, B, Bits, a_k, Model, Q_r, Q_s, Q_u)
+}
+
 MMALA_cpp <- function(y, e_it, Model, Bits, CrudeR, CrudeS, CrudeU, RW2PrecMat, RW1PrecMat, Ru, rankdef, independentChains, num_iteration, meanR, step_sizes) {
     .Call(`_SpatMet_MMALA_cpp`, y, e_it, Model, Bits, CrudeR, CrudeS, CrudeU, RW2PrecMat, RW1PrecMat, Ru, rankdef, independentChains, num_iteration, meanR, step_sizes)
+}
+
+build_corr_from_params_cpp <- function(d, params) {
+    .Call(`_SpatMet_build_corr_from_params_cpp`, d, params)
+}
+
+gaussian_copula_cdf_cpp <- function(u, copParams) {
+    .Call(`_SpatMet_gaussian_copula_cdf_cpp`, u, copParams)
+}
+
+JointTransitionMatrix_copula_cpp <- function(gamma, K, copParams) {
+    .Call(`_SpatMet_JointTransitionMatrix_copula_cpp`, gamma, K, copParams)
 }
 

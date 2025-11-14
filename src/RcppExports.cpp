@@ -608,6 +608,54 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// copulagradmultstrainLoglikelihood2_cpp
+List copulagradmultstrainLoglikelihood2_cpp(arma::cube y, arma::mat e_it, int nstrain, arma::vec r, arma::vec s, arma::vec u, arma::mat Gamma, arma::vec B, arma::mat Bits, arma::vec a_k, int Model, arma::mat Q_r, arma::mat Q_s, arma::mat Q_u);
+RcppExport SEXP _SpatMet_copulagradmultstrainLoglikelihood2_cpp(SEXP ySEXP, SEXP e_itSEXP, SEXP nstrainSEXP, SEXP rSEXP, SEXP sSEXP, SEXP uSEXP, SEXP GammaSEXP, SEXP BSEXP, SEXP BitsSEXP, SEXP a_kSEXP, SEXP ModelSEXP, SEXP Q_rSEXP, SEXP Q_sSEXP, SEXP Q_uSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::cube >::type y(ySEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type e_it(e_itSEXP);
+    Rcpp::traits::input_parameter< int >::type nstrain(nstrainSEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type r(rSEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type s(sSEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type u(uSEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type Gamma(GammaSEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type B(BSEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type Bits(BitsSEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type a_k(a_kSEXP);
+    Rcpp::traits::input_parameter< int >::type Model(ModelSEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type Q_r(Q_rSEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type Q_s(Q_sSEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type Q_u(Q_uSEXP);
+    rcpp_result_gen = Rcpp::wrap(copulagradmultstrainLoglikelihood2_cpp(y, e_it, nstrain, r, s, u, Gamma, B, Bits, a_k, Model, Q_r, Q_s, Q_u));
+    return rcpp_result_gen;
+END_RCPP
+}
+// FFBSgradmultstrainLoglikelihood2_cpp
+List FFBSgradmultstrainLoglikelihood2_cpp(arma::cube y, arma::mat e_it, int nstrain, arma::vec r, arma::vec s, arma::vec u, arma::mat Gamma, arma::vec B, arma::mat Bits, arma::vec a_k, int Model, arma::mat Q_r, arma::mat Q_s, arma::mat Q_u);
+RcppExport SEXP _SpatMet_FFBSgradmultstrainLoglikelihood2_cpp(SEXP ySEXP, SEXP e_itSEXP, SEXP nstrainSEXP, SEXP rSEXP, SEXP sSEXP, SEXP uSEXP, SEXP GammaSEXP, SEXP BSEXP, SEXP BitsSEXP, SEXP a_kSEXP, SEXP ModelSEXP, SEXP Q_rSEXP, SEXP Q_sSEXP, SEXP Q_uSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::cube >::type y(ySEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type e_it(e_itSEXP);
+    Rcpp::traits::input_parameter< int >::type nstrain(nstrainSEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type r(rSEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type s(sSEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type u(uSEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type Gamma(GammaSEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type B(BSEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type Bits(BitsSEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type a_k(a_kSEXP);
+    Rcpp::traits::input_parameter< int >::type Model(ModelSEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type Q_r(Q_rSEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type Q_s(Q_sSEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type Q_u(Q_uSEXP);
+    rcpp_result_gen = Rcpp::wrap(FFBSgradmultstrainLoglikelihood2_cpp(y, e_it, nstrain, r, s, u, Gamma, B, Bits, a_k, Model, Q_r, Q_s, Q_u));
+    return rcpp_result_gen;
+END_RCPP
+}
 // MMALA_cpp
 arma::mat MMALA_cpp(arma::cube y, arma::mat e_it, int Model, arma::mat Bits, arma::vec CrudeR, arma::vec CrudeS, arma::vec CrudeU, arma::mat RW2PrecMat, arma::mat RW1PrecMat, arma::mat Ru, int rankdef, int independentChains, int num_iteration, double meanR, List step_sizes);
 RcppExport SEXP _SpatMet_MMALA_cpp(SEXP ySEXP, SEXP e_itSEXP, SEXP ModelSEXP, SEXP BitsSEXP, SEXP CrudeRSEXP, SEXP CrudeSSEXP, SEXP CrudeUSEXP, SEXP RW2PrecMatSEXP, SEXP RW1PrecMatSEXP, SEXP RuSEXP, SEXP rankdefSEXP, SEXP independentChainsSEXP, SEXP num_iterationSEXP, SEXP meanRSEXP, SEXP step_sizesSEXP) {
@@ -630,6 +678,43 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< double >::type meanR(meanRSEXP);
     Rcpp::traits::input_parameter< List >::type step_sizes(step_sizesSEXP);
     rcpp_result_gen = Rcpp::wrap(MMALA_cpp(y, e_it, Model, Bits, CrudeR, CrudeS, CrudeU, RW2PrecMat, RW1PrecMat, Ru, rankdef, independentChains, num_iteration, meanR, step_sizes));
+    return rcpp_result_gen;
+END_RCPP
+}
+// build_corr_from_params_cpp
+arma::mat build_corr_from_params_cpp(int d, const arma::vec& params);
+RcppExport SEXP _SpatMet_build_corr_from_params_cpp(SEXP dSEXP, SEXP paramsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< int >::type d(dSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type params(paramsSEXP);
+    rcpp_result_gen = Rcpp::wrap(build_corr_from_params_cpp(d, params));
+    return rcpp_result_gen;
+END_RCPP
+}
+// gaussian_copula_cdf_cpp
+double gaussian_copula_cdf_cpp(const arma::vec& u, const arma::vec& copParams);
+RcppExport SEXP _SpatMet_gaussian_copula_cdf_cpp(SEXP uSEXP, SEXP copParamsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::vec& >::type u(uSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type copParams(copParamsSEXP);
+    rcpp_result_gen = Rcpp::wrap(gaussian_copula_cdf_cpp(u, copParams));
+    return rcpp_result_gen;
+END_RCPP
+}
+// JointTransitionMatrix_copula_cpp
+arma::mat JointTransitionMatrix_copula_cpp(const arma::mat& gamma, int K, const arma::vec& copParams);
+RcppExport SEXP _SpatMet_JointTransitionMatrix_copula_cpp(SEXP gammaSEXP, SEXP KSEXP, SEXP copParamsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type gamma(gammaSEXP);
+    Rcpp::traits::input_parameter< int >::type K(KSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type copParams(copParamsSEXP);
+    rcpp_result_gen = Rcpp::wrap(JointTransitionMatrix_copula_cpp(gamma, K, copParams));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -678,7 +763,12 @@ static const R_CallMethodDef CallEntries[] = {
     {"_SpatMet_gradmultstrainLoglikelihood2_cpp", (DL_FUNC) &_SpatMet_gradmultstrainLoglikelihood2_cpp, 14},
     {"_SpatMet_perstraingradmultstrainLoglikelihood2_cpp", (DL_FUNC) &_SpatMet_perstraingradmultstrainLoglikelihood2_cpp, 14},
     {"_SpatMet_dependentgradmultstrainLoglikelihood2_cpp", (DL_FUNC) &_SpatMet_dependentgradmultstrainLoglikelihood2_cpp, 15},
+    {"_SpatMet_copulagradmultstrainLoglikelihood2_cpp", (DL_FUNC) &_SpatMet_copulagradmultstrainLoglikelihood2_cpp, 14},
+    {"_SpatMet_FFBSgradmultstrainLoglikelihood2_cpp", (DL_FUNC) &_SpatMet_FFBSgradmultstrainLoglikelihood2_cpp, 14},
     {"_SpatMet_MMALA_cpp", (DL_FUNC) &_SpatMet_MMALA_cpp, 15},
+    {"_SpatMet_build_corr_from_params_cpp", (DL_FUNC) &_SpatMet_build_corr_from_params_cpp, 2},
+    {"_SpatMet_gaussian_copula_cdf_cpp", (DL_FUNC) &_SpatMet_gaussian_copula_cdf_cpp, 2},
+    {"_SpatMet_JointTransitionMatrix_copula_cpp", (DL_FUNC) &_SpatMet_JointTransitionMatrix_copula_cpp, 3},
     {NULL, NULL, 0}
 };
 

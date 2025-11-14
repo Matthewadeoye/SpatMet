@@ -796,11 +796,79 @@ JointTransitionMatrix_per_strain<- function(gamma_list){
   return(Gamma)
 }
 
+gaussian_copula_cdf<- function(u, copParams) {
+  d <- length(u)
+  R<- diag(d)
+  uppertriang <- copParams
+  gdata::upperTriangle(R, byrow=TRUE) <- uppertriang
+  gdata::lowerTriangle(R, byrow=FALSE) <- uppertriang
 
-JointTransitionMatrix_copula<- function(gamma_list){
+  eps <- 1e-12
+  u_clipped <- pmin(pmax(u, eps), 1 - eps)
+
+  # transform marginals using probit
+  q <- qnorm(u_clipped)
+
+  # Evaluate the multivariate normal CDF
+  val <- mvtnorm::pmvnorm(
+    lower = rep(-Inf, d),
+    upper = q,
+    sigma = R
+  )
+  return(as.numeric(val))
+}
+
+
+
+#Dependence modelling with copula, assuming the same TPM for all strains
+JointTransitionMatrix_copula<- function(gamma, K, copulaParam){
+  S<- 2^K
+  #cop<- copula::normalCopula(param = copulaParam, dim = K, dispstr = "un")
+  #cop<- copula::plackettCopula(param = copulaParam)
+
+  gamma[1, ]<- gamma[1, ][2:1]
+
+  Gamma<- matrix(0, nrow = S, ncol = S)
+  for(a in 0:(S - 1)) {
+    for(b in 0:(S - 1)){
+      Indices<- c()
+      IndicesComplement<- c()
+      prob<- numeric(K)
+      for(k in 1:K){
+        from_k<- (a %/% 2^(k - 1)) %% 2
+        to_k<- (b %/% 2^(k - 1)) %% 2
+        if(from_k == 1){
+          Indices<- c(Indices, k)
+        }else{
+          IndicesComplement<- c(IndicesComplement, k)
+        }
+        prob[k]<- gamma[from_k + 1, to_k + 1]
+      }
+      subsets<- sets::set_power(sets::as.set(IndicesComplement))
+      subsets<- lapply(subsets, function(g) unlist(as.vector(g)))
+      total <- 0
+      for(Tset in subsets){
+        sign <- (-1)^length(Tset)
+        idx <- c(Indices, Tset)
+        u <- rep(1, K)
+        if(length(idx) > 0) u[idx] <- prob[idx]
+        #total <- total + sign * copula::pCopula(u, cop)
+        total <- total + sign * gaussian_copula_cdf(u, copulaParam)
+      }
+      Gamma[a + 1, b + 1]<- total
+    }
+  }
+  Gamma <- Gamma / rowSums(Gamma)
+  return(Gamma)
+}
+
+
+#Dependence modelling with copula, assuming each strain has its unique TPM
+JointTransitionMatrix_copula_per_strain<- function(gamma_list, copulaParam){
   K<- length(gamma_list)
   S<- 2^K
-  cop<- copula::normalCopula(param = 0, dim = K)
+#  cop<- copula::normalCopula(param = copulaParam, dim = K)
+  cop<- copula::plackettCopula(param = copulaParam)
 
   Gamma<- matrix(0, nrow = S, ncol = S)
   for(a in 0:(S - 1)) {
@@ -820,7 +888,7 @@ JointTransitionMatrix_copula<- function(gamma_list){
         gamma_k[1, ]<- gamma_k[1, ][2:1]
         prob[k]<- gamma_k[from_k + 1, to_k + 1]
       }
-      subsets<- sets::set_power(as.set(IndicesComplement))
+      subsets<- sets::set_power(sets::as.set(IndicesComplement))
       subsets<- lapply(subsets, function(g) unlist(as.vector(g)))
       total <- 0
       for(Tset in subsets){
@@ -833,6 +901,7 @@ JointTransitionMatrix_copula<- function(gamma_list){
       Gamma[a + 1, b + 1]<- total
     }
   }
+  Gamma <- Gamma / rowSums(Gamma)
   return(Gamma)
 }
 
@@ -926,6 +995,14 @@ Multstrain.simulate<- function(Model, time, nstrain=2, adj.matrix, Modeltype=1,
     matlist<- BuildGamma_list(T.prob)
     JointTPM<- JointTransitionMatrix_per_strain(matlist)
   }else if(Modeltype == 3){
+    JointTPM<- JointTransitionMatrix_copula_cpp(T.prob, K=nstrain, copParams = c(-0.2,-0.3,-0.5))
+    JointTPM<- ifelse(JointTPM<0,0,JointTPM)
+  }else if(Modeltype == 4){
+    T.prob<- runif(2*nstrain, min = 0.1, max = 0.2)
+    matlist<- BuildGamma_list(T.prob)
+    JointTPM<- JointTransitionMatrix_copula_per_strain(matlist, copulaParam = 1)
+    JointTPM<- ifelse(JointTPM<0,0,JointTPM)
+  }else if(Modeltype == 5){
     JointTPM<- matrix(NA, nrow = Jointstates, ncol = Jointstates)
     T.prob<- 0
     JointTPM<- gtools::rdirichlet(Jointstates, sample(2:7, size = Jointstates, replace = T))
@@ -1616,7 +1693,6 @@ FIRSTgradmultstrainLoglikelihood2<- function(y, e_it, nstrain, r, s, u, Gamma, B
 
     return(list(loglike = loglike, grad_r = grad_r, grad_s = grad_s, grad_u = grad_u, cov_r=cov_r, cov_s=cov_s))
   }else{
-    # outputs to build
     grad_r <- numeric(time)
     grad_s <- numeric(12)
     grad_u <- numeric(ndept)
@@ -1626,27 +1702,17 @@ FIRSTgradmultstrainLoglikelihood2<- function(y, e_it, nstrain, r, s, u, Gamma, B
     Fisher_u <- matrix(0, nrow = ndept, ncol = ndept)
 
     loglike_total <- 0
-    # ----- Model == 1: HMM -----
-    # Build Joint TPM and log versions
-    JointTPM <- JointTransitionMatrix(gamma = Gamma, K = nstrain)  # matrix M x M (states)
+
+    JointTPM <- JointTransitionMatrix(gamma = Gamma, K = nstrain)
     logJointTPM <- log(JointTPM)
 
-    # For each department i we run forward-backward to obtain:
-    # - log-likelihood contribution
-    # - posterior marginal gamma_t(n) = P(state=n at time t | y_i)
-    # Then E[lambda_{i,t,k}] = sum_n gamma_t(n) * lambda_{i,t,k}^{(n)}
     for(i in 1:ndept){
-      # precompute log emission for each time and state (and store the lambda per strain)
-      # We'll create:
-      # logEmissions[t, n] = sum_k dpois(y[i,t,k], lambda = lambda_{i,t,k}^{(n)}, log=TRUE)
-      # lambda_array[t, n, k] = lambda_{i,t,k}^{(n)}
       logEmissions <- matrix(NA, nrow = time, ncol = nstate)
       lambda_array  <- array(0, dim = c(time, nstate, nstrain))
 
       for(t in 1:time){
         month_index <- (t-1) %% 12 + 1
         for(n in 1:nstate){
-          # compute the per-strain lambda for this (i,t,n)
           for(k in 1:nstrain){
             newB<- rep(0, nstrain)
             newB[k]<- B[k]
@@ -1656,12 +1722,11 @@ FIRSTgradmultstrainLoglikelihood2<- function(y, e_it, nstrain, r, s, u, Gamma, B
         }
       }
 
-      # forward pass (log-space)
+      # forward pass
       loginit <- log(stationarydist(JointTPM))
       logalpha <- matrix(-Inf, nrow = time, ncol = nstate)
       logalpha[1, ] <- loginit + logEmissions[1, ]
       for(t in 2:time){
-        # logalpha[t, n] = logsum_m ( logalpha[t-1,m] + logJointTPM[m,n] ) + logEmissions[t,n]
         for(n in 1:nstate){
           logalpha[t,n] <- logSumExp_cpp(logalpha[t-1, ] + logJointTPM[, n]) + logEmissions[t,n]
         }
@@ -1670,28 +1735,23 @@ FIRSTgradmultstrainLoglikelihood2<- function(y, e_it, nstrain, r, s, u, Gamma, B
       loglik_i <- logSumExp_cpp(logalpha[time, ])
       loglike_total <- loglike_total + loglik_i
 
-      # backward pass (log-space)
+      # backward pass
       logbeta <- matrix(-Inf, nrow = time, ncol = nstate)
       logbeta[time, ] <- 0
       for(t in seq(time-1, 1, by = -1)){
-        # logbeta[t,m] = logsum_n ( logJointTPM[m,n] + logEmissions[t+1,n] + logbeta[t+1,n] )
         for(m in 1:nstate){
           logbeta[t,m] <- logSumExp_cpp( logJointTPM[m, ] + logEmissions[t+1, ] + logbeta[t+1, ] )
         }
       }
 
-      # posterior marginals gamma_t(n) in log-space
       loggamma <- matrix(NA, nrow = time, ncol = nstate)
       gamma    <- matrix(NA, nrow = time, ncol = nstate)
       for(t in 1:time){
         loggamma[t, ] <- logalpha[t, ] + logbeta[t, ] - loglik_i
-        # safe exponent
         gamma[t, ] <- exp(loggamma[t, ])
-        # numerical fix: ensure sum to 1
         gamma[t, ] <- gamma[t, ] / sum(gamma[t, ])
       }
 
-      # Now compute expected lambda for each (t,k): E_lambda[t,k] = sum_n gamma[t,n] * lambda_array[t,n,k]
       E_lambda_tk <- matrix(0, nrow = time, ncol = nstrain)
       for(t in 1:time){
         for(k in 1:nstrain){
@@ -1699,22 +1759,19 @@ FIRSTgradmultstrainLoglikelihood2<- function(y, e_it, nstrain, r, s, u, Gamma, B
         }
       }
 
-      # Using E_lambda_tk we can compute gradients and Fisher contributions
       for(t in 1:time){
         month_index <- (t-1) %% 12 + 1
         for(k in 1:nstrain){
           Elambda <- E_lambda_tk[t,k]
-          # gradient: sum_k (y - Elambda)
           grad_r[t] <- grad_r[t] + (y[i,t,k] - Elambda)
           grad_s[month_index] <- grad_s[month_index] + (y[i,t,k] - Elambda)
           grad_u[i] <- grad_u[i] + (y[i,t,k] - Elambda)
-          # Fisher diag contributions
           Fisher_r[t,t] <- Fisher_r[t,t] + Elambda
           Fisher_s[month_index, month_index] <- Fisher_s[month_index, month_index] + Elambda
           Fisher_u[i,i] <- Fisher_u[i,i] + Elambda
         }
       }
-    } # end i loop
+    }
     grad_r<- grad_r - as.numeric(Q_r %*% r)
     grad_s<- grad_s - as.numeric(Q_s %*% s)
     grad_u<- grad_u - as.numeric(Q_u %*% u)

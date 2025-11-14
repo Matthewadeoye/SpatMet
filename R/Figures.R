@@ -1874,3 +1874,265 @@ publicationfigs8<- function(cumulative_standardizedcasesper100k){
 #abline(a = 0, b = 1, col = "grey", lwd = 2.5)
 #plot(postprobsfulldata[,83],postprobs83Nov2019[,83], col="purple", pch=15, main="November 2019", xlab = "Posterior prob. - full data", ylab = "Posterior prob. - shortened data", cex.lab=1.3, cex.main=1.5, cex.axis=1.2, ylim=c(0,1), cex=1.5);grid()
 #abline(a = 0, b = 1, col = "grey", lwd = 2.5)
+
+
+SlidesSimheatmap<- function(all.infobjects, all.simobjects, adjmat){
+  time<- ncol(all.simobjects[[2]][[1]])
+  ndept<- nrow(all.simobjects[[2]][[1]])
+  pdf("SlidesSimheatmap.pdf", paper="special", width=21,height=12, pointsize=14)
+  #plot.new()
+  par(mfrow=c(2,4), mar = c(5.1, 6.8, 6.8, 0.8))
+  #par(mfrow=c(8,8), mar = c(5.1, 6.8, 4, 0.8))
+  #c(bottom, left, top, right) ==> specification order
+
+  X_it<- all.simobjects[[2]][[6]]
+  smallxit<- X_it[c(1,3,5,7,9), ]
+  bigxit<- X_it[c(2,4,6,8), ]
+  bigsmallxit<- X_it[c(2,4,6,8,1,3,5,7,9), ]
+  #image(x=1:time, y=1:ndept, t(bigsmallxit), main ="", axes=F, ylab="spatial location", xlab="Time [month]", cex.lab=1.80)
+
+  #abline(h=4.5, col="black", lty=2)
+  #custom Y-axis
+  #axis(2, at=seq(1, 4, length.out=4), labels=c("u2", "u4", "u6", "u8"), col = "red", col.axis="red", lwd.ticks = 1, las = 1, lwd=0, cex.axis = 1.8, cex.lab=1.8)
+  #axis(2, at=seq(5, 9, length.out=5), labels=c("u1", "u3", "u5", "u7", "u9"), col = "blue", col.axis="blue", lwd.ticks = 1, las = 1, lwd=0, cex.axis = 1.8, cex.lab=1.8)
+  #custom X-axis
+  #axis(1, cex.axis = 1.8)
+  #legendary::labelFig("A", adj = c(-0.15, 0.10), font=2, cex=1.8)
+
+  for(i in 1:7){
+    sim.object<- all.simobjects[[i+1]]
+    inf.object<- all.infobjects[[i+1]]
+    Model<- i
+
+    y<- sim.object[[1]]
+    e_it<- sim.object[[2]]
+    sim.r<- sim.object[[3]]
+    sim.s<- sim.object[[4]]
+    sim.u<- sim.object[[5]]
+    X_it<- sim.object[[6]]
+
+    design_matrix_func <- get(paste0("DesignMatrixModel", Model))
+    z_it <- design_matrix_func(y, adjmat)[[1]]
+    z_it2 <- design_matrix_func(y, adjmat)[[2]]
+
+    if(!is.data.frame(inf.object)){
+      fullG12.draws<- stack(as.data.frame(inf.object$draws(variables = "G12")[,1,]))[,1]
+      fullG21.draws<- stack(as.data.frame(inf.object$draws(variables = "G21")[,1,]))[,1]
+      fullr.draws<- as.data.frame(inf.object$draws(variables = "r")[,1,])
+      fulls.draws<- as.data.frame(inf.object$draws(variables = "s")[,1,])
+      fullu.draws<- as.data.frame(inf.object$draws(variables = "uconstrained")[,1,])
+      fulld.draws<- stack(as.data.frame(inf.object$draws(variables = "state1_stationary_dist")[,1,]))[,1]
+    }else{
+      fullG12.draws<- as.numeric(inf.object[-(1:burn.in), 1])
+      fullG21.draws<- as.numeric(inf.object[-(1:burn.in), 2])
+      fullr.draws<- inf.object[-(1:burn.in), 5+(1:time)]
+      fulls.draws<- inf.object[-(1:burn.in), 5+time+(1:12)]
+      fullu.draws<- inf.object[-(1:burn.in), 5+time+12+(1:ndept)]
+      fulld.draws<- inf.object[-(1:burn.in), 5+time+12+ndept+2+1]
+    }
+
+    thinning<- numeric(floor(nrow(fullr.draws)/10))
+    thinning[1]<- 10
+    for(i in 2:length(thinning)){
+      thinning[i]<- thinning[i-1] + 10
+    }
+
+    G12.draws<- fullG12.draws[thinning]
+    G21.draws<- fullG21.draws[thinning]
+    r.draws<- fullr.draws[thinning, ]
+    s.draws<- fulls.draws[thinning, ]
+    u.draws<- fullu.draws[thinning, ]
+    d.draws<- fulld.draws[thinning]
+
+    sum_Xit<- matrix(0, nrow = ndept, ncol = time)
+
+    if(Model %in% c(1,2,4,5,7)){
+      if(!is.data.frame(inf.object)){
+        B.draws<- stack(as.data.frame(inf.object$draws(variables = "B")[,1,]))[,1]
+      }else{
+        B.draws<- as.numeric(inf.object[-(1:burn.in), 5+time+12+ndept+1])
+      }
+      B.draws<- B.draws[thinning]
+      for(index in 1:length(thinning)){
+        r<- as.numeric(r.draws[index,])
+        s<- as.numeric(s.draws[index,])
+        u<- as.numeric(u.draws[index,])
+        Ex_Xit <- Decoding(y = y, e_it = e_it, r = r, s = s, u = u, Gamma = G(G12.draws[index], G21.draws[index]), B = B.draws[index], Model = Model, adjmat = adjmat, Cyclic = T)
+        sum_Xit<- sum_Xit + Ex_Xit
+      }
+    }else if(Model %in% c(3,6)){
+      if(!is.data.frame(inf.object)){
+        B.draws<- as.data.frame(inf.object$draws(variables = "B")[,1,])
+      }else{
+        B.draws<- inf.object[-(1:burn.in), 5+time+12+ndept+(1:2)]
+      }
+      B.draws<- B.draws[thinning, ]
+      for(index in 1:length(thinning)){
+        r<- as.numeric(r.draws[index,])
+        s<- as.numeric(s.draws[index,])
+        u<- as.numeric(u.draws[index,])
+        B<- as.numeric(B.draws[index,])
+        Ex_Xit <- Decoding(y = y, e_it = e_it, r = r, s = s, u = u, Gamma = G(G12.draws[index], G21.draws[index]), B = B, Model = Model, adjmat = adjmat, Cyclic = T)
+        sum_Xit<- sum_Xit + Ex_Xit
+      }
+    }
+
+    if(Model != 0){
+      mean_Xit<- sum_Xit/length(thinning)
+      smallmeanxit<- mean_Xit[c(1,3,5,7,9), ]
+      bigmeanxit<- mean_Xit[c(2,4,6,8), ]
+      bigsmallmeanxit<- mean_Xit[c(2,4,6,8,1,3,5,7,9), ]
+      image(x=1:time, y=1:ndept, t(bigsmallmeanxit), main = paste("Model", as.roman(Model)), axes=F, ylab = "Spatial location", xlab = "Time [month]", cex.lab=1.80, cex.main=2.0)
+      abline(h=4.5, col="black", lty=2)
+      #custom Y-axis
+      axis(2, at=seq(1, 4, length.out=4), labels=c("u2", "u4", "u6", "u8"), col = "red", col.axis="red", lwd.ticks = 1, las = 1, lwd=0, cex.axis = 1.8, cex.lab=1.8)
+      axis(2, at=seq(5, 9, length.out=5), labels=c("u1", "u3", "u5", "u7", "u9"), col = "blue", col.axis="blue", lwd.ticks = 1, las = 1, lwd=0, cex.axis = 1.8, cex.lab=1.8)
+      #custom X-axis
+      axis(1, cex.axis = 1.8)
+      # Build grid of row/col indices
+      grid <- expand.grid(x = seq(nrow(bigsmallxit)),
+                          y = seq(ncol(bigsmallxit)))
+      out <- transform(grid, z = bigsmallxit[as.matrix(grid)])
+
+      # Select true outbreak cells
+      outbreakcell <- out$z == 1
+
+      # Overlay truth as colored dots at cell centers
+      points(out$y[outbreakcell],   # time axis
+             out$x[outbreakcell],   # location axis
+             pch = 16, cex = 2.0, col = "magenta")
+#      legendary::labelFig(LETTERS[Model], adj = c(-0.15, 0.10), font=2, cex=2.0)
+    }
+  }
+  par(mar = c(5, 16, 7, 15))
+  #c(bottom, left, top, right) ==> specification order
+
+  zseq <- seq(0, 1, length.out = 101)
+  xseq <- c(0, 1)
+  zmat <- matrix(zseq[-1], nrow = 1)
+
+  image(x = xseq, y = zseq, z = zmat,
+        axes = FALSE, xlab = "", ylab = "", main = "")
+
+  axis(4, at = seq(0, 1, 0.2), labels = seq(0, 1, 0.2), las = 1, cex.axis=2.0)
+  mtext("Posterior probability of outbreak", side = 4, line = 5.0, cex = 1.7)
+  box()
+  add_legend("topright", legend=c("Truth", "Small cities", "Large cities"), lty=c(NA, 1, 1),
+             pch=c(16, NA, NA), col=c("magenta", "blue", "red"),
+             horiz=TRUE, bty='n', cex=2.0)
+  dev.off()
+}
+
+
+
+SlidesAppheatmap<- function(all.infobjects, realdata, adjmat){
+  y<- realdata[[1]]
+  e_it<- realdata[[2]]
+  countries<- realdata[[3]]
+  time<- ncol(y)
+  ndept<- nrow(y)
+  #listofOutProbs<- list()
+
+  pdf("SlidesAppheatmap.pdf", paper="special", width=21,height=12, pointsize=14)
+  par(mfrow=c(2,4))
+
+  for(i in 1:7){
+    inf.object<- all.infobjects[[i+1]]
+    Model<- i
+
+    design_matrix_func <- get(paste0("DesignMatrixModel", Model))
+    z_it <- design_matrix_func(y, adjmat)[[1]]
+    z_it2 <- design_matrix_func(y, adjmat)[[2]]
+
+    if(!is.data.frame(inf.object)){
+      fullG12.draws<- stack(as.data.frame(inf.object$draws(variables = "G12")[,1,]))[,1]
+      fullG21.draws<- stack(as.data.frame(inf.object$draws(variables = "G21")[,1,]))[,1]
+      fullr.draws<- as.data.frame(inf.object$draws(variables = "r")[,1,])
+      fulls.draws<- as.data.frame(inf.object$draws(variables = "s")[,1,])
+      fullu.draws<- as.data.frame(inf.object$draws(variables = "uconstrained")[,1,])
+      fulld.draws<- stack(as.data.frame(inf.object$draws(variables = "state1_stationary_dist")[,1,]))[,1]
+    }else{
+      fullG12.draws<- as.numeric(inf.object[-(1:burn.in), 1])
+      fullG21.draws<- as.numeric(inf.object[-(1:burn.in), 2])
+      fullr.draws<- inf.object[-(1:burn.in), 5+(1:time)]
+      fulls.draws<- inf.object[-(1:burn.in), 5+time+(1:12)]
+      fullu.draws<- inf.object[-(1:burn.in), 5+time+12+(1:ndept)]
+      fulld.draws<- inf.object[-(1:burn.in), 5+time+12+ndept+2+1]
+    }
+
+    thinning<- numeric(floor(nrow(fullr.draws)/10))
+    thinning[1]<- 10
+    for(i in 2:length(thinning)){
+      thinning[i]<- thinning[i-1] + 10
+    }
+
+    G12.draws<- fullG12.draws[thinning]
+    G21.draws<- fullG21.draws[thinning]
+    r.draws<- fullr.draws[thinning, ]
+    s.draws<- fulls.draws[thinning, ]
+    u.draws<- fullu.draws[thinning, ]
+    d.draws<- fulld.draws[thinning]
+
+    sum_Xit<- matrix(0, nrow = ndept, ncol = time)
+
+    if(Model %in% c(1,2,4,5,7)){
+      if(!is.data.frame(inf.object)){
+        B.draws<- stack(as.data.frame(inf.object$draws(variables = "B")[,1,]))[,1]
+      }else{
+        B.draws<- as.numeric(inf.object[-(1:burn.in), 5+time+12+ndept+1])
+      }
+      B.draws<- B.draws[thinning]
+      for(index in 1:length(thinning)){
+        r<- as.numeric(r.draws[index,])
+        s<- as.numeric(s.draws[index,])
+        u<- as.numeric(u.draws[index,])
+        Ex_Xit <- Decoding(y = y, e_it = e_it, r = r, s = s, u = u, Gamma = G(G12.draws[index], G21.draws[index]), B = B.draws[index], Model = Model, adjmat = adjmat, Cyclic = T)
+        sum_Xit<- sum_Xit + Ex_Xit
+      }
+    }else if(Model %in% c(3,6)){
+      if(!is.data.frame(inf.object)){
+        B.draws<- as.data.frame(inf.object$draws(variables = "B")[,1,])
+      }else{
+        B.draws<- inf.object[-(1:burn.in), 5+time+12+ndept+(1:2)]
+      }
+      B.draws<- B.draws[thinning, ]
+      for(index in 1:length(thinning)){
+        r<- as.numeric(r.draws[index,])
+        s<- as.numeric(s.draws[index,])
+        u<- as.numeric(u.draws[index,])
+        B<- as.numeric(B.draws[index,])
+        Ex_Xit <- Decoding(y = y, e_it = e_it, r = r, s = s, u = u, Gamma = G(G12.draws[index], G21.draws[index]), B = B, Model = Model, adjmat = adjmat, Cyclic = T)
+        sum_Xit<- sum_Xit + Ex_Xit
+      }
+    }
+
+
+    if(Model != 0){
+      mean_Xit<- sum_Xit/length(thinning)
+      mean_Xit<- mean_Xit[ndept:1, ]
+      par(mar = c(4, 7.5, 4, 1))
+      image(x=1:time, y=1:ndept, t(mean_Xit), main = paste("Model", as.roman(Model)), axes=F, ylab = "", xlab = "Time [month/year]", cex.lab=1.8, cex.main=2.5)
+      #custom Y-axis
+      axis(2, at=seq(1, length(countries), length.out=length(countries)), labels=rev(countries), lwd.ticks = 1, las = 1, lwd=0, cex.axis = 1.40)
+      #custom X-axis
+      years<- 2013:2019
+      axis(1, at = seq(1, 84, by = 12), labels = years, cex.axis = 1.8)
+#      legendary::labelFig(LETTERS[Model], adj = c(-0.15, 0.05), font=2, cex=2.0)
+    }
+    #listofOutProbs[[Model]]<- sum_Xit/length(thinning)
+  }
+
+  par(mar = c(4, 15, 4, 14))
+  zseq <- seq(0, 1, length.out = 101)
+  xseq <- c(0, 1)
+  zmat <- matrix(zseq[-1], nrow = 1)
+
+  image(x = xseq, y = zseq, z = zmat,
+        axes = FALSE, xlab = "", ylab = "", main = "")
+
+  axis(4, at = seq(0, 1, 0.2), labels = seq(0, 1, 0.2), las = 1, cex.axis=2.0)
+  mtext("Posterior probability of outbreak", side = 4, line = 5.0, cex = 2.0)
+  box()
+  dev.off()
+  #return(listofOutProbs)
+}
