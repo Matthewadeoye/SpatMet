@@ -995,7 +995,7 @@ Multstrain.simulate<- function(Model, time, nstrain=2, adj.matrix, Modeltype=1,
     matlist<- BuildGamma_list(T.prob)
     JointTPM<- JointTransitionMatrix_per_strain(matlist)
   }else if(Modeltype == 3){
-    JointTPM<- JointTransitionMatrix_copula_cpp(T.prob, K=nstrain, copParams = c(-0.2,-0.3,-0.5))
+    JointTPM<- JointTransitionMatrix_copula(T.prob, K=nstrain, copParams = c(-0.2,-0.3,-0.5))
     JointTPM<- ifelse(JointTPM<0,0,JointTPM)
   }else if(Modeltype == 4){
     T.prob<- runif(2*nstrain, min = 0.1, max = 0.2)
