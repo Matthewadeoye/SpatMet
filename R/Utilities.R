@@ -796,33 +796,21 @@ JointTransitionMatrix_per_strain<- function(gamma_list){
   return(Gamma)
 }
 
-gaussian_copula_cdf<- function(u, copParams) {
-  d <- length(u)
-  R<- diag(d)
-  uppertriang <- copParams
-  gdata::upperTriangle(R, byrow=TRUE) <- uppertriang
-  gdata::lowerTriangle(R, byrow=FALSE) <- uppertriang
-
+gaussian_copula_cdf <- function(u,  corrMat) {
   eps <- 1e-12
-  u_clipped <- pmin(pmax(u, eps), 1 - eps)
-
-  # transform marginals using probit
-  q <- qnorm(u_clipped)
-
-  # Evaluate the multivariate normal CDF
-  val <- mvtnorm::pmvnorm(
-    lower = rep(-Inf, d),
-    upper = q,
-    sigma = R
-  )
-  return(as.numeric(val))
+  q <- qnorm(pmin(pmax(u, eps), 1 - eps))
+  mvtnorm::pmvnorm(lower = rep(-Inf, length(u)), upper = q, sigma =  corrMat)
 }
 
 
-
 #Dependence modelling with copula, assuming the same TPM for all strains
-JointTransitionMatrix_copula<- function(gamma, K, copulaParam){
+JointTransitionMatrix_copula<- function(gamma, K, copulaParams){
   S<- 2^K
+  corrMat<- diag(K)
+  uppertriang <- copulaParams
+  gdata::upperTriangle(corrMat, byrow=TRUE) <- uppertriang
+  gdata::lowerTriangle(corrMat, byrow=FALSE) <- uppertriang
+
   #cop<- copula::normalCopula(param = copulaParam, dim = K, dispstr = "un")
   #cop<- copula::plackettCopula(param = copulaParam)
 
@@ -853,9 +841,175 @@ JointTransitionMatrix_copula<- function(gamma, K, copulaParam){
         u <- rep(1, K)
         if(length(idx) > 0) u[idx] <- prob[idx]
         #total <- total + sign * copula::pCopula(u, cop)
-        total <- total + sign * gaussian_copula_cdf(u, copulaParam)
+        total <- total + sign * gaussian_copula_cdf(u,  corrMat)
       }
       Gamma[a + 1, b + 1]<- total
+    }
+  }
+  Gamma <- Gamma / rowSums(Gamma)
+  return(Gamma)
+}
+
+
+#Dependence modelling with copula, assuming the same TPM for all strains
+ParallelJointTransitionMatrix_copula<- function(gamma, K, copulaParams){
+  S<- 2^K
+  corrMat<- diag(K)
+  uppertriang <- copulaParams
+  gdata::upperTriangle(corrMat, byrow=TRUE) <- uppertriang
+  gdata::lowerTriangle(corrMat, byrow=FALSE) <- uppertriang
+
+  gamma[1, ]<- gamma[1, ][2:1]
+
+  ncores <- parallel::detectCores() - 1
+  cl <- parallel::makeCluster(ncores)
+  doParallel::registerDoParallel(cl)
+
+  Gamma <- matrix(0, nrow = S, ncol = S)
+  library(foreach)
+  Gamma_rows <- foreach::foreach(a = 0:(S - 1), .combine = rbind,
+                        .export = "gaussian_copula_cdf",
+                        .packages = c("sets")) %dopar% {
+
+                          row_vals <- numeric(S)
+                          for (b in 0:(S - 1)) {
+                            Indices <- c()
+                            IndicesComplement <- c()
+                            prob <- numeric(K)
+                            for (k in 1:K) {
+                              from_k <- (a %/% 2^(k - 1)) %% 2
+                              to_k   <- (b %/% 2^(k - 1)) %% 2
+                              if (from_k == 1) {
+                                Indices <- c(Indices, k)
+                              } else {
+                                IndicesComplement <- c(IndicesComplement, k)
+                              }
+                              prob[k] <- gamma[from_k + 1, to_k + 1]
+                            }
+                            subsets <- sets::set_power(sets::as.set(IndicesComplement))
+                            subsets <- lapply(subsets, function(g) unlist(as.vector(g)))
+
+                            total <- 0
+                            for (Tset in subsets) {
+                              sign <- (-1)^length(Tset)
+                              idx <- c(Indices, Tset)
+                              u <- rep(1, K)
+                              if (length(idx) > 0) u[idx] <- prob[idx]
+                              total <- total + sign * gaussian_copula_cdf(u, corrMat)
+                            }
+                            row_vals[b + 1] <- total
+                          }
+                          row_vals
+                        }
+  Gamma <- Gamma_rows
+  parallel::stopCluster(cl)
+  Gamma <- Gamma / rowSums(Gamma)
+  return(Gamma)
+}
+
+#Dependence modelling with copula, assuming the same TPM for all strains
+ParallelJointTransitionMatrix_copula2<- function(gamma, K, copulaParams){
+  S<- 2^K
+  cop<- copula::normalCopula(param = copulaParams, dim = K, dispstr = "un")
+
+  gamma[1, ]<- gamma[1, ][2:1]
+
+  ncores <- parallel::detectCores() - 1
+  cl <- parallel::makeCluster(ncores)
+  doParallel::registerDoParallel(cl)
+
+  Gamma <- matrix(0, nrow = S, ncol = S)
+  library(foreach)
+  Gamma_rows <- foreach::foreach(a = 0:(S - 1), .combine = rbind,
+                                 .packages = c("sets", "copula")) %dopar% {
+
+                                   row_vals <- numeric(S)
+                                   for (b in 0:(S - 1)) {
+                                     Indices <- c()
+                                     IndicesComplement <- c()
+                                     prob <- numeric(K)
+                                     for (k in 1:K) {
+                                       from_k <- (a %/% 2^(k - 1)) %% 2
+                                       to_k   <- (b %/% 2^(k - 1)) %% 2
+                                       if (from_k == 1) {
+                                         Indices <- c(Indices, k)
+                                       } else {
+                                         IndicesComplement <- c(IndicesComplement, k)
+                                       }
+                                       prob[k] <- gamma[from_k + 1, to_k + 1]
+                                     }
+                                     subsets <- sets::set_power(sets::as.set(IndicesComplement))
+                                     subsets <- lapply(subsets, function(g) unlist(as.vector(g)))
+
+                                     total <- 0
+                                     for (Tset in subsets) {
+                                       sign <- (-1)^length(Tset)
+                                       idx <- c(Indices, Tset)
+                                       u <- rep(1, K)
+                                       if (length(idx) > 0) u[idx] <- prob[idx]
+                                       total <- total + sign * copula::pCopula(u, cop)
+                                     }
+                                     row_vals[b + 1] <- total
+                                   }
+                                   row_vals
+                                 }
+  Gamma <- Gamma_rows
+  parallel::stopCluster(cl)
+  Gamma <- Gamma / rowSums(Gamma)
+  return(Gamma)
+}
+
+#Dependence modelling with copula, assuming the same TPM for all strains - Vine
+JointTransitionMatrix_copula_vine <- function(gamma, K, copulaParams){
+  S <- 2^K
+  corrMat <- diag(K)
+  uppertriang <- copulaParams
+  gdata::upperTriangle(corrMat, byrow = TRUE) <- uppertriang
+  gdata::lowerTriangle(corrMat, byrow = FALSE) <- uppertriang
+
+  struct <- rvinecopulib::cvine_structure(K)
+  pclist <- vector("list", K-1)
+  for(t in 1:(K-1)) {
+    n_edges <- K - t
+    pclist[[t]] <- lapply(1:n_edges, function(i) {
+      rho <- corrMat[t, t+i]
+      bicop_dist('gaussian', parameters = rho)
+    })
+  }
+  vcop <- rvinecopulib::vinecop_dist(pclist, struct)
+
+  gamma[1,] <- gamma[1,][2:1]
+
+  Gamma <- matrix(0, nrow = S, ncol = S)
+  for(a in 0:(S - 1)) {
+    for(b in 0:(S - 1)){
+
+      Indices <- c()
+      IndicesComplement <- c()
+      prob <- numeric(K)
+      for(k in 1:K){
+        from_k <- (a %/% 2^(k - 1)) %% 2
+        to_k   <- (b %/% 2^(k - 1)) %% 2
+        if(from_k == 1) {
+          Indices <- c(Indices, k)
+        } else {
+          IndicesComplement <- c(IndicesComplement, k)
+        }
+        prob[k] <- gamma[from_k + 1, to_k + 1]
+      }
+      # inclusion-exclusion subsets
+      subsets <- sets::set_power(sets::as.set(IndicesComplement))
+      subsets <- lapply(subsets, function(g) unlist(as.vector(g)))
+
+      total <- 0
+      for(Tset in subsets) {
+        sign <- (-1)^length(Tset)
+        idx  <- c(Indices, Tset)
+        u <- rep(1, K)
+        if(length(idx) > 0) u[idx] <- prob[idx]
+        total <- total + sign * rvinecopulib::pvinecop(u, vcop, n_mc = 10^4, cores = 4)
+      }
+      Gamma[a + 1, b + 1] <- total
     }
   }
   Gamma <- Gamma / rowSums(Gamma)
@@ -968,7 +1122,7 @@ sim.RW2mean0<- function(time, sd=0.0001, init.r1 = 0, init.r2 = 0){
   return(r)
 }
 
-Multstrain.simulate<- function(Model, time, nstrain=2, adj.matrix, Modeltype=1,
+Multstrain.simulate<- function(Model, time, nstrain=2, adj.matrix, Modeltype=1, copulaParam=c(-0.8,0.8,-0.6),
                                e_it=matrix(c(rep(c(rpois(time, 500000), rpois(time, 1000000)), 4), rpois(time, 500000)),
                                            byrow = T, ncol = time),
                                B = runif(nstrain), T.prob = matrix(c(0.9, 0.1, 0.2, 0.8), nrow = 2, byrow = T),
@@ -995,15 +1149,16 @@ Multstrain.simulate<- function(Model, time, nstrain=2, adj.matrix, Modeltype=1,
     matlist<- BuildGamma_list(T.prob)
     JointTPM<- JointTransitionMatrix_per_strain(matlist)
   }else if(Modeltype == 3){
-    JointTPM<- JointTransitionMatrix_copula_cpp(T.prob, K=nstrain, copParams = c(-0.2,-0.3,-0.5))
-    JointTPM<- ifelse(JointTPM<=0,1e-9,JointTPM)
-    JointTPM<- ifelse(JointTPM>=1,1-1e-9,JointTPM)
+    JointTPM<- ParallelJointTransitionMatrix_copula(T.prob, K=nstrain, copulaParam)
+    #JointTPM<- ParallelJointTransitionMatrix_copula(T.prob, K=nstrain, c(0.4,0.3,-0.2,-0.3,-0.5,0.5,0.03,-0.2,-0.3,-0.05))
+    JointTPM<- ifelse(JointTPM<=0,1e-6,JointTPM)
+    JointTPM<- ifelse(JointTPM>=1,1-1e-6,JointTPM)
   }else if(Modeltype == 4){
     T.prob<- runif(2*nstrain, min = 0.1, max = 0.2)
     matlist<- BuildGamma_list(T.prob)
-    JointTPM<- JointTransitionMatrix_copula_per_strain(matlist, copulaParam = 1)
-    JointTPM<- ifelse(JointTPM<=0,1e-9,JointTPM)
-    JointTPM<- ifelse(JointTPM>=1,1-1e-9,JointTPM)
+    JointTPM<- JointTransitionMatrix_copula_per_strain(matlist, copulaParam)
+    JointTPM<- ifelse(JointTPM<=0,1e-6,JointTPM)
+    JointTPM<- ifelse(JointTPM>=1,1-1e-6,JointTPM)
   }else if(Modeltype == 5){
     JointTPM<- matrix(NA, nrow = Jointstates, ncol = Jointstates)
     T.prob<- 0
@@ -1042,7 +1197,7 @@ Multstrain.simulate<- function(Model, time, nstrain=2, adj.matrix, Modeltype=1,
         }
       }
     }
-    return(list("y" =y_itk, "e_it"=e_it, "r"=r, "s"=s, "u"=u, "states"=EpidemicIndicator, "B"=B, "a_k"=aVec, "T.prob"=T.prob, "JointTPM"=JointTPM))
+    return(list("y" =y_itk, "e_it"=e_it, "r"=r, "s"=s, "u"=u, "states"=EpidemicIndicator, "B"=B, "a_k"=aVec, "T.prob"=T.prob, "JointTPM"=JointTPM, "copulaParam"=copulaParam))
   }
 }
 

@@ -2045,7 +2045,11 @@ FinalCPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_it
   Q_u<- MC_chain[1,5] * R
 
   #Compute gradients
-  JointTPM<- JointTransitionMatrix_copula_cpp(G(MC_chain[1,1],MC_chain[1,2]), nstrain, MC_chain[1,(ncol(MC_chain)-n_copParams):(ncol(MC_chain)-1)])
+  if(nstrain>3){
+    JointTPM<- ParallelJointTransitionMatrix_copula(G(MC_chain[1,1],MC_chain[1,2]), nstrain, MC_chain[1,(ncol(MC_chain)-n_copParams):(ncol(MC_chain)-1)])
+  }else{
+    JointTPM<- JointTransitionMatrix_copula(G(MC_chain[1,1],MC_chain[1,2]), nstrain, MC_chain[1,(ncol(MC_chain)-n_copParams):(ncol(MC_chain)-1)])
+  }
   JointTPM<- ifelse(JointTPM<=0,1e-6,JointTPM)
   JointTPM<- ifelse(JointTPM>=1,1-1e-6,JointTPM)
 
@@ -2078,7 +2082,11 @@ FinalCPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_it
     proposedScomps <- as.numeric(MC_chain[i-1, 5+time+(1:12)] + 0.5 * step_sizes$s^2 * Mmatcs + step_sizes$s * chol(grad_current$cov_s) %*% eps_s)
     proposedScomps<- proposedScomps - mean(proposedScomps)
 
-    JointTPM<- JointTransitionMatrix_copula_cpp(G(MC_chain[i-1,1],MC_chain[i-1,2]), nstrain, MC_chain[i-1, (ncol(MC_chain)-n_copParams):(ncol(MC_chain)-1)])
+    if(nstrain>3){
+      JointTPM<- ParallelJointTransitionMatrix_copula(G(MC_chain[i-1,1],MC_chain[i-1,2]), nstrain, MC_chain[i-1, (ncol(MC_chain)-n_copParams):(ncol(MC_chain)-1)])
+    }else{
+      JointTPM<- JointTransitionMatrix_copula(G(MC_chain[i-1,1],MC_chain[i-1,2]), nstrain, MC_chain[i-1, (ncol(MC_chain)-n_copParams):(ncol(MC_chain)-1)])
+    }
     JointTPM<- ifelse(JointTPM<=0,1e-6,JointTPM)
     JointTPM<- ifelse(JointTPM>=1,1-1e-6,JointTPM)
 
@@ -2192,7 +2200,11 @@ FinalCPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_it
       priorcurrentGs<- sum(dbeta(MC_chain[i-1,1:2], shape1 = c(2,2), shape2 = c(2,2), log=TRUE))
       priorproposedGs<- sum(dbeta(proposedGs, shape1 = c(2,2), shape2 = c(2,2), log=TRUE))
 
-      JointTPM<- JointTransitionMatrix_copula_cpp(G(proposedGs[1],proposedGs[2]), nstrain, MC_chain[i-1, (ncol(MC_chain)-n_copParams):(ncol(MC_chain)-1)])
+      if(nstrain>3){
+        JointTPM<- ParallelJointTransitionMatrix_copula(G(proposedGs[1],proposedGs[2]), nstrain, MC_chain[i-1, (ncol(MC_chain)-n_copParams):(ncol(MC_chain)-1)])
+      }else{
+        JointTPM<- JointTransitionMatrix_copula(G(proposedGs[1],proposedGs[2]), nstrain, MC_chain[i-1, (ncol(MC_chain)-n_copParams):(ncol(MC_chain)-1)])
+      }
       JointTPM<- ifelse(JointTPM<=0,1e-6,JointTPM)
       JointTPM<- ifelse(JointTPM>=1,1-1e-6,JointTPM)
 
@@ -2217,7 +2229,9 @@ FinalCPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_it
       #proposedcopPs<- rnorm(n_copparams,mean=log(MC_chain[i-1, ncol(MC_chain)]), sd=rep(0.7, n_copparams))
 
       proposedcopPs<- rnorm(n_copParams, mean=MC_chain[i-1, (ncol(MC_chain)-n_copParams):(ncol(MC_chain)-1)], sd=rep(sdCops, n_copParams))
-      if(any(proposedcopPs< -1) || any(proposedcopPs> 1)) proposedcopPs = MC_chain[i-1, (ncol(MC_chain)-n_copParams):(ncol(MC_chain)-1)]
+      if(any(proposedcopPs< -1) || any(proposedcopPs> 1)){
+        MC_chain[i, (ncol(MC_chain)-n_copParams):(ncol(MC_chain)-1)]<- MC_chain[i-1, (ncol(MC_chain)-n_copParams):(ncol(MC_chain)-1)]
+      }else{
 
       #priorcurrentcopPs<- dgamma(MC_chain[i-1, ncol(MC_chain)], shape = 1, rate = 0.001, log=TRUE)
       #priorproposedcopPs<- dgamma(proposedcopPs, shape = 1, rate = 0.001, log=TRUE)
@@ -2226,7 +2240,11 @@ FinalCPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_it
       #proposalproposedcop<- dnorm(proposedcopPs, mean=log(MC_chain[i-1, ncol(MC_chain)]), sd=rep(0.7, n_copparams), log = T) + exp(proposedcopPs)
 
       #copulaTPM<- JointTransitionMatrix_copula(G(MC_chain[i, 1],MC_chain[i, 2]), K=nstrain, exp(proposedcopPs))
-      JointTPM<- JointTransitionMatrix_copula_cpp(G(MC_chain[i, 1],MC_chain[i, 2]), K=nstrain, proposedcopPs)
+      if(nstrain>3){
+        JointTPM<- ParallelJointTransitionMatrix_copula(G(MC_chain[i, 1],MC_chain[i, 2]), K=nstrain, proposedcopPs)
+      }else{
+        JointTPM<- JointTransitionMatrix_copula(G(MC_chain[i, 1],MC_chain[i, 2]), K=nstrain, proposedcopPs)
+      }
       JointTPM<- ifelse(JointTPM<=0,1e-6,JointTPM)
       JointTPM<- ifelse(JointTPM>=1,1-1e-6,JointTPM)
 
@@ -2247,6 +2265,7 @@ FinalCPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_it
       }
       else{
         MC_chain[i, (ncol(MC_chain)-n_copParams):(ncol(MC_chain)-1)]<- MC_chain[i-1, (ncol(MC_chain)-n_copParams):(ncol(MC_chain)-1)]
+        }
       }
     }
     MC_chain[i, ncol(MC_chain)]<- stationarydist(G(MC_chain[i, 1], MC_chain[i, 2]))[2]

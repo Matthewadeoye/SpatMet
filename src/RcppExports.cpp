@@ -3,6 +3,7 @@
 
 #include <RcppArmadillo.h>
 #include <RcppEigen.h>
+#include <RcppThread.h>
 #include <Rcpp.h>
 
 using namespace Rcpp;
@@ -12,6 +13,107 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
+// intPower2
+int intPower2(int a, int b);
+RcppExport SEXP _SpatMet_intPower2(SEXP aSEXP, SEXP bSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< int >::type a(aSEXP);
+    Rcpp::traits::input_parameter< int >::type b(bSEXP);
+    rcpp_result_gen = Rcpp::wrap(intPower2(a, b));
+    return rcpp_result_gen;
+END_RCPP
+}
+// build_corr_from_params_cpp
+arma::mat build_corr_from_params_cpp(int d, const arma::vec& params);
+RcppExport SEXP _SpatMet_build_corr_from_params_cpp(SEXP dSEXP, SEXP paramsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< int >::type d(dSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type params(paramsSEXP);
+    rcpp_result_gen = Rcpp::wrap(build_corr_from_params_cpp(d, params));
+    return rcpp_result_gen;
+END_RCPP
+}
+// gaussian_copula_cdf_cpp
+double gaussian_copula_cdf_cpp(const arma::vec& u, const arma::mat& corrMat);
+RcppExport SEXP _SpatMet_gaussian_copula_cdf_cpp(SEXP uSEXP, SEXP corrMatSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::vec& >::type u(uSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type corrMat(corrMatSEXP);
+    rcpp_result_gen = Rcpp::wrap(gaussian_copula_cdf_cpp(u, corrMat));
+    return rcpp_result_gen;
+END_RCPP
+}
+// JointTransitionMatrix_copula_cpp
+arma::mat JointTransitionMatrix_copula_cpp(const arma::mat& gamma, int K, const arma::vec& copParams);
+RcppExport SEXP _SpatMet_JointTransitionMatrix_copula_cpp(SEXP gammaSEXP, SEXP KSEXP, SEXP copParamsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type gamma(gammaSEXP);
+    Rcpp::traits::input_parameter< int >::type K(KSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type copParams(copParamsSEXP);
+    rcpp_result_gen = Rcpp::wrap(JointTransitionMatrix_copula_cpp(gamma, K, copParams));
+    return rcpp_result_gen;
+END_RCPP
+}
+// pmvnorm_cpp
+double pmvnorm_cpp(arma::vec const& x, arma::vec const& mean, arma::mat const& Sigma, double abseps);
+RcppExport SEXP _SpatMet_pmvnorm_cpp(SEXP xSEXP, SEXP meanSEXP, SEXP SigmaSEXP, SEXP absepsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::vec const& >::type x(xSEXP);
+    Rcpp::traits::input_parameter< arma::vec const& >::type mean(meanSEXP);
+    Rcpp::traits::input_parameter< arma::mat const& >::type Sigma(SigmaSEXP);
+    Rcpp::traits::input_parameter< double >::type abseps(absepsSEXP);
+    rcpp_result_gen = Rcpp::wrap(pmvnorm_cpp(x, mean, Sigma, abseps));
+    return rcpp_result_gen;
+END_RCPP
+}
+// gaussian_copula_cdf_cpp2
+double gaussian_copula_cdf_cpp2(const arma::vec& u, const arma::mat& corrMat);
+RcppExport SEXP _SpatMet_gaussian_copula_cdf_cpp2(SEXP uSEXP, SEXP corrMatSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::vec& >::type u(uSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type corrMat(corrMatSEXP);
+    rcpp_result_gen = Rcpp::wrap(gaussian_copula_cdf_cpp2(u, corrMat));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ParallelJointTransitionMatrix_copula_cpp
+arma::mat ParallelJointTransitionMatrix_copula_cpp(const arma::mat& gamma, int K, const arma::vec& copParams);
+RcppExport SEXP _SpatMet_ParallelJointTransitionMatrix_copula_cpp(SEXP gammaSEXP, SEXP KSEXP, SEXP copParamsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type gamma(gammaSEXP);
+    Rcpp::traits::input_parameter< int >::type K(KSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type copParams(copParamsSEXP);
+    rcpp_result_gen = Rcpp::wrap(ParallelJointTransitionMatrix_copula_cpp(gamma, K, copParams));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ParallelJointTransitionMatrix_copula_cpp2
+arma::mat ParallelJointTransitionMatrix_copula_cpp2(const arma::mat& gamma, int K, const arma::vec& copParams);
+RcppExport SEXP _SpatMet_ParallelJointTransitionMatrix_copula_cpp2(SEXP gammaSEXP, SEXP KSEXP, SEXP copParamsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type gamma(gammaSEXP);
+    Rcpp::traits::input_parameter< int >::type K(KSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type copParams(copParamsSEXP);
+    rcpp_result_gen = Rcpp::wrap(ParallelJointTransitionMatrix_copula_cpp2(gamma, K, copParams));
+    return rcpp_result_gen;
+END_RCPP
+}
 // logSumExp_cpp
 double logSumExp_cpp(NumericVector x);
 RcppExport SEXP _SpatMet_logSumExp_cpp(SEXP xSEXP) {
@@ -681,45 +783,16 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// build_corr_from_params_cpp
-arma::mat build_corr_from_params_cpp(int d, const arma::vec& params);
-RcppExport SEXP _SpatMet_build_corr_from_params_cpp(SEXP dSEXP, SEXP paramsSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< int >::type d(dSEXP);
-    Rcpp::traits::input_parameter< const arma::vec& >::type params(paramsSEXP);
-    rcpp_result_gen = Rcpp::wrap(build_corr_from_params_cpp(d, params));
-    return rcpp_result_gen;
-END_RCPP
-}
-// gaussian_copula_cdf_cpp
-double gaussian_copula_cdf_cpp(const arma::vec& u, const arma::vec& copParams);
-RcppExport SEXP _SpatMet_gaussian_copula_cdf_cpp(SEXP uSEXP, SEXP copParamsSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const arma::vec& >::type u(uSEXP);
-    Rcpp::traits::input_parameter< const arma::vec& >::type copParams(copParamsSEXP);
-    rcpp_result_gen = Rcpp::wrap(gaussian_copula_cdf_cpp(u, copParams));
-    return rcpp_result_gen;
-END_RCPP
-}
-// JointTransitionMatrix_copula_cpp
-arma::mat JointTransitionMatrix_copula_cpp(const arma::mat& gamma, int K, const arma::vec& copParams);
-RcppExport SEXP _SpatMet_JointTransitionMatrix_copula_cpp(SEXP gammaSEXP, SEXP KSEXP, SEXP copParamsSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const arma::mat& >::type gamma(gammaSEXP);
-    Rcpp::traits::input_parameter< int >::type K(KSEXP);
-    Rcpp::traits::input_parameter< const arma::vec& >::type copParams(copParamsSEXP);
-    rcpp_result_gen = Rcpp::wrap(JointTransitionMatrix_copula_cpp(gamma, K, copParams));
-    return rcpp_result_gen;
-END_RCPP
-}
 
 static const R_CallMethodDef CallEntries[] = {
+    {"_SpatMet_intPower2", (DL_FUNC) &_SpatMet_intPower2, 2},
+    {"_SpatMet_build_corr_from_params_cpp", (DL_FUNC) &_SpatMet_build_corr_from_params_cpp, 2},
+    {"_SpatMet_gaussian_copula_cdf_cpp", (DL_FUNC) &_SpatMet_gaussian_copula_cdf_cpp, 2},
+    {"_SpatMet_JointTransitionMatrix_copula_cpp", (DL_FUNC) &_SpatMet_JointTransitionMatrix_copula_cpp, 3},
+    {"_SpatMet_pmvnorm_cpp", (DL_FUNC) &_SpatMet_pmvnorm_cpp, 4},
+    {"_SpatMet_gaussian_copula_cdf_cpp2", (DL_FUNC) &_SpatMet_gaussian_copula_cdf_cpp2, 2},
+    {"_SpatMet_ParallelJointTransitionMatrix_copula_cpp", (DL_FUNC) &_SpatMet_ParallelJointTransitionMatrix_copula_cpp, 3},
+    {"_SpatMet_ParallelJointTransitionMatrix_copula_cpp2", (DL_FUNC) &_SpatMet_ParallelJointTransitionMatrix_copula_cpp2, 3},
     {"_SpatMet_logSumExp_cpp", (DL_FUNC) &_SpatMet_logSumExp_cpp, 1},
     {"_SpatMet_logSumExp_cpp2", (DL_FUNC) &_SpatMet_logSumExp_cpp2, 1},
     {"_SpatMet_intPower", (DL_FUNC) &_SpatMet_intPower, 2},
@@ -766,9 +839,6 @@ static const R_CallMethodDef CallEntries[] = {
     {"_SpatMet_copulagradmultstrainLoglikelihood2_cpp", (DL_FUNC) &_SpatMet_copulagradmultstrainLoglikelihood2_cpp, 14},
     {"_SpatMet_FFBSgradmultstrainLoglikelihood2_cpp", (DL_FUNC) &_SpatMet_FFBSgradmultstrainLoglikelihood2_cpp, 14},
     {"_SpatMet_MMALA_cpp", (DL_FUNC) &_SpatMet_MMALA_cpp, 15},
-    {"_SpatMet_build_corr_from_params_cpp", (DL_FUNC) &_SpatMet_build_corr_from_params_cpp, 2},
-    {"_SpatMet_gaussian_copula_cdf_cpp", (DL_FUNC) &_SpatMet_gaussian_copula_cdf_cpp, 2},
-    {"_SpatMet_JointTransitionMatrix_copula_cpp", (DL_FUNC) &_SpatMet_JointTransitionMatrix_copula_cpp, 3},
     {NULL, NULL, 0}
 };
 
