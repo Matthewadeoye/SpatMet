@@ -2048,7 +2048,7 @@ FinalCPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_it
   if(nstrain>3){
     JointTPM<- ParallelJointTransitionMatrix_copula(G(MC_chain[1,1],MC_chain[1,2]), nstrain, MC_chain[1,(ncol(MC_chain)-n_copParams):(ncol(MC_chain)-1)])
   }else{
-    JointTPM<- JointTransitionMatrix_copula(G(MC_chain[1,1],MC_chain[1,2]), nstrain, MC_chain[1,(ncol(MC_chain)-n_copParams):(ncol(MC_chain)-1)])
+    JointTPM<- JointTransitionMatrix_copula_cpp(G(MC_chain[1,1],MC_chain[1,2]), nstrain, MC_chain[1,(ncol(MC_chain)-n_copParams):(ncol(MC_chain)-1)])
   }
   JointTPM<- ifelse(JointTPM<=0,1e-6,JointTPM)
   JointTPM<- ifelse(JointTPM>=1,1-1e-6,JointTPM)
@@ -2085,7 +2085,7 @@ FinalCPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_it
     if(nstrain>3){
       JointTPM<- ParallelJointTransitionMatrix_copula(G(MC_chain[i-1,1],MC_chain[i-1,2]), nstrain, MC_chain[i-1, (ncol(MC_chain)-n_copParams):(ncol(MC_chain)-1)])
     }else{
-      JointTPM<- JointTransitionMatrix_copula(G(MC_chain[i-1,1],MC_chain[i-1,2]), nstrain, MC_chain[i-1, (ncol(MC_chain)-n_copParams):(ncol(MC_chain)-1)])
+      JointTPM<- JointTransitionMatrix_copula_cpp(G(MC_chain[i-1,1],MC_chain[i-1,2]), nstrain, MC_chain[i-1, (ncol(MC_chain)-n_copParams):(ncol(MC_chain)-1)])
     }
     JointTPM<- ifelse(JointTPM<=0,1e-6,JointTPM)
     JointTPM<- ifelse(JointTPM>=1,1-1e-6,JointTPM)
@@ -2203,7 +2203,7 @@ FinalCPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_it
       if(nstrain>3){
         JointTPM<- ParallelJointTransitionMatrix_copula(G(proposedGs[1],proposedGs[2]), nstrain, MC_chain[i-1, (ncol(MC_chain)-n_copParams):(ncol(MC_chain)-1)])
       }else{
-        JointTPM<- JointTransitionMatrix_copula(G(proposedGs[1],proposedGs[2]), nstrain, MC_chain[i-1, (ncol(MC_chain)-n_copParams):(ncol(MC_chain)-1)])
+        JointTPM<- JointTransitionMatrix_copula_cpp(G(proposedGs[1],proposedGs[2]), nstrain, MC_chain[i-1, (ncol(MC_chain)-n_copParams):(ncol(MC_chain)-1)])
       }
       JointTPM<- ifelse(JointTPM<=0,1e-6,JointTPM)
       JointTPM<- ifelse(JointTPM>=1,1-1e-6,JointTPM)
@@ -2243,7 +2243,7 @@ FinalCPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_it
       if(nstrain>3){
         JointTPM<- ParallelJointTransitionMatrix_copula(G(MC_chain[i, 1],MC_chain[i, 2]), K=nstrain, proposedcopPs)
       }else{
-        JointTPM<- JointTransitionMatrix_copula(G(MC_chain[i, 1],MC_chain[i, 2]), K=nstrain, proposedcopPs)
+        JointTPM<- JointTransitionMatrix_copula_cpp(G(MC_chain[i, 1],MC_chain[i, 2]), K=nstrain, proposedcopPs)
       }
       JointTPM<- ifelse(JointTPM<=0,1e-6,JointTPM)
       JointTPM<- ifelse(JointTPM>=1,1-1e-6,JointTPM)
