@@ -907,58 +907,6 @@ ParallelJointTransitionMatrix_copula<- function(gamma, K, copulaParams){
   return(Gamma)
 }
 
-#Dependence modelling with copula, assuming the same TPM for all strains
-ParallelJointTransitionMatrix_copula2<- function(gamma, K, copulaParams){
-  S<- 2^K
-  cop<- copula::normalCopula(param = copulaParams, dim = K, dispstr = "un")
-
-  gamma[1, ]<- gamma[1, ][2:1]
-
-  ncores <- parallel::detectCores() - 1
-  cl <- parallel::makeCluster(ncores)
-  doParallel::registerDoParallel(cl)
-
-  Gamma <- matrix(0, nrow = S, ncol = S)
-  library(foreach)
-  Gamma_rows <- foreach::foreach(a = 0:(S - 1), .combine = rbind,
-                                 .packages = c("sets", "copula")) %dopar% {
-
-                                   row_vals <- numeric(S)
-                                   for (b in 0:(S - 1)) {
-                                     Indices <- c()
-                                     IndicesComplement <- c()
-                                     prob <- numeric(K)
-                                     for (k in 1:K) {
-                                       from_k <- (a %/% 2^(k - 1)) %% 2
-                                       to_k   <- (b %/% 2^(k - 1)) %% 2
-                                       if (from_k == 1) {
-                                         Indices <- c(Indices, k)
-                                       } else {
-                                         IndicesComplement <- c(IndicesComplement, k)
-                                       }
-                                       prob[k] <- gamma[from_k + 1, to_k + 1]
-                                     }
-                                     subsets <- sets::set_power(sets::as.set(IndicesComplement))
-                                     subsets <- lapply(subsets, function(g) unlist(as.vector(g)))
-
-                                     total <- 0
-                                     for (Tset in subsets) {
-                                       sign <- (-1)^length(Tset)
-                                       idx <- c(Indices, Tset)
-                                       u <- rep(1, K)
-                                       if (length(idx) > 0) u[idx] <- prob[idx]
-                                       total <- total + sign * copula::pCopula(u, cop)
-                                     }
-                                     row_vals[b + 1] <- total
-                                   }
-                                   row_vals
-                                 }
-  Gamma <- Gamma_rows
-  parallel::stopCluster(cl)
-  Gamma <- Gamma / rowSums(Gamma)
-  return(Gamma)
-}
-
 #Dependence modelling with copula, assuming the same TPM for all strains - Vine
 JointTransitionMatrix_copula_vine <- function(gamma, K, copulaParams){
   S <- 2^K
@@ -973,7 +921,7 @@ JointTransitionMatrix_copula_vine <- function(gamma, K, copulaParams){
     n_edges <- K - t
     pclist[[t]] <- lapply(1:n_edges, function(i) {
       rho <- corrMat[t, t+i]
-      bicop_dist('gaussian', parameters = rho)
+      rvinecopulib::bicop_dist('gaussian', parameters = rho)
     })
   }
   vcop <- rvinecopulib::vinecop_dist(pclist, struct)
