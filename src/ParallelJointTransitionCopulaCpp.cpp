@@ -4,9 +4,6 @@
 #include <mvtnormAPI.h>
 #include <cmath>
 #include <algorithm>
-#include <unordered_map>
-#include <sstream>
-#include <iomanip>
 
 // [[Rcpp::depends(RcppArmadillo)]]
 // [[Rcpp::depends(RcppThread)]]
@@ -332,87 +329,3 @@ arma::mat ParallelJointTransitionMatrix_copula_cpp2(const arma::mat& gamma,
   }
   return GammaMat;
 }
-
-
-
-static std::unordered_map<std::string, double> cdf_cache;
-
-inline std::string vec_to_key(const arma::vec& u) {
-  std::ostringstream oss;
-  oss << std::setprecision(17);
-  for (size_t i = 0; i < u.n_elem; i++) {
-    if (i > 0) oss << "_";
-    oss << u(i);
-  }
-  return oss.str();
-}
-
-double gaussian_copula_cdf_cached_cpp(const arma::vec& u, const arma::mat& corrMat) {
-  std::string key = vec_to_key(u);
-  auto it = cdf_cache.find(key);
-  if (it != cdf_cache.end())
-    return it->second;
-
-  double val = gaussian_copula_cdf_cpp(u, corrMat);
-  cdf_cache[key] = val;
-  return val;
-}
-
-
-// [[Rcpp::export]]
-arma::mat JointTransitionMatrix_copula_cpp2(const arma::mat& gamma,
-                                           int K,
-                                           const arma::vec& copParams){
-
-  arma::mat corrMat = build_corr_from_params_cpp(K, copParams);
-  int S = intPower2(2, K);
-  arma::mat GammaMat(S, S, arma::fill::zeros);
-
-  arma::mat gamma2 = gamma;
-  gamma2(0,0) = gamma(0,1);
-  gamma2(0,1) = gamma(0,0);
-
-  for (int a = 0; a < S; a++) {
-    for (int b = 0; b < S; b++) {
-
-      std::vector<int> Ones;
-      std::vector<int> Zeros;
-      arma::vec prob(K);
-
-      for (int k = 0; k < K; k++) {
-        int from_k = (a >> k) & 1;
-        int to_k   = (b >> k) & 1;
-
-        if (from_k == 1) Ones.push_back(k);
-        else Zeros.push_back(k);
-
-        prob(k) = gamma2(from_k, to_k);
-      }
-
-      // subsets
-      std::vector<std::vector<int>> subsets;
-      std::vector<int> cur;
-      generate_subsets(Zeros, 0, cur, subsets);
-
-      double total = 0.0;
-
-      for (auto& Tset : subsets) {
-        int sign = (Tset.size() % 2 == 0 ? 1 : -1);
-
-        arma::vec u(K, arma::fill::ones);
-        for (int idx : Ones) u(idx) = prob(idx);
-        for (int idx : Tset) u(idx) = prob(idx);
-
-        total += sign * gaussian_copula_cdf_cached_cpp(u, corrMat);
-      }
-      GammaMat(a,b) = total;
-    }
-  }
-
-  for (int i = 0; i < S; i++) {
-    double s = arma::accu(GammaMat.row(i));
-    GammaMat.row(i) /= s;
-  }
-  return GammaMat;
-}
-

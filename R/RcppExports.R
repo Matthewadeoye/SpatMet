@@ -33,10 +33,6 @@ ParallelJointTransitionMatrix_copula_cpp2 <- function(gamma, K, copParams) {
     .Call(`_SpatMet_ParallelJointTransitionMatrix_copula_cpp2`, gamma, K, copParams)
 }
 
-JointTransitionMatrix_copula_cpp2 <- function(gamma, K, copParams) {
-    .Call(`_SpatMet_JointTransitionMatrix_copula_cpp2`, gamma, K, copParams)
-}
-
 logSumExp_cpp <- function(x) {
     .Call(`_SpatMet_logSumExp_cpp`, x)
 }
