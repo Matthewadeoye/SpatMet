@@ -852,6 +852,136 @@ JointTransitionMatrix_copula<- function(gamma, K, copulaParams){
 
 
 #Dependence modelling with copula, assuming the same TPM for all strains
+JointTransitionMatrix_copula2<- function(gamma, K, copulaParams){
+
+  gaussian_copula_cdf_cached <- memoise::memoise(gaussian_copula_cdf)
+
+  S <- 2^K
+  corrMat <- diag(K)
+  uppertriang <- copulaParams
+  gdata::upperTriangle(corrMat, byrow=TRUE) <- uppertriang
+  gdata::lowerTriangle(corrMat, byrow=FALSE) <- uppertriang
+
+  gamma[1, ] <- gamma[1, ][2:1]
+
+  Gamma <- matrix(0, S, S)
+
+  for(a in 0:(S-1)) {
+    for(b in 0:(S-1)) {
+      Indices <- integer(0)
+      IndicesComplement <- integer(0)
+      prob <- numeric(K)
+
+      for(k in 1:K){
+        from_k <- (a %/% 2^(k-1)) %% 2
+        to_k   <- (b %/% 2^(k-1)) %% 2
+
+        if(from_k == 1) Indices <- c(Indices,k)
+        else IndicesComplement <- c(IndicesComplement,k)
+
+        prob[k] <- gamma[from_k+1, to_k+1]
+      }
+
+      subsets <- sets::set_power(sets::as.set(IndicesComplement))
+      subsets <- lapply(subsets, function(g) unlist(as.vector(g)))
+
+      total <- 0
+      for(Tset in subsets){
+        sign <- (-1)^length(Tset)
+        idx <- c(Indices, Tset)
+        u <- rep(1, K)
+        if(length(idx)>0) u[idx] <- prob[idx]
+
+        total <- total + sign * gaussian_copula_cdf_cached(u, corrMat)
+      }
+      Gamma[a+1, b+1] <- total
+    }
+  }
+  Gamma <- Gamma / rowSums(Gamma)
+  Gamma
+}
+
+JointTransitionMatrix_copula3 <- function(gamma, K, copulaParams){
+
+  S <- 2^K
+
+  # Build corr matrix
+  corrMat <- diag(K)
+  uppertriang <- copulaParams
+  gdata::upperTriangle(corrMat, byrow = TRUE)  <- uppertriang
+  gdata::lowerTriangle(corrMat, byrow = FALSE) <- uppertriang
+
+  # Flip first row
+  gamma[1, ] <- gamma[1, ][2:1]
+
+  # ---- PRECOMPUTE ALL POSSIBLE u VECTORS ---- #
+
+  probVals <- unique(as.numeric(gamma))
+  allVals <- c(probVals, 1)
+
+  library(data.table)
+
+  # must set sorted = FALSE for list inputs
+  u_space <- as.matrix(
+    CJ(rep(list(allVals), K), sorted = FALSE)
+  )
+
+  u_keys <- apply(u_space, 1, paste, collapse = "_")
+
+  u_cdf_values <- sapply(
+    1:nrow(u_space),
+    function(i) gaussian_copula_cdf(u_space[i,], corrMat)
+  )
+
+  cdf_lookup <- setNames(u_cdf_values, u_keys)
+  # ---- MAIN LOOP ---- #
+
+  Gamma <- matrix(0, S, S)
+
+  for(a in 0:(S - 1)) {
+    for(b in 0:(S - 1)) {
+
+      Indices <- integer(0)
+      IndicesComplement <- integer(0)
+      prob <- numeric(K)
+
+      # extract binary indices and probabilities
+      for(k in 1:K){
+        from_k <- (a %/% 2^(k-1)) %% 2
+        to_k   <- (b %/% 2^(k-1)) %% 2
+
+        if(from_k == 1) Indices <- c(Indices, k)
+        else IndicesComplement <- c(IndicesComplement, k)
+
+        prob[k] <- gamma[from_k + 1, to_k + 1]
+      }
+
+      subsets <- sets::set_power(sets::as.set(IndicesComplement))
+      subsets <- lapply(subsets, function(g) unlist(as.vector(g)))
+
+      total <- 0
+
+      for(Tset in subsets){
+        sign <- (-1)^length(Tset)
+        idx  <- c(Indices, Tset)
+
+        u <- rep(1, K)
+        if(length(idx) > 0) u[idx] <- prob[idx]
+
+        key <- paste(u, collapse = "_")
+        total <- total + sign * cdf_lookup[[key]]
+      }
+
+      Gamma[a + 1, b + 1] <- total
+    }
+  }
+
+  Gamma / rowSums(Gamma)
+}
+
+
+
+#Dependence modelling with copula, assuming the same TPM for all strains
 ParallelJointTransitionMatrix_copula<- function(gamma, K, copulaParams){
   S<- 2^K
   corrMat<- diag(K)

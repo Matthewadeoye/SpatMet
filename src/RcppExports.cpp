@@ -114,6 +114,19 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// JointTransitionMatrix_copula_cpp2
+arma::mat JointTransitionMatrix_copula_cpp2(const arma::mat& gamma, int K, const arma::vec& copParams);
+RcppExport SEXP _SpatMet_JointTransitionMatrix_copula_cpp2(SEXP gammaSEXP, SEXP KSEXP, SEXP copParamsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type gamma(gammaSEXP);
+    Rcpp::traits::input_parameter< int >::type K(KSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type copParams(copParamsSEXP);
+    rcpp_result_gen = Rcpp::wrap(JointTransitionMatrix_copula_cpp2(gamma, K, copParams));
+    return rcpp_result_gen;
+END_RCPP
+}
 // logSumExp_cpp
 double logSumExp_cpp(NumericVector x);
 RcppExport SEXP _SpatMet_logSumExp_cpp(SEXP xSEXP) {
@@ -793,6 +806,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_SpatMet_gaussian_copula_cdf_cpp2", (DL_FUNC) &_SpatMet_gaussian_copula_cdf_cpp2, 2},
     {"_SpatMet_ParallelJointTransitionMatrix_copula_cpp", (DL_FUNC) &_SpatMet_ParallelJointTransitionMatrix_copula_cpp, 3},
     {"_SpatMet_ParallelJointTransitionMatrix_copula_cpp2", (DL_FUNC) &_SpatMet_ParallelJointTransitionMatrix_copula_cpp2, 3},
+    {"_SpatMet_JointTransitionMatrix_copula_cpp2", (DL_FUNC) &_SpatMet_JointTransitionMatrix_copula_cpp2, 3},
     {"_SpatMet_logSumExp_cpp", (DL_FUNC) &_SpatMet_logSumExp_cpp, 1},
     {"_SpatMet_logSumExp_cpp2", (DL_FUNC) &_SpatMet_logSumExp_cpp2, 1},
     {"_SpatMet_intPower", (DL_FUNC) &_SpatMet_intPower, 2},
