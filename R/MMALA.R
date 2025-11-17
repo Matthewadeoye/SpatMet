@@ -2190,7 +2190,8 @@ FinalCPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_it
 
       proposedcopPs<- rnorm(n_copParams, mean=MC_chain[i-1, (ncol(MC_chain)-n_copParams):(ncol(MC_chain)-1)], sd=rep(sdCops, n_copParams))
 
-      JointTPM1<- JointTransitionMatrix_copula_cpp2(G(proposedGs[1],proposedGs[2]), nstrain, proposedcopPs)
+      Gmat<- G(proposedGs[1],proposedGs[2])
+      JointTPM1<- JointTransitionMatrix_copula_cpp2(Gmat, nstrain, proposedcopPs)
       JointTPM1<- ifelse(JointTPM1<=0,1e-6,JointTPM1)
       JointTPM1<- ifelse(JointTPM1>=1,1-1e-6,JointTPM1)
 
