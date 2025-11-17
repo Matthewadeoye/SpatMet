@@ -2048,6 +2048,7 @@ FinalCPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_it
   JointTPM<- JointTransitionMatrix_copula_cpp(G(MC_chain[1,1],MC_chain[1,2]), nstrain, MC_chain[1,(ncol(MC_chain)-n_copParams):(ncol(MC_chain)-1)])
   JointTPM<- ifelse(JointTPM<=0,1e-6,JointTPM)
   JointTPM<- ifelse(JointTPM>=1,1-1e-6,JointTPM)
+  JointTPM1<- JointTPM
 
   Allquantities<- FFBSgradmultstrainLoglikelihood2_cpp(y=y, e_it=e_it, nstrain=nstrain,  r=MC_chain[1, 5+(1:time)], s=MC_chain[1, 5+time+(1:12)], u=MC_chain[1, 5+time+12+(1:ndept)], Gamma=JointTPM, B=MC_chain[1, 5+time+12+ndept+(1:nstrain)], Bits=Bits, a_k=MC_chain[1, 5+time+12+ndept+nstrain+(1:nstrain)], Model=Model,Q_r=Q_r,Q_s = Q_s,Q_u=Q_u)
   likelihoodcurrent<- Allquantities$loglike
@@ -2182,8 +2183,9 @@ FinalCPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_it
       }
 
       proposedGs<- abs(rnorm(2,mean=c(MC_chain[i-1,1], MC_chain[i-1, 2]), sd=c(sdGs, sdGs)))
-      if(proposedGs[1]>1) proposedGs[1]=2-proposedGs[1]
-      if(proposedGs[2]>1) proposedGs[2]=2-proposedGs[2]
+      if(any(proposedGs> 1)) proposedGs<- MC_chain[i-1,1:2]
+      #if(proposedGs[1]>1) proposedGs[1]=2-proposedGs[1]
+      #if(proposedGs[2]>1) proposedGs[2]=2-proposedGs[2]
 
       priorcurrentGs<- sum(dbeta(MC_chain[i-1,1:2], shape1 = c(2,2), shape2 = c(2,2), log=TRUE))
       priorproposedGs<- sum(dbeta(proposedGs, shape1 = c(2,2), shape2 = c(2,2), log=TRUE))
@@ -2198,6 +2200,7 @@ FinalCPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_it
         }
         JointTPM<- ifelse(JointTPM<=0,1e-6,JointTPM)
         JointTPM<- ifelse(JointTPM>=1,1-1e-6,JointTPM)
+        if(all(!is.finite(JointTPM))) JointTPM<- JointTPM1
 
         Allquantities<- copulagradmultstrainLoglikelihood2_cpp(y=y, e_it=e_it, nstrain=nstrain,  r=MC_chain[i, 5+(1:time)], s=MC_chain[i, 5+time+(1:12)], u=MC_chain[i, 5+time+12+(1:ndept)], Gamma=JointTPM, B=MC_chain[i, 5+time+12+ndept+(1:nstrain)], Bits=Bits, a_k=MC_chain[i-1, 5+time+12+ndept+nstrain+(1:nstrain)], Model=Model,Q_r=Q_r,Q_s = Q_s,Q_u=Q_u)
         grad_proposed <- list(grad_r=as.numeric(Allquantities$grad_r), grad_s=as.numeric(Allquantities$grad_s), grad_u=as.numeric(Allquantities$grad_u), cov_r=Allquantities$cov_r, cov_s=Allquantities$cov_s)
@@ -2213,6 +2216,7 @@ FinalCPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_it
           MC_chain[i, (ncol(MC_chain)-n_copParams):(ncol(MC_chain)-1)]<- proposedcopPs
           likelihoodcurrent<- likelihoodproposed
           grad_current<- grad_proposed
+          JointTPM1<- JointTPM
         }
         else{
           MC_chain[i, 1:2]<- MC_chain[i-1,1:2]
