@@ -98,8 +98,8 @@ double gaussian_copula_cdf_cpp(const arma::vec& u,
 // [[Rcpp::export]]
 double Memoisegaussian_copula_cdf_cpp(const arma::vec& u,
                                       const arma::mat& corrMat){
-  // Get memoised function from global environment
-  Environment env = Environment::global_env();
+  // Get memoised function from namespace
+  Environment env = Environment::namespace_env("SpatMet");
   Function f = env["Memoisegaussian_copula_cdf"];
 
   // Call memoised function
