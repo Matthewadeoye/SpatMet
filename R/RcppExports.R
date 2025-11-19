@@ -13,8 +13,36 @@ gaussian_copula_cdf_cpp <- function(u, corrMat) {
     .Call(`_SpatMet_gaussian_copula_cdf_cpp`, u, corrMat)
 }
 
+Memoisegaussian_copula_cdf_cpp <- function(u, corrMat) {
+    .Call(`_SpatMet_Memoisegaussian_copula_cdf_cpp`, u, corrMat)
+}
+
+JointTransitionMatrix_arma_cpp2 <- function(gamma, K) {
+    .Call(`_SpatMet_JointTransitionMatrix_arma_cpp2`, gamma, K)
+}
+
+JointTransitionMatrix_per_strain_cpp2 <- function(gamma_list, K) {
+    .Call(`_SpatMet_JointTransitionMatrix_per_strain_cpp2`, gamma_list, K)
+}
+
+JointTransitionMatrix_copula_perstrain_cpp <- function(gamma_list, K, copParams) {
+    .Call(`_SpatMet_JointTransitionMatrix_copula_perstrain_cpp`, gamma_list, K, copParams)
+}
+
 JointTransitionMatrix_copula_cpp <- function(gamma, K, copParams) {
     .Call(`_SpatMet_JointTransitionMatrix_copula_cpp`, gamma, K, copParams)
+}
+
+makematrix_arma_cpp2 <- function(g12, g21) {
+    .Call(`_SpatMet_makematrix_arma_cpp2`, g12, g21)
+}
+
+BuildGamma_list_cpp <- function(Gs) {
+    .Call(`_SpatMet_BuildGamma_list_cpp`, Gs)
+}
+
+Multipurpose_JointTransitionMatrix_cpp <- function(gammas, K, copParams, Modeltype) {
+    .Call(`_SpatMet_Multipurpose_JointTransitionMatrix_cpp`, gammas, K, copParams, Modeltype)
 }
 
 pmvnorm_cpp <- function(x, mean, Sigma, abseps = 1e-3) {

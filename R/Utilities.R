@@ -802,6 +802,8 @@ gaussian_copula_cdf <- function(u,  corrMat) {
   mvtnorm::pmvnorm(lower = rep(-Inf, length(u)), upper = q, sigma =  corrMat)
 }
 
+Memoisegaussian_copula_cdf<- memoise::memoise(gaussian_copula_cdf_cpp)
+assign("Memoisegaussian_copula_cdf", Memoisegaussian_copula_cdf, envir = globalenv())
 
 #Dependence modelling with copula, assuming the same TPM for all strains
 JointTransitionMatrix_copula<- function(gamma, K, copulaParams){
@@ -1157,7 +1159,7 @@ Multstrain.simulate<- function(Model, time, nstrain=2, adj.matrix, Modeltype=1, 
     JointTPM<- JointTransitionMatrix_per_strain(matlist)
   }else if(Modeltype == 3){
     JointTPM<- ParallelJointTransitionMatrix_copula(T.prob, K=nstrain, copulaParam)
-    #JointTPM<- ParallelJointTransitionMatrix_copula(T.prob, K=nstrain, c(0.4,0.3,-0.2,-0.3,-0.5,0.5,0.03,-0.2,-0.3,-0.05))
+    #JointTPM<- ParallelJointTransitionMatrix_copula(G(0.1,0.2), K=5, c(0.7,-0.7,0.6,-0.8,-0.6,0.7,-0.5,-0.8,0.6,-0.7))
     JointTPM<- ifelse(JointTPM<=0,1e-6,JointTPM)
     JointTPM<- ifelse(JointTPM>=1,1-1e-6,JointTPM)
   }else if(Modeltype == 4){

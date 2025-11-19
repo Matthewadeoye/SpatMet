@@ -96,6 +96,116 @@ double gaussian_copula_cdf_cpp(const arma::vec& u,
 }
 
 // [[Rcpp::export]]
+double Memoisegaussian_copula_cdf_cpp(const arma::vec& u,
+                                      const arma::mat& corrMat){
+  // Get memoised function from global environment
+  Environment env = Environment::global_env();
+  Function f = env["Memoisegaussian_copula_cdf"];
+
+  // Call memoised function
+  return as<double>(
+    f(_["u"] = u, _["corrMat"] = corrMat)
+  );
+}
+
+// [[Rcpp::export]]
+arma::mat JointTransitionMatrix_arma_cpp2(arma::mat gamma, int K) {
+  int S = intPower2(2, K);
+  arma::mat jointGamma(S, S, arma::fill::zeros);
+  for (int a = 0; a < S; ++a) {
+    for (int b = 0; b < S; ++b) {
+      double prob = 1.0;
+      for (int k = 0; k < K; ++k) {
+        int from_k = (a / intPower2(2, k)) % 2;
+        int to_k   = (b / intPower2(2, k)) % 2;
+        prob *= gamma(from_k, to_k);
+      }
+      jointGamma(a, b) = prob;
+    }
+  }
+  return jointGamma;
+}
+
+// [[Rcpp::export]]
+arma::mat JointTransitionMatrix_per_strain_cpp2(List gamma_list, int K) {
+  int S = intPower2(2, K);
+  arma::mat jointGamma(S, S, arma::fill::zeros);
+  for (int a = 0; a < S; ++a) {
+    for (int b = 0; b < S; ++b) {
+      double prob = 1.0;
+      for (int k = 0; k < K; ++k) {
+        int from_k = (a / intPower2(2, k)) % 2;
+        int to_k   = (b / intPower2(2, k)) % 2;
+        arma::mat currentGamma = gamma_list[k];
+        prob *= currentGamma(from_k, to_k);
+      }
+      jointGamma(a, b) = prob;
+    }
+  }
+  return jointGamma;
+}
+
+// [[Rcpp::export]]
+arma::mat JointTransitionMatrix_copula_perstrain_cpp(List gamma_list,
+                                           int K,
+                                           const arma::vec& copParams){
+  arma::mat corrMat = build_corr_from_params_cpp(K, copParams);
+  int S = intPower2(2, K);
+  arma::mat GammaMat(S, S, arma::fill::zeros);
+
+
+
+  for (int a = 0; a < S; a++) {
+    for (int b = 0; b < S; b++) {
+
+      std::vector<int> Ones;
+      std::vector<int> Zeros;
+      arma::vec prob(K);
+
+      for (int k = 0; k < K; k++) {
+        arma::mat gamma = gamma_list[k];
+        arma::mat gamma2 = gamma;
+        gamma2(0,0) = gamma(0, 1);
+        gamma2(0,1) = gamma(0, 0);
+        int from_k = (a >> k) & 1;
+        int to_k   = (b >> k) & 1;
+
+        if (from_k == 1)
+          Ones.push_back(k);
+        else
+          Zeros.push_back(k);
+
+        prob(k) = gamma2(from_k, to_k);
+      }
+
+      // power set of zeros
+      std::vector< std::vector<int> > subsets;
+      std::vector<int> cur;
+      generate_subsets(Zeros, 0, cur, subsets);
+
+      double total = 0.0;
+
+      for (auto& Tset : subsets) {
+        int sign = (Tset.size() % 2 == 0 ? 1 : -1);
+
+        arma::vec u(K, arma::fill::ones);
+        for (int idx : Ones) u(idx) = prob(idx);
+        for (int idx : Tset) u(idx) = prob(idx);
+
+        total += sign *  Memoisegaussian_copula_cdf_cpp(u, corrMat);
+      }
+      GammaMat(a,b) = total;
+    }
+  }
+
+  for (int i = 0; i < S; i++) {
+    double s = arma::accu(GammaMat.row(i));
+    GammaMat.row(i) /= s;
+  }
+  return GammaMat;
+}
+
+// [[Rcpp::export]]
 arma::mat JointTransitionMatrix_copula_cpp(const arma::mat& gamma,
                                            int K,
                                            const arma::vec& copParams){
@@ -140,7 +250,7 @@ arma::mat JointTransitionMatrix_copula_cpp(const arma::mat& gamma,
         for (int idx : Ones) u(idx) = prob(idx);
         for (int idx : Tset) u(idx) = prob(idx);
 
-        total += sign * gaussian_copula_cdf_cpp(u, corrMat);
+        total += sign *  Memoisegaussian_copula_cdf_cpp(u, corrMat);
       }
       GammaMat(a,b) = total;
     }
@@ -153,6 +263,54 @@ arma::mat JointTransitionMatrix_copula_cpp(const arma::mat& gamma,
   return GammaMat;
 }
 
+
+// [[Rcpp::export]]
+arma::mat makematrix_arma_cpp2(double g12, double g21){
+  arma::mat Gmat(2, 2, arma::fill::zeros);
+  Gmat(0, 0) = 1 - g12;
+  Gmat(0, 1) = g12;
+  Gmat(1, 0) = g21;
+  Gmat(1, 1) = 1 - g21;
+  return Gmat;
+}
+
+// [[Rcpp::export]]
+Rcpp::List BuildGamma_list_cpp(const arma::vec& Gs) {
+  int n_mat = Gs.n_elem / 2;
+  Rcpp::List out(n_mat);
+
+  int index = 0;
+  for (int i = 0; i < n_mat; i++) {
+    double a = Gs[i + index];
+    double b = Gs[i + index + 1];
+
+    out[i] = makematrix_arma_cpp2(a, b);
+    index += 1;
+  }
+  return out;
+}
+
+// [[Rcpp::export]]
+arma::mat Multipurpose_JointTransitionMatrix_cpp(const arma::vec& gammas,
+                                           int K,
+                                           const arma::vec& copParams, int Modeltype){
+  int nstate = intPower2(2, K);
+  arma::mat JointTPM(nstate, nstate, arma::fill::zeros);
+  if(Modeltype == 1){
+    arma::mat Gmat = makematrix_arma_cpp2(gammas(0), gammas(1));
+    JointTPM = JointTransitionMatrix_arma_cpp2(Gmat, K);
+  }else if(Modeltype == 2){
+    List Glist = BuildGamma_list_cpp(gammas);
+    JointTPM = JointTransitionMatrix_per_strain_cpp2(Glist, K);
+  }else if(Modeltype == 3){
+    arma::mat Gmat = makematrix_arma_cpp2(gammas(0), gammas(1));
+    JointTPM = JointTransitionMatrix_copula_cpp(Gmat, K, copParams);
+  }else if(Modeltype == 4){
+    List Glist = BuildGamma_list_cpp(gammas);
+    JointTPM = JointTransitionMatrix_copula_perstrain_cpp(Glist, K, copParams);
+  }
+  return JointTPM;
+}
 
 
 // [[Rcpp::export]]
