@@ -1991,7 +1991,6 @@ FFBS_INFERENCE<- function(y, e_it, Modeltype, adjmat, step_sizes, num_iteration 
   nstrain<- dim(y)[3]
   nstate<- 2^nstrain
   Bits<- encodeBits(nstrain)
-  n_copParams<- (nstrain*(nstrain-1))/2
 
   R<- -1 * adjmat
   diag(R)<- -rowSums(R, na.rm = T)
@@ -2040,16 +2039,11 @@ FFBS_INFERENCE<- function(y, e_it, Modeltype, adjmat, step_sizes, num_iteration 
   initstateD<- stationarydist(initGs)[ncol(initGs)]
 
   Model<- ifelse(Modeltype>0,1,0)
-
-  if(Modeltype %in% c(0,1,2,5)){
-    n_copParams<- 0
-  }else if(Modeltype %in% c(3,4)){
-    n_copParams<- nstrain * (nstrain-1)/2
-  }
+  n_copParams<- ifelse(Modeltype %in% c(0,1,2,5),0,nstrain * (nstrain-1)/2)
 
   if(Modeltype %in% c(0,1,3)){
     num_Gammas<- 2
-    MC_chain<- matrix(NA, nrow=num_iteration, ncol=5+time+12+ndept+nstrain+nstrain+n_copParams)
+    MC_chain<- matrix(NA, nrow=num_iteration, ncol=num_Gammas+3+time+12+ndept+nstrain+nstrain+n_copParams)
     MC_chain[1,]<- c(runif(num_Gammas), 1/var(crudeR), 1/var(crudeS), 1/var(crudeU), crudeR, crudeS[crudeblock-12], crudeU, rep(0, nstrain), rep(mean(crudeResults[[1]]), nstrain), rep(0, n_copParams))
   }else if(Modeltype %in% c(2,4)){
     num_Gammas<- 2 * nstrain
@@ -2066,8 +2060,10 @@ FFBS_INFERENCE<- function(y, e_it, Modeltype, adjmat, step_sizes, num_iteration 
   Q_u<- MC_chain[1,num_Gammas + 3] * R
 
   #Compute gradients
-  if(Modeltype %in% c(1,2,3,4)){
-    JointTPM<- Multipurpose_JointTransitionMatrix_cpp(MC_chain[1,1:num_Gammas], nstrain, MC_chain[1,num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:n_copParams)], Modeltype)
+  if(Modeltype %in% c(1,2)){
+    JointTPM<- Multipurpose_JointTransitionMatrix_cpp(MC_chain[1,1:num_Gammas], nstrain, MC_chain[1,num_Gammas+3+time+12+ndept+nstrain+nstrain], Modeltype)
+  }else if(Modeltype %in% c(3,4)){
+    JointTPM<- Multipurpose_JointTransitionMatrix(MC_chain[1,1:num_Gammas], nstrain, MC_chain[1,num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:n_copParams)], Modeltype)
     JointTPM<- ifelse(JointTPM<=0,1e-6,JointTPM)
     JointTPM<- ifelse(JointTPM>=1,1-1e-6,JointTPM)
     if(any(!is.finite(JointTPM))) JointTPM<- initGs
@@ -2251,7 +2247,7 @@ FFBS_INFERENCE<- function(y, e_it, Modeltype, adjmat, step_sizes, num_iteration 
 
       proposedcopPs<- rnorm(n_copParams, mean=MC_chain[i-1, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:n_copParams)], sd=rep(sdCops, n_copParams))
 
-      JointTPM1<- Multipurpose_JointTransitionMatrix_cpp(proposedGs, nstrain, proposedcopPs, Modeltype)
+      JointTPM1<- Multipurpose_JointTransitionMatrix(proposedGs, nstrain, proposedcopPs, Modeltype)
 
       JointTPM1<- ifelse(JointTPM1<=0,1e-6,JointTPM1)
       JointTPM1<- ifelse(JointTPM1>=1,1-1e-6,JointTPM1)

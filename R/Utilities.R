@@ -865,8 +865,8 @@ JointTransitionMatrix_copula<- function(gamma, K, copulaParams){
 }
 
 #Dependence modelling with copula, assuming the same TPM for all strains
-VectorizedJointTransitionMatrix_copula<- function(gamma, K, copulaParams) {
-  gaussian_copula_cdf_cached <- memoise::memoise(gaussian_copula_cdf)
+VectorizedJointTransitionMatrix_copula<- function(gamma, K, copulaParams){
+  gaussian_copula_cdf_cached <- memoise::memoise(gaussian_copula_cdf_cpp)
   S <- 2^K
 
   states <- matrix(0, nrow=S, ncol=K)
@@ -880,7 +880,6 @@ VectorizedJointTransitionMatrix_copula<- function(gamma, K, copulaParams) {
 
   gamma[1, ] <- gamma[1, ][2:1]
   Gamma_rows <- matrix(0, nrow=S, ncol=S)
-
   for (a in 0:(S - 1)) {
     from_vec <- states[a+1, ]
     row_vals <- numeric(S)
@@ -890,16 +889,13 @@ VectorizedJointTransitionMatrix_copula<- function(gamma, K, copulaParams) {
 
       Indices<- which(from_vec == 1)
       IndicesComplement<- which(from_vec == 0)
-
       m <- length(IndicesComplement)
       M <- 2^m
 
       total <- 0
-
       # Pre-allocate U matrix
       U <- matrix(1, nrow=M, ncol=K)
       U[, Indices] <- rep(prob[Indices], each=M)
-
       for (i in 0:(M-1)) {
         bits <- as.logical(intToBits(i)[1:m])
         idx  <- IndicesComplement[bits]
@@ -916,6 +912,75 @@ VectorizedJointTransitionMatrix_copula<- function(gamma, K, copulaParams) {
   Gamma <- Gamma / rowSums(Gamma)
   return(Gamma)
 }
+
+
+#Dependence modelling with copula, assuming different TPM for all strains
+VectorizedJointTransitionMatrix_copula_per_strain<- function(gamma_list, K, copulaParams){
+  gaussian_copula_cdf_cached <- memoise::memoise(gaussian_copula_cdf_cpp)
+  S <- 2^K
+
+  states <- matrix(0, nrow = S, ncol = K)
+  for (k in 1:K)
+    states[, k] <- (0:(S - 1) %/% 2^(k - 1)) %% 2
+
+  corrMat <- diag(K)
+  gdata::upperTriangle(corrMat, byrow = TRUE)  <- copulaParams
+  gdata::lowerTriangle(corrMat, byrow = FALSE) <- copulaParams
+
+  Gamma_rows <- matrix(0, nrow = S, ncol = S)
+  for (a in 0:(S - 1)) {
+    from_vec <- states[a + 1, ]
+    row_vals <- numeric(S)
+    for (b in 0:(S - 1)) {
+      to_vec <- states[b + 1, ]
+      prob <- numeric(K)
+      for (k in 1:K) {
+        gamma_k<- gamma_list[[k]]
+        gamma_k[1, ] <- gamma_k[1, ][2:1]
+        prob[k] <- gamma_k[from_vec[k] + 1, to_vec[k] + 1]
+      }
+      Indices<- which(from_vec == 1)
+      IndicesComplement<- which(from_vec == 0)
+      m <- length(IndicesComplement)
+      M <- 2^m
+
+      total <- 0
+      U <- matrix(1, nrow = M, ncol = K)
+      if (length(Indices) > 0)
+        U[, Indices] <- rep(prob[Indices], each = M)
+      for (i in 0:(M - 1)) {
+        bits <- as.logical(intToBits(i)[1:m])
+        idx  <- IndicesComplement[bits]
+        if (length(idx) > 0)
+          U[i + 1, idx] <- prob[idx]
+        sign  <- (-1)^sum(bits)
+        total <- total + sign * gaussian_copula_cdf_cached(U[i + 1, ], corrMat)
+      }
+      row_vals[b + 1] <- total
+    }
+    Gamma_rows[a + 1, ] <- row_vals
+  }
+  Gamma <- Gamma_rows
+  Gamma <- Gamma / rowSums(Gamma)
+  return(Gamma)
+}
+
+Multipurpose_JointTransitionMatrix<- function(gammas, K, copParams, Modeltype){
+  nstate<- 2^K
+  if(Modeltype==1){
+    JointTPM<- JointTransitionMatrix_arma_cpp2(G(gammas[1], gammas[2]), K)
+  }else if(Modeltype==2){
+    Glist<- BuildGamma_list_cpp(gammas)
+    JointTPM<- JointTransitionMatrix_per_strain_cpp2(Glist, K)
+  }else if(Modeltype==3){
+    JointTPM<- VectorizedJointTransitionMatrix_copula(G(gammas[1], gammas[2]), K, copParams)
+  }else if(Modeltype==4){
+    Glist<- BuildGamma_list_cpp(gammas)
+    JointTPM<- VectorizedJointTransitionMatrix_copula_per_strain(Glist, K, copParams)
+  }
+  return(JointTPM)
+}
+
 
 
 #Dependence modelling with copula, assuming the same TPM for all strains
