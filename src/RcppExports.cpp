@@ -820,9 +820,9 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// FFBSgradmultstrainLoglikelihood2_cpp
-List FFBSgradmultstrainLoglikelihood2_cpp(arma::cube y, arma::mat e_it, int nstrain, arma::vec r, arma::vec s, arma::vec u, arma::mat Gamma, arma::vec B, arma::mat Bits, arma::vec a_k, int Model, arma::mat Q_r, arma::mat Q_s, arma::mat Q_u);
-RcppExport SEXP _SpatMet_FFBSgradmultstrainLoglikelihood2_cpp(SEXP ySEXP, SEXP e_itSEXP, SEXP nstrainSEXP, SEXP rSEXP, SEXP sSEXP, SEXP uSEXP, SEXP GammaSEXP, SEXP BSEXP, SEXP BitsSEXP, SEXP a_kSEXP, SEXP ModelSEXP, SEXP Q_rSEXP, SEXP Q_sSEXP, SEXP Q_uSEXP) {
+// FFBSgradmultstrainLoglikelihood_cpp
+List FFBSgradmultstrainLoglikelihood_cpp(arma::cube y, arma::mat e_it, int nstrain, arma::vec r, arma::vec s, arma::vec u, arma::mat jointTPM, arma::vec B, arma::mat Bits, arma::vec a_k, int Model, arma::mat Q_r, arma::mat Q_s, arma::mat Q_u, int gradients);
+RcppExport SEXP _SpatMet_FFBSgradmultstrainLoglikelihood_cpp(SEXP ySEXP, SEXP e_itSEXP, SEXP nstrainSEXP, SEXP rSEXP, SEXP sSEXP, SEXP uSEXP, SEXP jointTPMSEXP, SEXP BSEXP, SEXP BitsSEXP, SEXP a_kSEXP, SEXP ModelSEXP, SEXP Q_rSEXP, SEXP Q_sSEXP, SEXP Q_uSEXP, SEXP gradientsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -832,7 +832,7 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< arma::vec >::type r(rSEXP);
     Rcpp::traits::input_parameter< arma::vec >::type s(sSEXP);
     Rcpp::traits::input_parameter< arma::vec >::type u(uSEXP);
-    Rcpp::traits::input_parameter< arma::mat >::type Gamma(GammaSEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type jointTPM(jointTPMSEXP);
     Rcpp::traits::input_parameter< arma::vec >::type B(BSEXP);
     Rcpp::traits::input_parameter< arma::mat >::type Bits(BitsSEXP);
     Rcpp::traits::input_parameter< arma::vec >::type a_k(a_kSEXP);
@@ -840,7 +840,33 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< arma::mat >::type Q_r(Q_rSEXP);
     Rcpp::traits::input_parameter< arma::mat >::type Q_s(Q_sSEXP);
     Rcpp::traits::input_parameter< arma::mat >::type Q_u(Q_uSEXP);
-    rcpp_result_gen = Rcpp::wrap(FFBSgradmultstrainLoglikelihood2_cpp(y, e_it, nstrain, r, s, u, Gamma, B, Bits, a_k, Model, Q_r, Q_s, Q_u));
+    Rcpp::traits::input_parameter< int >::type gradients(gradientsSEXP);
+    rcpp_result_gen = Rcpp::wrap(FFBSgradmultstrainLoglikelihood_cpp(y, e_it, nstrain, r, s, u, jointTPM, B, Bits, a_k, Model, Q_r, Q_s, Q_u, gradients));
+    return rcpp_result_gen;
+END_RCPP
+}
+// SMOOTHINGgradmultstrainLoglikelihood_cpp
+List SMOOTHINGgradmultstrainLoglikelihood_cpp(arma::cube y, arma::mat e_it, int nstrain, arma::vec r, arma::vec s, arma::vec u, arma::mat jointTPM, arma::vec B, arma::mat Bits, arma::vec a_k, int Model, arma::mat Q_r, arma::mat Q_s, arma::mat Q_u, int gradients);
+RcppExport SEXP _SpatMet_SMOOTHINGgradmultstrainLoglikelihood_cpp(SEXP ySEXP, SEXP e_itSEXP, SEXP nstrainSEXP, SEXP rSEXP, SEXP sSEXP, SEXP uSEXP, SEXP jointTPMSEXP, SEXP BSEXP, SEXP BitsSEXP, SEXP a_kSEXP, SEXP ModelSEXP, SEXP Q_rSEXP, SEXP Q_sSEXP, SEXP Q_uSEXP, SEXP gradientsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::cube >::type y(ySEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type e_it(e_itSEXP);
+    Rcpp::traits::input_parameter< int >::type nstrain(nstrainSEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type r(rSEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type s(sSEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type u(uSEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type jointTPM(jointTPMSEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type B(BSEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type Bits(BitsSEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type a_k(a_kSEXP);
+    Rcpp::traits::input_parameter< int >::type Model(ModelSEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type Q_r(Q_rSEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type Q_s(Q_sSEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type Q_u(Q_uSEXP);
+    Rcpp::traits::input_parameter< int >::type gradients(gradientsSEXP);
+    rcpp_result_gen = Rcpp::wrap(SMOOTHINGgradmultstrainLoglikelihood_cpp(y, e_it, nstrain, r, s, u, jointTPM, B, Bits, a_k, Model, Q_r, Q_s, Q_u, gradients));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -930,7 +956,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_SpatMet_perstraingradmultstrainLoglikelihood2_cpp", (DL_FUNC) &_SpatMet_perstraingradmultstrainLoglikelihood2_cpp, 14},
     {"_SpatMet_dependentgradmultstrainLoglikelihood2_cpp", (DL_FUNC) &_SpatMet_dependentgradmultstrainLoglikelihood2_cpp, 15},
     {"_SpatMet_copulagradmultstrainLoglikelihood2_cpp", (DL_FUNC) &_SpatMet_copulagradmultstrainLoglikelihood2_cpp, 14},
-    {"_SpatMet_FFBSgradmultstrainLoglikelihood2_cpp", (DL_FUNC) &_SpatMet_FFBSgradmultstrainLoglikelihood2_cpp, 14},
+    {"_SpatMet_FFBSgradmultstrainLoglikelihood_cpp", (DL_FUNC) &_SpatMet_FFBSgradmultstrainLoglikelihood_cpp, 15},
+    {"_SpatMet_SMOOTHINGgradmultstrainLoglikelihood_cpp", (DL_FUNC) &_SpatMet_SMOOTHINGgradmultstrainLoglikelihood_cpp, 15},
     {"_SpatMet_MMALA_cpp", (DL_FUNC) &_SpatMet_MMALA_cpp, 15},
     {NULL, NULL, 0}
 };

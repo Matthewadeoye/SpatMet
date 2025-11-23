@@ -886,6 +886,73 @@ RecoverInfUABG.plot <- function(inf.object, true_u, true_a_k, true_B, true_G,
              horiz = TRUE, bty = 'n', cex = 1.5)
 }
 
+
+#Copula parameters plot
+RecoverInfcopula.plot <- function(all.infobjects, true_copParams, burn.in = 100){
+  library(ggplot2)
+  library(cowplot)
+
+  n_c <- length(true_copParams)
+
+  n <- (sqrt(8*n_c + 1) - 1)/2
+
+  c_labels <- list()
+  k <- 1
+  for (i in 1:n) {
+    for (j in i:n) {
+      c_labels[[k]] <- bquote(rho[.(i) * .(j+1)])
+      k <- k + 1
+    }
+  }
+
+  AllFigs<- list()
+
+  for(r in 1:2){
+    inf.object<- all.infobjects[[r]]
+  if (!is.data.frame(inf.object)) {
+    fullc.draws <- as.data.frame(inf.object$draws(variables = "copParams")[, 1, ])
+  } else {
+    fullc.draws <- inf.object[-(1:burn.in), startsWith(colnames(inf.object), "co")]
+  }
+
+  # thinning every 10
+  thinning <- seq(10, nrow(fullc.draws), by = 10)
+  c.draws  <- fullc.draws[thinning, , drop = FALSE]
+
+  copulaP <- data.frame(
+    value = as.vector(as.matrix(c.draws)),
+    group = factor(rep(paste0("c", 1:n_c), each = nrow(c.draws)))
+  )
+
+  rfig_c <- ggplot(copulaP, aes(x = group, y = value, fill = group)) +
+    geom_violin(trim = FALSE, alpha = 0.7) +
+    geom_point(data = data.frame(x = factor(paste0("c", 1:n_c), levels = levels(copulaP$group)),
+                                 y = true_copParams),
+               aes(x = x, y = y),
+               size = 2, shape = 19, inherit.aes = FALSE) +
+    ylim(-1.1, 1.1) +
+    labs(x = "Copula parameter", y = "Value", fill = "") +
+    theme_minimal() +
+    scale_fill_manual(values = rep("purple", n_c)) +
+    scale_x_discrete(labels = c_labels) +
+    theme(axis.title = element_text(size = 17),
+          axis.text = element_text(size = 16),
+          legend.position = "none")
+
+  AllFigs[[r]]<- rfig_c
+}
+
+print(cowplot::plot_grid(plotlist = AllFigs, ncol = 2,
+                         labels = c("A", "B"),
+                          label_size = 17))
+
+  # Legends
+  add_legend(0.85, 1.15, legend = "Truth",
+             pch = 19, col = "black",
+             horiz = TRUE, bty = 'n', cex = 1.8)
+}
+
+
 #RecoverInfG2.plot <- function(inf.object, true_G, nstrain,
 #                                 Modeltype = "", burn.in = 100) {
 #  library(ggplot2)

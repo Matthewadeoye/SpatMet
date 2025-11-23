@@ -1224,14 +1224,16 @@ Multstrain.simulate<- function(Model, time, nstrain=2, adj.matrix, Modeltype=1, 
 
   if(Modeltype == 1){
     copulaParam<- 0
+    T.prob<- c(T.prob[1,2],T.prob[2,1])
     JointTPM<- Multipurpose_JointTransitionMatrix_cpp(T.prob, nstrain, copulaParam, Modeltype)
   }else if(Modeltype == 2){
     copulaParam<- 0
     T.prob<- runif(2*nstrain, min = 0.1, max = 0.2)
     JointTPM<- Multipurpose_JointTransitionMatrix_cpp(T.prob, nstrain, copulaParam, Modeltype)
   }else if(Modeltype == 3){
+    T.prob<- c(T.prob[1,2],T.prob[2,1])
     JointTPM<- Multipurpose_JointTransitionMatrix_cpp(T.prob, nstrain, copulaParam, Modeltype)
-    #JointTPM<- ParallelJointTransitionMatrix_copula(G(0.1,0.2), K=5, c(0.7,-0.7,0.6,-0.8,-0.6,0.7,-0.5,-0.8,0.6,-0.7))
+    #JointTPM<- ParallelJointTransitionMatrix_copula(G(0.1,0.2), K=5, c(0.8,-0.85,0.9,-0.8,-0.86,0.87,-0.85,-0.8,0.8,-0.87))
     JointTPM<- ifelse(JointTPM<=0,1e-6,JointTPM)
     JointTPM<- ifelse(JointTPM>=1,1-1e-6,JointTPM)
   }else if(Modeltype == 4){

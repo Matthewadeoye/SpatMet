@@ -237,8 +237,12 @@ copulagradmultstrainLoglikelihood2_cpp <- function(y, e_it, nstrain, r, s, u, Ga
     .Call(`_SpatMet_copulagradmultstrainLoglikelihood2_cpp`, y, e_it, nstrain, r, s, u, Gamma, B, Bits, a_k, Model, Q_r, Q_s, Q_u)
 }
 
-FFBSgradmultstrainLoglikelihood2_cpp <- function(y, e_it, nstrain, r, s, u, Gamma, B, Bits, a_k, Model, Q_r, Q_s, Q_u) {
-    .Call(`_SpatMet_FFBSgradmultstrainLoglikelihood2_cpp`, y, e_it, nstrain, r, s, u, Gamma, B, Bits, a_k, Model, Q_r, Q_s, Q_u)
+FFBSgradmultstrainLoglikelihood_cpp <- function(y, e_it, nstrain, r, s, u, jointTPM, B, Bits, a_k, Model, Q_r, Q_s, Q_u, gradients) {
+    .Call(`_SpatMet_FFBSgradmultstrainLoglikelihood_cpp`, y, e_it, nstrain, r, s, u, jointTPM, B, Bits, a_k, Model, Q_r, Q_s, Q_u, gradients)
+}
+
+SMOOTHINGgradmultstrainLoglikelihood_cpp <- function(y, e_it, nstrain, r, s, u, jointTPM, B, Bits, a_k, Model, Q_r, Q_s, Q_u, gradients) {
+    .Call(`_SpatMet_SMOOTHINGgradmultstrainLoglikelihood_cpp`, y, e_it, nstrain, r, s, u, jointTPM, B, Bits, a_k, Model, Q_r, Q_s, Q_u, gradients)
 }
 
 MMALA_cpp <- function(y, e_it, Model, Bits, CrudeR, CrudeS, CrudeU, RW2PrecMat, RW1PrecMat, Ru, rankdef, independentChains, num_iteration, meanR, step_sizes) {
