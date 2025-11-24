@@ -2248,17 +2248,20 @@ FFBS_INFERENCE<- function(y, e_it, Modeltype, adjmat, step_sizes, num_iteration 
     }else if(Modeltype %in% c(3,4)){
       ##############################################################################################
 
-      proposedGammaCopula<- mvnfast::rmvn(1, mu = c(abs(MC_chain[i-1,1:num_Gammas]),MC_chain[i-1, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:n_copParams)]), sigma = zigmaGammaCopula)
+      proposedGammaCopula<- mvnfast::rmvn(1, mu = c(MC_chain[i-1,1:num_Gammas],MC_chain[i-1, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:n_copParams)]), sigma = zigmaGammaCopula)
 
       proposalproposedGammaCopula<- mvnfast::dmvn(c(proposedGammaCopula[1:num_Gammas],proposedGammaCopula[num_Gammas+(1:n_copParams)]),
-                                                  mu = c(abs(MC_chain[i-1,1:num_Gammas]),MC_chain[i-1, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:n_copParams)]),
+                                                  mu = c(MC_chain[i-1,1:num_Gammas],MC_chain[i-1, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:n_copParams)]),
                                                   sigma = zigmaGammaCopula, log = TRUE)
-      proposalcurrentGammaCopula<- mvnfast::dmvn(c(abs(MC_chain[i-1,1:num_Gammas]),MC_chain[i-1, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:n_copParams)]),
+      proposalcurrentGammaCopula<- mvnfast::dmvn(c(MC_chain[i-1,1:num_Gammas],MC_chain[i-1, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:n_copParams)]),
                                                  mu = c(proposedGammaCopula[1:num_Gammas],proposedGammaCopula[num_Gammas+(1:n_copParams)]),
                                                  sigma = zigmaGammaCopula, log = TRUE)
 
       priorcurrentGs<- sum(dbeta(MC_chain[i-1,1:num_Gammas], shape1 = rep(2,num_Gammas), shape2 = rep(2,num_Gammas), log=TRUE))
       priorproposedGs<- sum(dbeta(proposedGammaCopula[1:num_Gammas], shape1 = rep(2,num_Gammas), shape2 = rep(2,num_Gammas), log=TRUE))
+
+      priorcurrentCops<- sum(dunif(MC_chain[i-1, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:n_copParams)], min = rep(-1, n_copParams), max = rep(1, n_copParams), log=TRUE))
+      priorproposedCops<- sum(dunif(proposedGammaCopula[num_Gammas+(1:n_copParams)], min = rep(-1, n_copParams), max = rep(1, n_copParams), log=TRUE))
 
       ##############################################################################################
 
@@ -2277,8 +2280,8 @@ FFBS_INFERENCE<- function(y, e_it, Modeltype, adjmat, step_sizes, num_iteration 
 
         likelihoodproposed<- Allquantities$loglike
 
-        mh.ratioGC<- exp(likelihoodproposed + priorproposedGs + proposalcurrentGammaCopula
-                         - likelihoodcurrent - priorcurrentGs - proposalproposedGammaCopula)
+        mh.ratioGC<- exp(likelihoodproposed + priorproposedGs + proposalcurrentGammaCopula + priorproposedCops
+                         - likelihoodcurrent - priorcurrentGs - proposalproposedGammaCopula - priorcurrentCops)
 
         #print(mh.ratioGC)
 
@@ -2295,13 +2298,13 @@ FFBS_INFERENCE<- function(y, e_it, Modeltype, adjmat, step_sizes, num_iteration 
         }
       }
       #Adapting zigmaGammaCopula
-      if(i==100){
+      if(i==5){
         epsilonGC<- 0.007
         XnGC<- cbind(MC_chain[1:i, 1:num_Gammas], MC_chain[1:i, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:n_copParams)])
         XnbarGC <- colMeans(XnGC)
         zigmaGammaCopula <- cov(XnGC) + epsilonGC*diag(zigDim)
         zigmaGammaCopula<- optconstantGammaCopula * zigmaGammaCopula
-      } else if (i > 100){
+      } else if (i > 5){
         XnbarPrevGC <- XnbarGC
         currentGC<- c(MC_chain[i, 1:num_Gammas], MC_chain[i, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:n_copParams)])
         XnbarGC <- (i*XnbarGC + currentGC)/(i+1)
@@ -2577,13 +2580,13 @@ SMOOTHING_INFERENCE<- function(y, e_it, Modeltype, adjmat, step_sizes, num_itera
     priorproposedUcomps<- logIGMRF1(proposedUcomps, MC_chain[i, num_Gammas+3], R, rankdef)
     priorcurrentUcomps<- logIGMRF1(MC_chain[i-1, num_Gammas+3+time+12+(1:ndept)], MC_chain[i, num_Gammas+3], R, rankdef)
 
-    proposalcurrentAks <- sum(dgamma(exp(MC_chain[i-1, 5+time+12+ndept+nstrain+(1:nstrain)]),
-                                     shape=propShape, rate=propRate, log=TRUE) + MC_chain[i-1, 5+time+12+ndept+nstrain+(1:nstrain)]) #Jacobian
+    proposalcurrentAks <- sum(dgamma(exp(MC_chain[i-1, num_Gammas+3+time+12+ndept+nstrain+(1:nstrain)]),
+                                     shape=propShape, rate=propRate, log=TRUE) + MC_chain[i-1, num_Gammas+3+time+12+ndept+nstrain+(1:nstrain)]) #Jacobian
     proposalproposedAks <- sum(dgamma(exp(proposedAks),
                                       shape=propShape, rate=propRate, log=TRUE) + proposedAks)  #Jacobian
 
-    priorcurrentAks <- sum(dgamma(exp(MC_chain[i-1, 5+time+12+ndept+nstrain+(1:nstrain)]),
-                                  shape=0.01, rate=0.01/exp(-15), log=TRUE) + MC_chain[i-1, 5+time+12+ndept+nstrain+(1:nstrain)])
+    priorcurrentAks <- sum(dgamma(exp(MC_chain[i-1, num_Gammas+3+time+12+ndept+nstrain+(1:nstrain)]),
+                                  shape=0.01, rate=0.01/exp(-15), log=TRUE) + MC_chain[i-1, num_Gammas+3+time+12+ndept+nstrain+(1:nstrain)])
     priorproposedAks <- sum(dgamma(exp(proposedAks),
                                    shape=0.01, rate=0.01/exp(-15), log=TRUE) +  proposedAks)
 
@@ -2660,17 +2663,20 @@ SMOOTHING_INFERENCE<- function(y, e_it, Modeltype, adjmat, step_sizes, num_itera
         }
       }else if(Modeltype %in% c(3,4)){
 
-        proposedGammaCopula<- mvnfast::rmvn(1, mu = c(abs(MC_chain[i-1,1:num_Gammas]),MC_chain[i-1, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:n_copParams)]), sigma = zigmaGammaCopula)
+        proposedGammaCopula<- mvnfast::rmvn(1, mu = c(MC_chain[i-1,1:num_Gammas],MC_chain[i-1, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:n_copParams)]), sigma = zigmaGammaCopula)
 
         proposalproposedGammaCopula<- mvnfast::dmvn(c(proposedGammaCopula[1:num_Gammas],proposedGammaCopula[num_Gammas+(1:n_copParams)]),
-                                                    mu = c(abs(MC_chain[i-1,1:num_Gammas]),MC_chain[i-1, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:n_copParams)]),
+                                                    mu = c(MC_chain[i-1,1:num_Gammas],MC_chain[i-1, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:n_copParams)]),
                                                     sigma = zigmaGammaCopula, log = TRUE)
-        proposalcurrentGammaCopula<- mvnfast::dmvn(c(abs(MC_chain[i-1,1:num_Gammas]),MC_chain[i-1, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:n_copParams)]),
+        proposalcurrentGammaCopula<- mvnfast::dmvn(c(MC_chain[i-1,1:num_Gammas],MC_chain[i-1, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:n_copParams)]),
                                                    mu = c(proposedGammaCopula[1:num_Gammas],proposedGammaCopula[num_Gammas+(1:n_copParams)]),
                                                    sigma = zigmaGammaCopula, log = TRUE)
 
         priorcurrentGs<- sum(dbeta(MC_chain[i-1,1:num_Gammas], shape1 = rep(2,num_Gammas), shape2 = rep(2,num_Gammas), log=TRUE))
         priorproposedGs<- sum(dbeta(proposedGammaCopula[1:num_Gammas], shape1 = rep(2,num_Gammas), shape2 = rep(2,num_Gammas), log=TRUE))
+
+        priorcurrentCops<- sum(dunif(MC_chain[i-1, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:n_copParams)], min = rep(-1, n_copParams), max = rep(1, n_copParams), log=TRUE))
+        priorproposedCops<- sum(dunif(proposedGammaCopula[num_Gammas+(1:n_copParams)], min = rep(-1, n_copParams), max = rep(1, n_copParams), log=TRUE))
 
         JointTPM1<- Multipurpose_JointTransitionMatrix(proposedGammaCopula[1:num_Gammas], nstrain, proposedGammaCopula[num_Gammas+(1:n_copParams)], Modeltype)
 
@@ -2687,8 +2693,8 @@ SMOOTHING_INFERENCE<- function(y, e_it, Modeltype, adjmat, step_sizes, num_itera
 
           likelihoodproposed<- Allquantities$loglike
 
-          mh.ratioGC<- exp(likelihoodproposed + priorproposedGs + proposalcurrentGammaCopula
-                         - likelihoodcurrent - priorcurrentGs - proposalproposedGammaCopula)
+          mh.ratioGC<- exp(likelihoodproposed + priorproposedGs + proposalcurrentGammaCopula + priorproposedCops
+                         - likelihoodcurrent - priorcurrentGs - proposalproposedGammaCopula - priorcurrentCops)
 
           #print(mh.ratioGC)
 
@@ -2705,13 +2711,13 @@ SMOOTHING_INFERENCE<- function(y, e_it, Modeltype, adjmat, step_sizes, num_itera
           }
         }
         #Adapting zigmaGammaCopula
-        if(i==100){
+        if(i==5){
           epsilonGC<- 0.007
           XnGC<- cbind(MC_chain[1:i, 1:num_Gammas], MC_chain[1:i, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:n_copParams)])
           XnbarGC <- colMeans(XnGC)
           zigmaGammaCopula <- cov(XnGC) + epsilonGC*diag(zigDim)
           zigmaGammaCopula<- optconstantGammaCopula * zigmaGammaCopula
-        } else if (i > 100){
+        } else if (i > 5){
           XnbarPrevGC <- XnbarGC
           currentGC<- c(MC_chain[i, 1:num_Gammas], MC_chain[i, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:n_copParams)])
           XnbarGC <- (i*XnbarGC + currentGC)/(i+1)
