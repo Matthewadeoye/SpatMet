@@ -913,7 +913,6 @@ VectorizedJointTransitionMatrix_copula<- function(gamma, K, copulaParams){
   return(Gamma)
 }
 
-
 #Dependence modelling with copula, assuming different TPM for all strains
 VectorizedJointTransitionMatrix_copula_per_strain<- function(gamma_list, K, copulaParams){
   gaussian_copula_cdf_cached <- memoise::memoise(gaussian_copula_cdf_cpp)
@@ -981,6 +980,107 @@ Multipurpose_JointTransitionMatrix<- function(gammas, K, copParams, Modeltype){
   return(JointTPM)
 }
 
+
+#Dependence modelling with Frank copula, assuming the same TPM for all strains
+FrankJointTransitionMatrix_copula<- function(gamma, K, copulaParams){
+  cop<- copula::frankCopula(param = copulaParams, dim = K, use.indepC = FALSE)
+
+  S <- 2^K
+
+  gamma[1, ] <- gamma[1, ][2:1]
+  Gamma <- matrix(0, S, S)
+
+  for(a in 0:(S-1)) {
+    for(b in 0:(S-1)) {
+      Indices <- integer(0)
+      IndicesComplement <- integer(0)
+      prob <- numeric(K)
+
+      for(k in 1:K){
+        from_k <- (a %/% 2^(k-1)) %% 2
+        to_k<- (b %/% 2^(k-1)) %% 2
+
+        if(from_k == 1) Indices <- c(Indices,k)
+        else IndicesComplement <- c(IndicesComplement,k)
+
+        prob[k] <- gamma[from_k+1, to_k+1]
+      }
+
+      subsets <- sets::set_power(sets::as.set(IndicesComplement))
+      subsets <- lapply(subsets, function(g) unlist(as.vector(g)))
+
+      total <- 0
+      for(Tset in subsets){
+        sign <- (-1)^length(Tset)
+        idx <- c(Indices, Tset)
+        u <- rep(1, K)
+        if(length(idx)>0) u[idx] <- prob[idx]
+        total <- total + sign * copula::pCopula(u, cop)
+      }
+      Gamma[a+1, b+1] <- total
+    }
+  }
+  Gamma <- Gamma / rowSums(Gamma)
+  Gamma
+}
+
+#Dependence modelling with Frank copula, assuming different TPM for all strains
+FrankJointTransitionMatrix_copula_per_strain<- function(gammalist, K, copulaParams){
+  cop<- copula::frankCopula(param = copulaParams, dim = K, use.indepC = FALSE)
+
+  S <- 2^K
+  Gamma <- matrix(0, S, S)
+
+  for(a in 0:(S-1)) {
+    for(b in 0:(S-1)) {
+      Indices <- integer(0)
+      IndicesComplement <- integer(0)
+      prob <- numeric(K)
+
+      for(k in 1:K){
+        from_k <- (a %/% 2^(k-1)) %% 2
+        to_k<- (b %/% 2^(k-1)) %% 2
+
+        if(from_k == 1) Indices <- c(Indices,k)
+        else IndicesComplement <- c(IndicesComplement,k)
+        gamma_k<- gammalist[[k]]
+        gamma_k[1, ] <- gamma_k[1, ][2:1]
+        prob[k] <- gamma_k[from_k+1, to_k+1]
+      }
+
+      subsets <- sets::set_power(sets::as.set(IndicesComplement))
+      subsets <- lapply(subsets, function(g) unlist(as.vector(g)))
+
+      total <- 0
+      for(Tset in subsets){
+        sign <- (-1)^length(Tset)
+        idx <- c(Indices, Tset)
+        u <- rep(1, K)
+        if(length(idx)>0) u[idx] <- prob[idx]
+        total <- total + sign * copula::pCopula(u, cop)
+      }
+      Gamma[a+1, b+1] <- total
+    }
+  }
+  Gamma <- Gamma / rowSums(Gamma)
+  Gamma
+}
+
+Multipurpose_JointTransitionMatrix2<- function(gammas, K, copParams, Modeltype){
+  nstate<- 2^K
+  if(Modeltype==1){
+    JointTPM<- JointTransitionMatrix_arma_cpp2(G(gammas[1], gammas[2]), K)
+  }else if(Modeltype==2){
+    Glist<- BuildGamma_list_cpp(gammas)
+    JointTPM<- JointTransitionMatrix_per_strain_cpp2(Glist, K)
+  }else if(Modeltype==3){
+    JointTPM<- FrankJointTransitionMatrix_copula(G(gammas[1], gammas[2]), K, copParams)
+  }else if(Modeltype==4){
+    Glist<- BuildGamma_list_cpp(gammas)
+    JointTPM<- FrankJointTransitionMatrix_copula_per_strain(Glist, K, copParams)
+  }
+  return(JointTPM)
+}
 
 
 #Dependence modelling with copula, assuming the same TPM for all strains
@@ -1232,14 +1332,15 @@ Multstrain.simulate<- function(Model, time, nstrain=2, adj.matrix, Modeltype=1, 
     JointTPM<- Multipurpose_JointTransitionMatrix_cpp(T.prob, nstrain, copulaParam, Modeltype)
   }else if(Modeltype == 3){
     T.prob<- c(T.prob[1,2],T.prob[2,1])
+    #JointTPM<- Multipurpose_JointTransitionMatrix2(T.prob, nstrain, copulaParam, Modeltype)
     JointTPM<- Multipurpose_JointTransitionMatrix_cpp(T.prob, nstrain, copulaParam, Modeltype)
     #JointTPM<- ParallelJointTransitionMatrix_copula(G(0.1,0.2), K=5, c(0.8,-0.85,0.9,-0.8,-0.86,0.87,-0.85,-0.8,0.8,-0.87))
     JointTPM<- ifelse(JointTPM<=0,1e-6,JointTPM)
     JointTPM<- ifelse(JointTPM>=1,1-1e-6,JointTPM)
   }else if(Modeltype == 4){
     T.prob<- runif(2*nstrain, min = 0.1, max = 0.2)
-    matlist<- BuildGamma_list(T.prob)
-    JointTPM<- Multipurpose_JointTransitionMatrix_cpp(T.prob, nstrain, copulaParam, Modeltype)
+    JointTPM<- Multipurpose_JointTransitionMatrix2(T.prob, nstrain, copulaParam, Modeltype)
+    #JointTPM<- Multipurpose_JointTransitionMatrix_cpp(T.prob, nstrain, copulaParam, Modeltype)
     JointTPM<- ifelse(JointTPM<=0,1e-6,JointTPM)
     JointTPM<- ifelse(JointTPM>=1,1-1e-6,JointTPM)
   }else if(Modeltype == 5){

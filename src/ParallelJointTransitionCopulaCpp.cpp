@@ -12,7 +12,6 @@
 
 using namespace Rcpp;
 
-
 // [[Rcpp::export]]
 int intPower2(int a, int b){
   int res = 1;
