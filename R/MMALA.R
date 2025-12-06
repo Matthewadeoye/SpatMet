@@ -2086,7 +2086,7 @@ FFBS_INFERENCE<- function(y, e_it, Modeltype, adjmat, step_sizes, num_iteration 
 
   deltaP<- 1
 
-  zigmaGammaCopula<- diag(rep(0.08, zigDim), nrow=zigDim, ncol=zigDim)
+  zigmaGammaCopula<- diag(rep(0.1, zigDim), nrow=zigDim, ncol=zigDim)
   optconstantGammaCopula<- 2.38^2/zigDim
   lambdaGammaCopula<- 1
 
@@ -2485,7 +2485,7 @@ SMOOTHING_INFERENCE<- function(y, e_it, Modeltype, adjmat, step_sizes, num_itera
 
   propShape<- 0.01+SumYk_vec
 
-  zigmaGammaCopula<- diag(rep(0.08, zigDim), nrow=zigDim, ncol=zigDim)
+  zigmaGammaCopula<- diag(rep(0.1, zigDim), nrow=zigDim, ncol=zigDim)
   optconstantGammaCopula<- 2.38^2/zigDim
   lambdaGammaCopula<- 1
 
@@ -2850,17 +2850,14 @@ FRANK_FFBS_INFERENCE<- function(y, e_it, Modeltype, adjmat, step_sizes, num_iter
     num_Gammas<- 2
     MC_chain<- matrix(NA, nrow=num_iteration, ncol=num_Gammas+3+time+12+ndept+nstrain+nstrain+n_copParams)
     MC_chain[1,]<- c(runif(num_Gammas), 1/var(crudeR), 1/var(crudeS), 1/var(crudeU), crudeR, crudeS[crudeblock-12], crudeU, rep(0, nstrain), rep(mean(crudeResults[[1]]), nstrain), rep(0.5, n_copParams))
-    zigDim<- 2+nstrain*(nstrain-1)/2
   }else if(Modeltype %in% c(2,4)){
     num_Gammas<- 2 * nstrain
     MC_chain<- matrix(NA, nrow=num_iteration, ncol=num_Gammas+3+time+12+ndept+nstrain+nstrain+n_copParams)
     MC_chain[1,]<- c(runif(num_Gammas), 1/var(crudeR), 1/var(crudeS), 1/var(crudeU), crudeR, crudeS[crudeblock-12], crudeU, rep(0, nstrain), rep(mean(crudeResults[[1]]), nstrain), rep(0.5, n_copParams))
-    zigDim<- 2*nstrain+nstrain*(nstrain-1)/2
   }else if(Modeltype==5){
     num_Gammas<- nstate * nstate
     MC_chain<- matrix(NA, nrow=num_iteration, ncol=num_Gammas+3+time+12+ndept+nstrain+nstrain+n_copParams)
     MC_chain[1,]<- c(as.numeric(t(initGs)), 1/var(crudeR), 1/var(crudeS), 1/var(crudeU), crudeR, crudeS[crudeblock-12], crudeU, rep(0, nstrain), rep(mean(crudeResults[[1]]), nstrain), rep(0.5, n_copParams))
-    zigDim<- 0
   }
 
   Q_r<- MC_chain[1,num_Gammas + 1] * RW2PrecMat
@@ -3133,7 +3130,7 @@ log_lkj <- function(R, eta) {
 }
 
 # compute gradient w.r.t. correlation matrix
-gaussian_copula_grad_fisher<- function(u, copulaParams, nstrain) {
+gaussian_copula_grad_fisher<- function(u, copulaParams, nstrain, eta) {
 
   Sigma <- diag(nstrain)
   gdata::upperTriangle(Sigma, byrow=TRUE) <- copulaParams
@@ -3152,13 +3149,15 @@ gaussian_copula_grad_fisher<- function(u, copulaParams, nstrain) {
   Gmat <- 0.5 * (Sigma_inv %*% tcrossprod(x) %*% Sigma_inv - Sigma_inv)
 
   grad_vec <- 2 * gdata::upperTriangle(Gmat, byrow = T)
+  gradPrior<- 2 * (eta - 1) * Sigma_inv
+  grad_vec <- grad_vec + gdata::upperTriangle(gradPrior, byrow = T)
 
   return(list(gradients = as.numeric(grad_vec)))
 }
 
 
 #Riemann Manifold Langevin updates -- Sampling
-doublyMala_FFBS_INFERENCE<- function(y, e_it, Modeltype, adjmat, step_sizes, num_iteration = 15000, sdBs=0.03, sdGs=0.05){
+doublyMala_FFBS_INFERENCE<- function(y, e_it, Modeltype, adjmat, step_sizes, num_iteration = 15000, sdBs=0.03, sdGs=0.05, eta=2){
   start_time <- Sys.time()
   ndept <- nrow(e_it)
   time <- ncol(e_it)
@@ -3261,8 +3260,8 @@ doublyMala_FFBS_INFERENCE<- function(y, e_it, Modeltype, adjmat, step_sizes, num
   copdat<- MC_chain[1,num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:n_copParams)]
   gdata::upperTriangle(corrMat, byrow = T)<- copdat
   gdata::lowerTriangle(corrMat, byrow = F)<- copdat
-  currentGradcop<-  gaussian_copula_grad_fisher(MC_chain[1,1:num_Gammas], copdat, nstrain)
-  priorcurrentCops<- log_lkj(corrMat, eta=2)
+  currentGradcop<-  gaussian_copula_grad_fisher(MC_chain[1,1:num_Gammas], copdat, nstrain, eta)
+  priorcurrentCops<- log_lkj(corrMat, eta)
 
   for (i in 2:num_iteration) {
 
@@ -3435,15 +3434,12 @@ doublyMala_FFBS_INFERENCE<- function(y, e_it, Modeltype, adjmat, step_sizes, num
         copdat<- proposedcops
         gdata::upperTriangle(corrMat, byrow = T)<- copdat
         gdata::lowerTriangle(corrMat, byrow = F)<- copdat
-        proposedGradcop<-  gaussian_copula_grad_fisher(proposedGs, proposedcops, nstrain)
+        proposedGradcop<-  gaussian_copula_grad_fisher(proposedGs, proposedcops, nstrain, eta)
 
         q_propcop <- mvnfast::dmvn(proposedcops, mu = MC_chain[i-1, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:n_copParams)] + 0.5 * step_sizes$cop^2 * currentGradcop$gradients, sigma = step_sizes$cop^2 * diag(n_copParams), log = TRUE)
         q_currcop <- mvnfast::dmvn(MC_chain[i-1, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:n_copParams)], mu = proposedcops + 0.5 * step_sizes$cop^2 * proposedGradcop$gradients, sigma = step_sizes$cop^2 * diag(n_copParams), log = TRUE)
 
-        priorcurrentGs<- sum(dbeta(MC_chain[i-1,1:num_Gammas], shape1 = rep(2,num_Gammas), shape2 = rep(2,num_Gammas), log=TRUE))
-        priorproposedGs<- sum(dbeta(proposedGs, shape1 = rep(2,num_Gammas), shape2 = rep(2,num_Gammas), log=TRUE))
-
-        priorproposedCops<- log_lkj(corrMat, eta=2)
+        priorproposedCops<- log_lkj(corrMat, eta)
 
         ##############################################################################################
 

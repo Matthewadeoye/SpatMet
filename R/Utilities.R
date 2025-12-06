@@ -983,7 +983,7 @@ Multipurpose_JointTransitionMatrix<- function(gammas, K, copParams, Modeltype){
 
 #Dependence modelling with Frank copula, assuming the same TPM for all strains
 FrankJointTransitionMatrix_copula<- function(gamma, K, copulaParams){
-  cop<- copula::frankCopula(param = copulaParams, dim = K, use.indepC = FALSE)
+  cop<- copula::frankCopula(param = copulaParams, dim = K, use.indepC = "TRUE")
 
   S <- 2^K
 
@@ -1026,7 +1026,7 @@ FrankJointTransitionMatrix_copula<- function(gamma, K, copulaParams){
 
 #Dependence modelling with Frank copula, assuming different TPM for all strains
 FrankJointTransitionMatrix_copula_per_strain<- function(gammalist, K, copulaParams){
-  cop<- copula::frankCopula(param = copulaParams, dim = K, use.indepC = FALSE)
+  cop<- copula::frankCopula(param = copulaParams, dim = K, use.indepC = "TRUE")
 
   S <- 2^K
   Gamma <- matrix(0, S, S)
@@ -1332,8 +1332,8 @@ Multstrain.simulate<- function(Model, time, nstrain=2, adj.matrix, Modeltype=1, 
     JointTPM<- Multipurpose_JointTransitionMatrix_cpp(T.prob, nstrain, copulaParam, Modeltype)
   }else if(Modeltype == 3){
     T.prob<- c(T.prob[1,2],T.prob[2,1])
-    #JointTPM<- Multipurpose_JointTransitionMatrix2(T.prob, nstrain, copulaParam, Modeltype)
-    JointTPM<- Multipurpose_JointTransitionMatrix_cpp(T.prob, nstrain, copulaParam, Modeltype)
+    JointTPM<- Multipurpose_JointTransitionMatrix2(T.prob, nstrain, copulaParam, Modeltype)
+    #JointTPM<- Multipurpose_JointTransitionMatrix_cpp(T.prob, nstrain, copulaParam, Modeltype)
     #JointTPM<- ParallelJointTransitionMatrix_copula(G(0.1,0.2), K=5, c(0.8,-0.85,0.9,-0.8,-0.86,0.87,-0.85,-0.8,0.8,-0.87))
     JointTPM<- ifelse(JointTPM<=0,1e-6,JointTPM)
     JointTPM<- ifelse(JointTPM>=1,1-1e-6,JointTPM)
