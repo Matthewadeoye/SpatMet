@@ -3050,47 +3050,41 @@ FRANK_FFBS_INFERENCE<- function(y, e_it, Modeltype, adjmat, step_sizes, num_iter
         priorcurrentGs<- sum(dbeta(MC_chain[i-1,1:num_Gammas], shape1 = rep(2,num_Gammas), shape2 = rep(2,num_Gammas), log=TRUE))
         priorproposedGs<- sum(dbeta(proposedGs, shape1 = rep(2,num_Gammas), shape2 = rep(2,num_Gammas), log=TRUE))
 
-        trans_Psi_current <- asinh(MC_chain[i-1, ncol(MC_chain)])
-        trans_Psi_proposed <- rnorm(1, mean = trans_Psi_current, sd = sdCop)
-        Psi_proposed <- sinh(trans_Psi_proposed)
+        proposedcopPs<- rnorm(1,mean=log(MC_chain[i-1, ncol(MC_chain)]), sd=sdCop)
+        proposalcurrentcop<- dnorm(log(MC_chain[i-1, ncol(MC_chain)]), mean=proposedcopPs, sd=sdCop, log = T) + MC_chain[i-1, ncol(MC_chain)]
+        proposalproposedcop<- dnorm(proposedcopPs, mean=log(MC_chain[i-1, ncol(MC_chain)]), sd=sdCop, log = T) + exp(proposedcopPs)
 
-        proposalcurrentcop<- dnorm(trans_Psi_current, mean = trans_Psi_proposed, sd = sdCop, log = TRUE)
-        proposalproposedcop<- dnorm(trans_Psi_proposed, mean = trans_Psi_current, sd = sdCop, log = TRUE)
-
-        logJacobiancur<- log(cosh(trans_Psi_current))
-        logJacobianprop<- log(cosh(trans_Psi_proposed))
-
-        JointTPM1<- Multipurpose_JointTransitionMatrix_cpp2(proposedGs, nstrain, Psi_proposed, Modeltype)
+        JointTPM1<- Multipurpose_JointTransitionMatrix_cpp2(proposedGs, nstrain, exp(proposedcopPs), Modeltype)
         JointTPM1<- ifelse(JointTPM1<=0,1e-6,JointTPM1)
         JointTPM1<- ifelse(JointTPM1>=1,1-1e-6,JointTPM1)
         if(any(!is.finite(JointTPM1))){
-          MC_chain[i, ncol(MC_chain)]<- MC_chain[i-1, ncol(MC_chain)]
+          MC_chain[i, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:n_copParams)]<- MC_chain[i-1, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:n_copParams)]
           MC_chain[i, 1:num_Gammas]<- MC_chain[i-1,1:num_Gammas]
         }else{
 
-          Allquantities<- FFBSgradmultstrainLoglikelihood_cpp(y=y, e_it=e_it, nstrain=nstrain,  r=MC_chain[i, num_Gammas+3+(1:time)], s=MC_chain[i, num_Gammas+3+time+(1:12)], u=MC_chain[i, num_Gammas+3+time+12+(1:ndept)], jointTPM=JointTPM1, B=MC_chain[i, num_Gammas+3+time+12+ndept+(1:nstrain)], Bits=Bits, a_k=MC_chain[i-1, num_Gammas+3+time+12+ndept+nstrain+(1:nstrain)], Model=Model,Q_r=Q_r,Q_s = Q_s,Q_u=Q_u,gradients=1)
-          grad_proposed <- list(grad_r=as.numeric(Allquantities$grad_r), grad_s=as.numeric(Allquantities$grad_s), grad_u=as.numeric(Allquantities$grad_u), cov_r=Allquantities$cov_r, cov_s=Allquantities$cov_s)
+        Allquantities<- FFBSgradmultstrainLoglikelihood_cpp(y=y, e_it=e_it, nstrain=nstrain,  r=MC_chain[i, num_Gammas+3+(1:time)], s=MC_chain[i, num_Gammas+3+time+(1:12)], u=MC_chain[i, num_Gammas+3+time+12+(1:ndept)], jointTPM=JointTPM1, B=MC_chain[i, num_Gammas+3+time+12+ndept+(1:nstrain)], Bits=Bits, a_k=MC_chain[i-1, num_Gammas+3+time+12+ndept+nstrain+(1:nstrain)], Model=Model,Q_r=Q_r,Q_s = Q_s,Q_u=Q_u,gradients=1)
+        grad_proposed <- list(grad_r=as.numeric(Allquantities$grad_r), grad_s=as.numeric(Allquantities$grad_s), grad_u=as.numeric(Allquantities$grad_u), cov_r=Allquantities$cov_r, cov_s=Allquantities$cov_s)
 
-          likelihoodproposed<- Allquantities$loglike
+        likelihoodproposed<- Allquantities$loglike
 
-          mh.ratio<- exp(likelihoodproposed + priorproposedGs + proposalcurrentcop + logJacobianprop
-                         - likelihoodcurrent - priorcurrentGs - proposalproposedcop - logJacobiancur)
+        mh.ratio<- exp(likelihoodproposed + priorproposedGs + proposalcurrentcop
+                       - likelihoodcurrent - priorcurrentGs - proposalproposedcop)
 
-          #print(mh.ratio)
+        #print(mh.ratio)
 
-          if(!is.na(mh.ratio) && runif(1) < mh.ratio){
-            MC_chain[i, 1:num_Gammas]<- proposedGs
-            likelihoodcurrent<- likelihoodproposed
-            grad_current<- grad_proposed
-            JointTPM<- JointTPM1
-            MC_chain[i, ncol(MC_chain)]<- Psi_proposed
-          }
-          else{
-            MC_chain[i, 1:num_Gammas]<- MC_chain[i-1,1:num_Gammas]
-            MC_chain[i, ncol(MC_chain)]<- MC_chain[i-1, ncol(MC_chain)]
-          }
+        if(!is.na(mh.ratio) && runif(1) < mh.ratio){
+          MC_chain[i, 1:num_Gammas]<- proposedGs
+          likelihoodcurrent<- likelihoodproposed
+          grad_current<- grad_proposed
+          JointTPM<- JointTPM1
+          MC_chain[i, ncol(MC_chain)]<- exp(proposedcopPs)
         }
-      }else if(Modeltype==5){
+        else{
+          MC_chain[i, 1:num_Gammas]<- MC_chain[i-1,1:num_Gammas]
+          MC_chain[i, ncol(MC_chain)]<- MC_chain[i-1, ncol(MC_chain)]
+        }
+      }
+    }else if(Modeltype==5){
 
         for(n in 1:nstate){
           index<- nstate * (n-1) + 1
