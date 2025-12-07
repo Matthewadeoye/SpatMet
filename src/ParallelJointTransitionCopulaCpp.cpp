@@ -486,3 +486,209 @@ arma::mat ParallelJointTransitionMatrix_copula_cpp2(const arma::mat& gamma,
   }
   return GammaMat;
 }
+
+
+// [[Rcpp::export]]
+double frank_cdf_cpp(arma::vec u, double theta) {
+  double cdf = 0;
+  if(theta == 0.0) {
+    cdf = arma::prod(u);
+  }else{
+  int d = u.n_elem;
+  arma::vec tmp = arma::exp(-theta * u) - 1.0;
+  double num = arma::prod(tmp);
+  double den = std::pow(std::exp(-theta) - 1.0, d - 1);
+  cdf = -(1.0 / theta) * std::log(1.0 + num / den);
+  }
+  return cdf;
+}
+
+// [[Rcpp::export]]
+double frank_cdf_cpp2(const arma::vec &u, double theta) {
+  int d = u.n_elem;
+
+  if (std::abs(theta) < 1e-12) {
+    double prod = 1.0;
+    for (int i = 0; i < d; i++) {
+      double ui = u[i];
+      if (ui <= 0.0) return 0.0;
+      if (ui >= 1.0) ui = 1.0;
+      prod *= ui;
+    }
+    return prod;
+  }
+
+  for (int i = 0; i < d; i++) {
+    if (!std::isfinite(u[i])) return NA_REAL;
+    if (u[i] < 0.0 || u[i] > 1.0) return NA_REAL;
+  }
+
+  double den = std::expm1(-theta);
+  if (den == 0.0) return NA_REAL;
+
+  long double prod_term = 1.0L;
+
+  for (int i = 0; i < d; i++) {
+    double ui = u[i];
+    double term = std::expm1(-theta * ui);
+    prod_term *= (long double)term;
+  }
+
+  long double ratio = prod_term / std::pow(den, d - 1);
+
+  double result = -(1.0 / theta) * std::log1p((double)ratio);
+
+  if (!std::isfinite(result)) return NA_REAL;
+  if (result < 0.0) result = 0.0;
+  if (result > 1.0) result = 1.0;
+
+  return result;
+}
+
+// [[Rcpp::export]]
+arma::mat ParallelFrankJointTransitionMatrix_copula_cpp(const arma::mat& gamma,
+                                                    int K,
+                                                    double copParam){
+  int S = intPower2(2, K);
+  arma::mat GammaMat(S, S, arma::fill::zeros);
+
+  arma::mat gamma2 = gamma;
+  gamma2(0,0) = gamma(0, 1);
+  gamma2(0,1) = gamma(0, 0);
+
+  // parallelize
+#pragma omp parallel for schedule(dynamic)
+  for (int a = 0; a < S; a++) {
+    for (int b = 0; b < S; b++) {
+
+      std::vector<int> Ones;
+      std::vector<int> Zeros;
+      arma::vec prob(K);
+
+      for (int k = 0; k < K; k++) {
+        int from_k = (a >> k) & 1;
+        int to_k   = (b >> k) & 1;
+
+        if (from_k == 1)
+          Ones.push_back(k);
+        else
+          Zeros.push_back(k);
+
+        prob(k) = gamma2(from_k, to_k);
+      }
+
+      // power set of zeros
+      std::vector<std::vector<int>> subsets;
+      std::vector<int> cur;
+      generate_subsets(Zeros, 0, cur, subsets);
+
+      double total = 0.0;
+
+      for (auto& Tset : subsets) {
+        int sign = (Tset.size() % 2 == 0 ? 1 : -1);
+
+        arma::vec u(K, arma::fill::ones);
+        for (int idx : Ones) u(idx) = prob(idx);
+        for (int idx : Tset) u(idx) = prob(idx);
+
+        total += sign * frank_cdf_cpp2(u, copParam);
+      }
+
+      GammaMat(a, b) = total;
+    }
+  }
+
+  for (int i = 0; i < S; i++) {
+    double s = arma::accu(GammaMat.row(i));
+    GammaMat.row(i) /= s;
+  }
+  return GammaMat;
+}
+
+
+// [[Rcpp::export]]
+arma::mat ParallelFrankJointTransitionMatrix_copula_perstrain_cpp(List gamma_list,
+                                                        int K,
+                                                        double copParam){
+  int S = intPower2(2, K);
+  arma::mat GammaMat(S, S, arma::fill::zeros);
+
+  std::vector<arma::mat> gamma_cpp(K);
+  for (int k = 0; k < K; k++)
+    gamma_cpp[k] = as<arma::mat>(gamma_list[k]);
+
+  // parallelize
+#pragma omp parallel for schedule(dynamic)
+  for (int a = 0; a < S; a++) {
+    for (int b = 0; b < S; b++) {
+
+      std::vector<int> Ones;
+      std::vector<int> Zeros;
+      arma::vec prob(K);
+
+      for (int k = 0; k < K; k++) {
+        arma::mat gamma = gamma_cpp[k];
+        arma::mat gamma2 = gamma;
+        gamma2(0,0) = gamma(0, 1);
+        gamma2(0,1) = gamma(0, 0);
+        int from_k = (a >> k) & 1;
+        int to_k   = (b >> k) & 1;
+
+        if (from_k == 1)
+          Ones.push_back(k);
+        else
+          Zeros.push_back(k);
+
+        prob(k) = gamma2(from_k, to_k);
+      }
+
+      // power set of zeros
+      std::vector<std::vector<int>> subsets;
+      std::vector<int> cur;
+      generate_subsets(Zeros, 0, cur, subsets);
+
+      double total = 0.0;
+
+      for (auto& Tset : subsets) {
+        int sign = (Tset.size() % 2 == 0 ? 1 : -1);
+
+        arma::vec u(K, arma::fill::ones);
+        for (int idx : Ones) u(idx) = prob(idx);
+        for (int idx : Tset) u(idx) = prob(idx);
+
+        total += sign * frank_cdf_cpp2(u, copParam);
+      }
+
+      GammaMat(a, b) = total;
+    }
+  }
+
+  for (int i = 0; i < S; i++) {
+    double s = arma::accu(GammaMat.row(i));
+    GammaMat.row(i) /= s;
+  }
+  return GammaMat;
+}
+
+// [[Rcpp::export]]
+arma::mat Multipurpose_JointTransitionMatrix_cpp2(const arma::vec& gammas,
+                                                 int K,
+                                                 double copParam, int Modeltype){
+  int nstate = intPower2(2, K);
+  arma::mat JointTPM(nstate, nstate, arma::fill::zeros);
+  if(Modeltype == 1){
+    arma::mat Gmat = makematrix_arma_cpp2(gammas(0), gammas(1));
+    JointTPM = JointTransitionMatrix_arma_cpp2(Gmat, K);
+  }else if(Modeltype == 2){
+    List Glist = BuildGamma_list_cpp(gammas);
+    JointTPM = JointTransitionMatrix_per_strain_cpp2(Glist, K);
+  }else if(Modeltype == 3){
+    arma::mat Gmat = makematrix_arma_cpp2(gammas(0), gammas(1));
+    JointTPM = ParallelFrankJointTransitionMatrix_copula_cpp(Gmat, K, copParam);
+  }else if(Modeltype == 4){
+    List Glist = BuildGamma_list_cpp(gammas);
+    JointTPM = ParallelFrankJointTransitionMatrix_copula_perstrain_cpp(Glist, K, copParam);
+  }
+  return JointTPM;
+}
+

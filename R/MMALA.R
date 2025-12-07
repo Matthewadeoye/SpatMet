@@ -3012,29 +3012,55 @@ FRANK_FFBS_INFERENCE<- function(y, e_it, Modeltype, adjmat, step_sizes, num_iter
         MC_chain[i, num_Gammas+3+time+12+ndept+(1:nstrain)]<- MC_chain[i-1, num_Gammas+3+time+12+ndept+(1:nstrain)]
       }
 
-      if(Modeltype %in% c(1,2,3,4)){
+      if(Modeltype %in% c(1,2)){
         proposedGs<- abs(rnorm(num_Gammas,mean=MC_chain[i-1,1:num_Gammas], sd=rep(sdGs, num_Gammas)))
         proposedGs<- ifelse(proposedGs<1, proposedGs, 2-proposedGs)
 
         priorcurrentGs<- sum(dbeta(MC_chain[i-1,1:num_Gammas], shape1 = rep(2,num_Gammas), shape2 = rep(2,num_Gammas), log=TRUE))
         priorproposedGs<- sum(dbeta(proposedGs, shape1 = rep(2,num_Gammas), shape2 = rep(2,num_Gammas), log=TRUE))
 
-        if(Modeltype %in% c(3,4)){
+        proposedcopPs<- rep(0, num_Gammas)
+        JointTPM1<- Multipurpose_JointTransitionMatrix_cpp2(proposedGs, nstrain, proposedcopPs, Modeltype)
+        JointTPM1<- ifelse(JointTPM1<=0,1e-6,JointTPM1)
+        JointTPM1<- ifelse(JointTPM1>=1,1-1e-6,JointTPM1)
+
+        Allquantities<- FFBSgradmultstrainLoglikelihood_cpp(y=y, e_it=e_it, nstrain=nstrain,  r=MC_chain[i, num_Gammas+3+(1:time)], s=MC_chain[i, num_Gammas+3+time+(1:12)], u=MC_chain[i, num_Gammas+3+time+12+(1:ndept)], jointTPM=JointTPM1, B=MC_chain[i, num_Gammas+3+time+12+ndept+(1:nstrain)], Bits=Bits, a_k=MC_chain[i-1, num_Gammas+3+time+12+ndept+nstrain+(1:nstrain)], Model=Model,Q_r=Q_r,Q_s = Q_s,Q_u=Q_u,gradients=1)
+        grad_proposed <- list(grad_r=as.numeric(Allquantities$grad_r), grad_s=as.numeric(Allquantities$grad_s), grad_u=as.numeric(Allquantities$grad_u), cov_r=Allquantities$cov_r, cov_s=Allquantities$cov_s)
+
+        likelihoodproposed<- Allquantities$loglike
+
+        mh.ratio<- exp(likelihoodproposed + priorproposedGs
+                       - likelihoodcurrent - priorcurrentGs)
+
+        #print(mh.ratio)
+
+        if(!is.na(mh.ratio) && runif(1) < mh.ratio){
+          MC_chain[i, 1:num_Gammas]<- proposedGs
+          likelihoodcurrent<- likelihoodproposed
+          grad_current<- grad_proposed
+          JointTPM<- JointTPM1
+        }
+        else{
+          MC_chain[i, 1:num_Gammas]<- MC_chain[i-1,1:num_Gammas]
+        }
+      }else if(Modeltype %in% c(3,4)){
+        proposedGs<- abs(rnorm(num_Gammas,mean=MC_chain[i-1,1:num_Gammas], sd=rep(sdGs, num_Gammas)))
+        proposedGs<- ifelse(proposedGs<1, proposedGs, 2-proposedGs)
+
+        priorcurrentGs<- sum(dbeta(MC_chain[i-1,1:num_Gammas], shape1 = rep(2,num_Gammas), shape2 = rep(2,num_Gammas), log=TRUE))
+        priorproposedGs<- sum(dbeta(proposedGs, shape1 = rep(2,num_Gammas), shape2 = rep(2,num_Gammas), log=TRUE))
+
         proposedcopPs<- rnorm(1,mean=log(MC_chain[i-1, ncol(MC_chain)]), sd=sdCop)
         proposalcurrentcop<- dnorm(log(MC_chain[i-1, ncol(MC_chain)]), mean=proposedcopPs, sd=sdCop, log = T) + MC_chain[i-1, ncol(MC_chain)]
         proposalproposedcop<- dnorm(proposedcopPs, mean=log(MC_chain[i-1, ncol(MC_chain)]), sd=sdCop, log = T) + exp(proposedcopPs)
 
-        JointTPM1<- Multipurpose_JointTransitionMatrix2(proposedGs, nstrain, exp(proposedcopPs), Modeltype)
+        JointTPM1<- Multipurpose_JointTransitionMatrix_cpp2(proposedGs, nstrain, exp(proposedcopPs), Modeltype)
         JointTPM1<- ifelse(JointTPM1<=0,1e-6,JointTPM1)
         JointTPM1<- ifelse(JointTPM1>=1,1-1e-6,JointTPM1)
+        if(any(!is.finite(JointTPM1))){
+          MC_chain[i, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:n_copParams)]<- MC_chain[i-1, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:n_copParams)]
+          MC_chain[i, 1:num_Gammas]<- MC_chain[i-1,1:num_Gammas]
         }else{
-          proposedcopPs<- rep(0, n_copParams)
-          JointTPM1<- Multipurpose_JointTransitionMatrix2(proposedGs, nstrain, proposedcopPs, Modeltype)
-          JointTPM1<- ifelse(JointTPM1<=0,1e-6,JointTPM1)
-          JointTPM1<- ifelse(JointTPM1>=1,1-1e-6,JointTPM1)
-          proposalcurrentcop<- 0
-          proposalproposedcop<- 0
-        }
 
         Allquantities<- FFBSgradmultstrainLoglikelihood_cpp(y=y, e_it=e_it, nstrain=nstrain,  r=MC_chain[i, num_Gammas+3+(1:time)], s=MC_chain[i, num_Gammas+3+time+(1:12)], u=MC_chain[i, num_Gammas+3+time+12+(1:ndept)], jointTPM=JointTPM1, B=MC_chain[i, num_Gammas+3+time+12+ndept+(1:nstrain)], Bits=Bits, a_k=MC_chain[i-1, num_Gammas+3+time+12+ndept+nstrain+(1:nstrain)], Model=Model,Q_r=Q_r,Q_s = Q_s,Q_u=Q_u,gradients=1)
         grad_proposed <- list(grad_r=as.numeric(Allquantities$grad_r), grad_s=as.numeric(Allquantities$grad_s), grad_u=as.numeric(Allquantities$grad_u), cov_r=Allquantities$cov_r, cov_s=Allquantities$cov_s)
@@ -3051,13 +3077,14 @@ FRANK_FFBS_INFERENCE<- function(y, e_it, Modeltype, adjmat, step_sizes, num_iter
           likelihoodcurrent<- likelihoodproposed
           grad_current<- grad_proposed
           JointTPM<- JointTPM1
-          if(Modeltype %in% c(3,4)) MC_chain[i, ncol(MC_chain)]<- exp(proposedcopPs)
+          MC_chain[i, ncol(MC_chain)]<- exp(proposedcopPs)
         }
         else{
           MC_chain[i, 1:num_Gammas]<- MC_chain[i-1,1:num_Gammas]
-          if(Modeltype %in% c(3,4)) MC_chain[i, ncol(MC_chain)]<- MC_chain[i-1, ncol(MC_chain)]
+          MC_chain[i, ncol(MC_chain)]<- MC_chain[i-1, ncol(MC_chain)]
         }
-      }else if(Modeltype==5){
+      }
+    }else if(Modeltype==5){
 
         for(n in 1:nstate){
           index<- nstate * (n-1) + 1

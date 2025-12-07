@@ -980,10 +980,21 @@ Multipurpose_JointTransitionMatrix<- function(gammas, K, copParams, Modeltype){
   return(JointTPM)
 }
 
+frank_cdf <- function(u, theta) {
+  if (theta == 0) {
+    cdf<- prod(u)
+  }else{
+    d <- length(u)
+    num <- prod(exp(-theta * u) - 1)
+    den <- (exp(-theta) - 1)^(d - 1)
+    cdf <- -(1/theta) * log(1 + num / den)
+  }
+  return(cdf)
+}
 
 #Dependence modelling with Frank copula, assuming the same TPM for all strains
 FrankJointTransitionMatrix_copula<- function(gamma, K, copulaParams){
-  cop<- copula::frankCopula(param = copulaParams, dim = K, use.indepC = "TRUE")
+  frankcopula_cached <- memoise::memoise(frank_cdf)
 
   S <- 2^K
 
@@ -1015,7 +1026,7 @@ FrankJointTransitionMatrix_copula<- function(gamma, K, copulaParams){
         idx <- c(Indices, Tset)
         u <- rep(1, K)
         if(length(idx)>0) u[idx] <- prob[idx]
-        total <- total + sign * copula::pCopula(u, cop)
+        total <- total + sign * frank_cdf(u, copulaParams)
       }
       Gamma[a+1, b+1] <- total
     }
@@ -1332,14 +1343,14 @@ Multstrain.simulate<- function(Model, time, nstrain=2, adj.matrix, Modeltype=1, 
     JointTPM<- Multipurpose_JointTransitionMatrix_cpp(T.prob, nstrain, copulaParam, Modeltype)
   }else if(Modeltype == 3){
     T.prob<- c(T.prob[1,2],T.prob[2,1])
-    JointTPM<- Multipurpose_JointTransitionMatrix2(T.prob, nstrain, copulaParam, Modeltype)
+    JointTPM<- Multipurpose_JointTransitionMatrix_cpp2(T.prob, nstrain, copulaParam, Modeltype)
     #JointTPM<- Multipurpose_JointTransitionMatrix_cpp(T.prob, nstrain, copulaParam, Modeltype)
     #JointTPM<- ParallelJointTransitionMatrix_copula(G(0.1,0.2), K=5, c(0.8,-0.85,0.9,-0.8,-0.86,0.87,-0.85,-0.8,0.8,-0.87))
     JointTPM<- ifelse(JointTPM<=0,1e-6,JointTPM)
     JointTPM<- ifelse(JointTPM>=1,1-1e-6,JointTPM)
   }else if(Modeltype == 4){
     T.prob<- runif(2*nstrain, min = 0.1, max = 0.2)
-    JointTPM<- Multipurpose_JointTransitionMatrix2(T.prob, nstrain, copulaParam, Modeltype)
+    JointTPM<- Multipurpose_JointTransitionMatrix_cpp2(T.prob, nstrain, copulaParam, Modeltype)
     #JointTPM<- Multipurpose_JointTransitionMatrix_cpp(T.prob, nstrain, copulaParam, Modeltype)
     JointTPM<- ifelse(JointTPM<=0,1e-6,JointTPM)
     JointTPM<- ifelse(JointTPM>=1,1-1e-6,JointTPM)
