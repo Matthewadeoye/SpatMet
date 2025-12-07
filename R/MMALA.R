@@ -3061,6 +3061,7 @@ FRANK_FFBS_INFERENCE<- function(y, e_it, Modeltype, adjmat, step_sizes, num_iter
           MC_chain[i, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:n_copParams)]<- MC_chain[i-1, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:n_copParams)]
           MC_chain[i, 1:num_Gammas]<- MC_chain[i-1,1:num_Gammas]
         }else{
+        JointTPM1 <- JointTPM1 / rowSums(JointTPM1)
 
         Allquantities<- FFBSgradmultstrainLoglikelihood_cpp(y=y, e_it=e_it, nstrain=nstrain,  r=MC_chain[i, num_Gammas+3+(1:time)], s=MC_chain[i, num_Gammas+3+time+(1:12)], u=MC_chain[i, num_Gammas+3+time+12+(1:ndept)], jointTPM=JointTPM1, B=MC_chain[i, num_Gammas+3+time+12+ndept+(1:nstrain)], Bits=Bits, a_k=MC_chain[i-1, num_Gammas+3+time+12+ndept+nstrain+(1:nstrain)], Model=Model,Q_r=Q_r,Q_s = Q_s,Q_u=Q_u,gradients=1)
         grad_proposed <- list(grad_r=as.numeric(Allquantities$grad_r), grad_s=as.numeric(Allquantities$grad_s), grad_u=as.numeric(Allquantities$grad_u), cov_r=Allquantities$cov_r, cov_s=Allquantities$cov_s)
