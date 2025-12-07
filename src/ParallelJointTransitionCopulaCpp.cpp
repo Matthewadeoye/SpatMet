@@ -489,25 +489,25 @@ arma::mat ParallelJointTransitionMatrix_copula_cpp2(const arma::mat& gamma,
 
 
 // [[Rcpp::export]]
-double frank_cdf_cpp(arma::vec u, double theta) {
+double frank_cdf_cpp(arma::vec u, double Psi){
   double cdf = 0;
-  if(theta == 0.0) {
+  if(Psi == 0.0){
     cdf = arma::prod(u);
   }else{
   int d = u.n_elem;
-  arma::vec tmp = arma::exp(-theta * u) - 1.0;
+  arma::vec tmp = 1.0 - arma::exp(-Psi * u);
   double num = arma::prod(tmp);
-  double den = std::pow(std::exp(-theta) - 1.0, d - 1);
-  cdf = -(1.0 / theta) * std::log(1.0 + num / den);
+  double den = std::pow(1.0 - std::exp(-Psi), d - 1);
+  cdf = -(1.0 / Psi) * std::log(1.0 - num / den);
   }
   return cdf;
 }
 
 // [[Rcpp::export]]
-double frank_cdf_cpp2(const arma::vec &u, double theta) {
+double frank_cdf_cpp2(const arma::vec &u, double Psi) {
   int d = u.n_elem;
 
-  if (std::abs(theta) < 1e-12) {
+  if (std::abs(Psi) < 1e-12) {
     double prod = 1.0;
     for (int i = 0; i < d; i++) {
       double ui = u[i];
@@ -523,20 +523,20 @@ double frank_cdf_cpp2(const arma::vec &u, double theta) {
     if (u[i] < 0.0 || u[i] > 1.0) return NA_REAL;
   }
 
-  double den = std::expm1(-theta);
+  double den = std::expm1(-Psi);
   if (den == 0.0) return NA_REAL;
 
   long double prod_term = 1.0L;
 
   for (int i = 0; i < d; i++) {
     double ui = u[i];
-    double term = std::expm1(-theta * ui);
+    double term = std::expm1(-Psi * ui);
     prod_term *= (long double)term;
   }
 
   long double ratio = prod_term / std::pow(den, d - 1);
 
-  double result = -(1.0 / theta) * std::log1p((double)ratio);
+  double result = -(1.0 / Psi) * std::log1p((double)ratio);
 
   if (!std::isfinite(result)) return NA_REAL;
   if (result < 0.0) result = 0.0;
@@ -584,7 +584,7 @@ arma::mat ParallelFrankJointTransitionMatrix_copula_cpp(const arma::mat& gamma,
 
       double total = 0.0;
 
-      for (auto& Tset : subsets) {
+      for (auto& Tset : subsets){
         int sign = (Tset.size() % 2 == 0 ? 1 : -1);
 
         arma::vec u(K, arma::fill::ones);

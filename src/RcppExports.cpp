@@ -201,26 +201,26 @@ BEGIN_RCPP
 END_RCPP
 }
 // frank_cdf_cpp
-double frank_cdf_cpp(arma::vec u, double theta);
-RcppExport SEXP _SpatMet_frank_cdf_cpp(SEXP uSEXP, SEXP thetaSEXP) {
+double frank_cdf_cpp(arma::vec u, double Psi);
+RcppExport SEXP _SpatMet_frank_cdf_cpp(SEXP uSEXP, SEXP PsiSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< arma::vec >::type u(uSEXP);
-    Rcpp::traits::input_parameter< double >::type theta(thetaSEXP);
-    rcpp_result_gen = Rcpp::wrap(frank_cdf_cpp(u, theta));
+    Rcpp::traits::input_parameter< double >::type Psi(PsiSEXP);
+    rcpp_result_gen = Rcpp::wrap(frank_cdf_cpp(u, Psi));
     return rcpp_result_gen;
 END_RCPP
 }
 // frank_cdf_cpp2
-double frank_cdf_cpp2(const arma::vec& u, double theta);
-RcppExport SEXP _SpatMet_frank_cdf_cpp2(SEXP uSEXP, SEXP thetaSEXP) {
+double frank_cdf_cpp2(const arma::vec& u, double Psi);
+RcppExport SEXP _SpatMet_frank_cdf_cpp2(SEXP uSEXP, SEXP PsiSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const arma::vec& >::type u(uSEXP);
-    Rcpp::traits::input_parameter< double >::type theta(thetaSEXP);
-    rcpp_result_gen = Rcpp::wrap(frank_cdf_cpp2(u, theta));
+    Rcpp::traits::input_parameter< double >::type Psi(PsiSEXP);
+    rcpp_result_gen = Rcpp::wrap(frank_cdf_cpp2(u, Psi));
     return rcpp_result_gen;
 END_RCPP
 }

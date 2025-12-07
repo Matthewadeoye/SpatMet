@@ -980,14 +980,15 @@ Multipurpose_JointTransitionMatrix<- function(gammas, K, copParams, Modeltype){
   return(JointTPM)
 }
 
-frank_cdf <- function(u, theta) {
-  if (theta == 0) {
+
+frank_cdf <- function(u, Psi) {
+  if (Psi == 0) {
     cdf<- prod(u)
   }else{
     d <- length(u)
-    num <- prod(exp(-theta * u) - 1)
-    den <- (exp(-theta) - 1)^(d - 1)
-    cdf <- -(1/theta) * log(1 + num / den)
+    num <- prod(1-exp(-Psi * u))
+    den <- (1-exp(-Psi))^(d - 1)
+    cdf <- -(1/Psi) * log(1 - num / den)
   }
   return(cdf)
 }

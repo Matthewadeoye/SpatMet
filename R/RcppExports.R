@@ -61,12 +61,12 @@ ParallelJointTransitionMatrix_copula_cpp2 <- function(gamma, K, copParams) {
     .Call(`_SpatMet_ParallelJointTransitionMatrix_copula_cpp2`, gamma, K, copParams)
 }
 
-frank_cdf_cpp <- function(u, theta) {
-    .Call(`_SpatMet_frank_cdf_cpp`, u, theta)
+frank_cdf_cpp <- function(u, Psi) {
+    .Call(`_SpatMet_frank_cdf_cpp`, u, Psi)
 }
 
-frank_cdf_cpp2 <- function(u, theta) {
-    .Call(`_SpatMet_frank_cdf_cpp2`, u, theta)
+frank_cdf_cpp2 <- function(u, Psi) {
+    .Call(`_SpatMet_frank_cdf_cpp2`, u, Psi)
 }
 
 ParallelFrankJointTransitionMatrix_copula_cpp <- function(gamma, K, copParam) {
