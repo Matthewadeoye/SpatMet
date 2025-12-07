@@ -3050,11 +3050,11 @@ FRANK_FFBS_INFERENCE<- function(y, e_it, Modeltype, adjmat, step_sizes, num_iter
         priorcurrentGs<- sum(dbeta(MC_chain[i-1,1:num_Gammas], shape1 = rep(2,num_Gammas), shape2 = rep(2,num_Gammas), log=TRUE))
         priorproposedGs<- sum(dbeta(proposedGs, shape1 = rep(2,num_Gammas), shape2 = rep(2,num_Gammas), log=TRUE))
 
-        proposedcopPs<- rnorm(1,mean=log(MC_chain[i-1, ncol(MC_chain)]), sd=sdCop)
-        proposalcurrentcop<- dnorm(log(MC_chain[i-1, ncol(MC_chain)]), mean=proposedcopPs, sd=sdCop, log = T) + MC_chain[i-1, ncol(MC_chain)]
-        proposalproposedcop<- dnorm(proposedcopPs, mean=log(MC_chain[i-1, ncol(MC_chain)]), sd=sdCop, log = T) + exp(proposedcopPs)
+        proposedcopPs<- rnorm(1,mean=asinh(MC_chain[i-1, ncol(MC_chain)]), sd=sdCop)
+        proposalcurrentcop<- dnorm(asinh(MC_chain[i-1, ncol(MC_chain)]), mean=proposedcopPs, sd=sdCop, log = T) + log(cosh(asinh(MC_chain[i-1, ncol(MC_chain)])))
+        proposalproposedcop<- dnorm(proposedcopPs, mean=asinh(MC_chain[i-1, ncol(MC_chain)]), sd=sdCop, log = T) + log(cosh(proposedcopPs))
 
-        JointTPM1<- Multipurpose_JointTransitionMatrix_cpp2(proposedGs, nstrain, exp(proposedcopPs), Modeltype)
+        JointTPM1<- Multipurpose_JointTransitionMatrix_cpp2(proposedGs, nstrain, sinh(proposedcopPs), Modeltype)
         JointTPM1<- ifelse(JointTPM1<=0,1e-6,JointTPM1)
         JointTPM1<- ifelse(JointTPM1>=1,1-1e-6,JointTPM1)
         if(any(!is.finite(JointTPM1))){
@@ -3077,7 +3077,7 @@ FRANK_FFBS_INFERENCE<- function(y, e_it, Modeltype, adjmat, step_sizes, num_iter
           likelihoodcurrent<- likelihoodproposed
           grad_current<- grad_proposed
           JointTPM<- JointTPM1
-          MC_chain[i, ncol(MC_chain)]<- exp(proposedcopPs)
+          MC_chain[i, ncol(MC_chain)]<- sinh(proposedcopPs)
         }
         else{
           MC_chain[i, 1:num_Gammas]<- MC_chain[i-1,1:num_Gammas]
@@ -3150,7 +3150,6 @@ FRANK_FFBS_INFERENCE<- function(y, e_it, Modeltype, adjmat, step_sizes, num_iter
   print(time_taken)
   return(MC_chain)
 }
-
 
 log_lkj <- function(R, eta) {
   (eta - 1) * determinant(R, logarithm = TRUE)$modulus
