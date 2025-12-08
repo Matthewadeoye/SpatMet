@@ -535,7 +535,7 @@ multMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_iteration 
 }
 
 
-#set.seed(212);multmod0nstrain5<- Multstrain.simulate(Model = 0, time=60, adj.matrix = sim_adjmat, nstrain=5, B=c(1.65,0.95,1.4,1.1,1.7))
+#set.seed(212);multmod0nstrain5<- Multstrain.simulate(Model = 0, time=60, adj.matrix = sim_adjmat, Modeltype = 0, nstrain=5, B=c(1.65,0.95,1.4,1.1,1.7))
 #set.seed(212);multmod1nstrain5<- Multstrain.simulate(Model = 1, time=60, adj.matrix = sim_adjmat, Modeltype = 1, nstrain=5, B=c(1.65,0.95,1.4,1.1,1.7))
 #set.seed(212);perstrainmultmod1nstrain5<- Multstrain.simulate(Model = 1, time=60, adj.matrix = sim_adjmat, Modeltype = 2, nstrain=5, B=c(1.65,0.95,1.4,1.1,1.7))
 #set.seed(212);dependentmultmod1nstrain5<- Multstrain.simulate(Model = 1, time=60, adj.matrix = sim_adjmat, Modeltype = 3, nstrain=5, B=c(1.65,0.95,1.4,1.1,1.7))
@@ -859,8 +859,11 @@ fullCPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_ite
 #}
 
 
-#decodedOutbreakMatrix<- Posteriormultstrain.Decoding(y=multmod1nstrain5[["y"]], e_it=multmod1nstrain5[["e_it"]], inf.object=MMALAResultscorrectmodel, Modeltype=1, thinningL=1000)
-#perstraindecodedOutbreakMatrix<- Posteriormultstrain.Decoding(y=perstrainmultmod1nstrain5[["y"]], e_it=perstrainmultmod1nstrain5[["e_it"]], inf.object=perstrainMMALAResults5strainGibbs[-(1:20000),], Modeltype = 2, thinningL=1000)
+#Independent_1_decodedOutbreakMatrix<- Posteriormultstrain.Decoding(y=multmod1nstrain5[["y"]], e_it=multmod1nstrain5[["e_it"]], inf.object=MMALAResultscorrectmodel, Modeltype=1, thinningL=1000)
+#Independent_2_decodedOutbreakMatrix<- Posteriormultstrain.Decoding(y=perstrainmultmod1nstrain5[["y"]], e_it=perstrainmultmod1nstrain5[["e_it"]], inf.object=perstrainMMALAResults5strainGibbs[-(1:20000),], Modeltype = 2, thinningL=1000)
+#copula_1_decodedOutbreakMatrix<- Posteriormultstrain.Decoding(y=FrankcopulaSameTPMmultmod1nstrain5[["y"]], e_it=FrankcopulaSameTPMmultmod1nstrain5[["e_it"]], inf.object=FrankcopulaSameTPMmultmodnstrain50000[-(1:20000),], Modeltype = 3, thinningL=1000)
+#copula_2_decodedOutbreakMatrix<- Posteriormultstrain.Decoding(y=FrankcopulaPerStrainTPMmultmod1nstrain5[["y"]], e_it=FrankcopulaPerStrainTPMmultmod1nstrain5[["e_it"]], inf.object=FrankcopulaPerStrainTPMmultmod1nstrain5Fit50000[-(1:20000),], Modeltype = 4, thinningL=1000)
+#General_dependent_decodedOutbreakMatrix<- Posteriormultstrain.Decoding(y=dependentmultmod1nstrain5[["y"]], e_it=dependentmultmod1nstrain5[["e_it"]], inf.object=dependentMMALAResults5strainGibbs[-(1:20000),], Modeltype = 5, thinningL=1000)
 
 #Outbreakfigures(matrix_list = decodedOutbreakMatrix, BitsMatrix = Bits, labelLetter = "B")
 

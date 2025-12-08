@@ -1488,16 +1488,18 @@ multstrain.backwardsweep<- function(y, e_it, nstrain, r, s, u, JointTPM, B, Bits
     return(Allbackwardprob)
 }
 
-multstrain.Decoding <- function(y, e_it, nstrain, r, s, u, Gamma, B, Bits, a_k, state, Modeltype) {
+multstrain.Decoding <- function(y, e_it, nstrain, r, s, u, Gamma, copParam, B, Bits, a_k, state, Modeltype) {
   ndept<- length(u)
   time <- length(r)
   nstate<- 2^nstrain
   if(Modeltype == 1){
-    Gmat<- G(Gamma[1], Gamma[2])
-    JointTPM<- JointTransitionMatrix(gamma=Gmat, K=nstrain)
+    JointTPM<- Multipurpose_JointTransitionMatrix_cpp2(Gamma, nstrain, copParam, Modeltype)
   }else if(Modeltype == 2){
-    Gmatlist<- BuildGamma_list(Gs = Gamma)
-    JointTPM<- JointTransitionMatrix_per_strain(Gmatlist)
+    JointTPM<- Multipurpose_JointTransitionMatrix_cpp2(Gamma, nstrain, copParam, Modeltype)
+  }else if(Modeltype == 3){
+    JointTPM<- Multipurpose_JointTransitionMatrix_cpp2(Gamma, nstrain, copParam, Modeltype)
+  }else if(Modeltype == 4){
+    JointTPM<- Multipurpose_JointTransitionMatrix_cpp2(Gamma, nstrain, copParam, Modeltype)
   }else if(Modeltype == 5){
     JointTPM<- matrix(Gamma, nrow = nstate, byrow = TRUE)
   }
@@ -1542,6 +1544,7 @@ Posteriormultstrain.Decoding<- function(y, e_it, inf.object, Modeltype, thinning
     fullu.draws<- inf.object[-(1:burn.in), startsWith(colnames(inf.object), "u")]
     fullB.draws<- inf.object[-(1:burn.in), startsWith(colnames(inf.object), "B")]
     fulla_k.draws<- inf.object[-(1:burn.in), startsWith(colnames(inf.object), "a")]
+    if(Modeltype %in% c(3,4)) fullcop.draws<- inf.object[-(1:burn.in), startsWith(colnames(inf.object), "c")]
   }
 
   thinning<- numeric(floor(nrow(fullr.draws)/thinningL))
@@ -1556,6 +1559,7 @@ Posteriormultstrain.Decoding<- function(y, e_it, inf.object, Modeltype, thinning
   u.draws<- fullu.draws[thinning, ]
   B.draws<- fullB.draws[thinning, ]
   a_k.draws<- fulla_k.draws[thinning, ]
+  if(Modeltype %in% c(3,4)) cop.draws<- fullcop.draws[thinning]
 
   decodedOutbreakMatrix<- list()
   for(n in 1:nstate){
@@ -1568,12 +1572,20 @@ Posteriormultstrain.Decoding<- function(y, e_it, inf.object, Modeltype, thinning
       u<- as.numeric(u.draws[index,])
       B<- as.numeric(B.draws[index,])
       a_k<- as.numeric(a_k.draws[index,])
-      Ex_Xit <- multstrain.Decoding(y = y, e_it = e_it, nstrain=nstrain, r = r, s = s, u = u, Gamma = Gs, Bits = Bits, B = B, a_k = a_k, state = n, Modeltype = Modeltype)
+      cop<- ifelse(Modeltype %in% c(3,4), cop.draws[index], 0)
+      Ex_Xit <- multstrain.Decoding(y = y, e_it = e_it, nstrain=nstrain, r = r, s = s, u = u, Gamma = Gs, copParam=cop, Bits = Bits, B = B, a_k = a_k, state = n, Modeltype = Modeltype)
       sum_Xit<- sum_Xit + Ex_Xit
     }
     decodedOutbreakMatrix[[n]]<- sum_Xit/length(thinning)
   }
-  return(decodedOutbreakMatrix)
+
+  perStrainProbs <- array(0, dim = c(ndept, time, nstrain))
+  for(n in 1:nstate){
+    for(k in 1:nstrain){
+      perStrainProbs[,,k] <- perStrainProbs[,,k] + Bits[n, k] * decodedOutbreakMatrix[[n]]
+    }
+  }
+  return(perStrainProbs)
 }
 
 perstrainPosteriorOutbreaks <- function(decodedOutbreakMatrix, nstrain){

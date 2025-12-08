@@ -480,10 +480,12 @@ multstraindatafig2<- function(y, maxAll, Modeltype = ""){
   }
   row_1<- cowplot::plot_grid(plotlist = plotlists[1:3], ncol = 3, labels = c("A", "B", "C"), label_size = 17)
   row_2<- cowplot::plot_grid(plotlist = plotlists[4:5], ncol = 3, labels = c("D", "E"), label_size = 17, rel_widths = c(1, 1.35, 0.65))
-  print(cowplot::plot_grid(row_1, row_2, nrow = 2))
-  add_legend(0.6, -0.3, legend=substitute(paste(bold(Modeltype))),
+  finalplot<- cowplot::plot_grid(row_1, row_2, nrow = 2)
+  print(finalplot)
+  add_legend(0.45, -0.3, legend=substitute(paste(bold(Modeltype))),
               col="black",
              horiz=TRUE, bty='n', cex=3.0)
+ # return(finalplot)
 }
 
 
@@ -738,7 +740,7 @@ RecoverInfUAB.plot <- function(inf.object, true_u, true_a_k, true_B,
 }
 
 
-RecoverInfUABG.plot <- function(inf.object, true_u, true_a_k, true_B, true_G,
+RecoverInfUABGcop.plot <- function(inf.object, true_u, true_a_k, true_B, true_G, true_cop,
                                 Modeltype = "", burn.in = 100) {
   library(ggplot2)
   library(cowplot)
@@ -760,6 +762,7 @@ RecoverInfUABG.plot <- function(inf.object, true_u, true_a_k, true_B, true_G,
     fullak.draws <- inf.object[-(1:burn.in), startsWith(colnames(inf.object), "a")]
     fullB.draws <- inf.object[-(1:burn.in), startsWith(colnames(inf.object), "B")]
     fullG.draws <- inf.object[-(1:burn.in), startsWith(colnames(inf.object), "G")]
+    fullcop.draws <- inf.object[-(1:burn.in), startsWith(colnames(inf.object), "c")]
   }
 
   # thinning every 10
@@ -768,6 +771,7 @@ RecoverInfUABG.plot <- function(inf.object, true_u, true_a_k, true_B, true_G,
   ak.draws <- fullak.draws[thinning, , drop = FALSE]
   B.draws  <- fullB.draws[thinning, , drop = FALSE]
   G.draws  <- fullG.draws[thinning, , drop = FALSE]
+  cop.draws<- fullcop.draws[thinning]
 
   # ---- U violin plot ----
   u_labels <- do.call(expression, lapply(1:n_u, function(i) {
@@ -789,7 +793,7 @@ RecoverInfUABG.plot <- function(inf.object, true_u, true_a_k, true_B, true_G,
     labs(x = "Location", y = "Value", fill = "") +
     theme_minimal() +
     scale_fill_manual(values = rep(c("blue", "red"), length.out = n_u)) +
-    scale_x_discrete(labels = u_labels) +   # <-- add dynamic labels here
+    scale_x_discrete(labels = u_labels) +   #labels here
     theme(axis.title = element_text(size = 17),
           axis.text = element_text(size = 16),
           legend.position = "none")
@@ -814,7 +818,7 @@ RecoverInfUABG.plot <- function(inf.object, true_u, true_a_k, true_B, true_G,
     labs(x = "Intercepts", y = "Value", fill = "") +
     theme_minimal() +
     scale_fill_manual(values = rep("purple", n_ak)) +
-    scale_x_discrete(labels = ak_labels) +   # <-- add dynamic labels here
+    scale_x_discrete(labels = ak_labels) +   #labels here
     theme(axis.title = element_text(size = 17),
           axis.text = element_text(size = 16),
           legend.position = "none")
@@ -839,7 +843,7 @@ RecoverInfUABG.plot <- function(inf.object, true_u, true_a_k, true_B, true_G,
     labs(x = "Regression coeff.", y = "Value", fill = "") +
     theme_minimal() +
     scale_fill_manual(values = rep("purple", n_B)) +
-    scale_x_discrete(labels = B_labels) +   # <-- add dynamic labels here
+    scale_x_discrete(labels = B_labels) +   #labels here
     theme(axis.title = element_text(size = 17),
           axis.text = element_text(size = 16),
           legend.position = "none")
@@ -867,16 +871,36 @@ RecoverInfUABG.plot <- function(inf.object, true_u, true_a_k, true_B, true_G,
     labs(x = "Transition prob.", y = "Value", fill = "") +
     theme_minimal() +
     scale_fill_manual(values = rep("purple", n_G)) +
-    scale_x_discrete(labels = G_labels) +   # <-- add dynamic labels here
+    scale_x_discrete(labels = G_labels) +   #labels here
+    theme(axis.title = element_text(size = 17),
+          axis.text = element_text(size = 16),
+          legend.position = "none")
+
+  # ---- Copula \psi violin plot ----
+  comp_cop <- data.frame(
+    value = as.vector(cop.draws),
+    group = "copParam")
+
+  rfigs_cop <- ggplot(comp_cop, aes(x = group, y = value, fill = group)) +
+    geom_violin(trim = FALSE, alpha = 0.7) +
+    geom_point(data = data.frame(x = "copParam",
+                                 y = true_cop),
+               aes(x = x, y = y),
+               size = 2, shape = 19, inherit.aes = FALSE) +
+    ylim(-5, 15) +
+    labs(x = "Copula param.", y = "Value", fill = "") +
+    theme_minimal() +
+    scale_fill_manual(values = rep("purple", n_G)) +
+    scale_x_discrete(labels = expression(psi)) +
     theme(axis.title = element_text(size = 17),
           axis.text = element_text(size = 16),
           legend.position = "none")
 
   # ---- combine plots ----
-  plotlists <- list(rfigs_u, rfigs_ak, rfigs_B, rfigs_G)
-  print(cowplot::plot_grid(plotlist = plotlists, ncol = 4,
-                           labels = c("A", "B", "C", "D"),
-                           rel_widths = c(1.25, 1, 1, 1.5), label_size = 17))
+  plotlists <- list(rfigs_u, rfigs_ak, rfigs_B, rfigs_G, rfigs_cop)
+  print(cowplot::plot_grid(plotlist = plotlists, ncol = 5,
+                           labels = c("A", "B", "C", "D","E"),
+                           rel_widths = c(1.25, 1, 1, 1.5, 0.7), label_size = 17))
 
   # Legends
   add_legend(0.85, 1.15, legend = "Truth",
@@ -1098,7 +1122,7 @@ perstrainOutbreakfigures<- function(Truth_array, matrix_array, Outbreaktype=""){
     smallxit<- X_it[c(1,3,5,7,9), ]
     bigxit<- X_it[c(2,4,6,8), ]
     bigsmallxit<- X_it[c(2,4,6,8,1,3,5,7,9), ]
-    image(x=1:time, y=1:ndept, t(bigsmallxit), zlim = c(0,1),  main =paste("Strain", i), axes=F, ylab="spatial location", xlab="Time [month]", cex.lab=1.80, cex.main=2.5)
+    image(x=1:time, y=1:ndept, t(bigsmallxit), zlim = c(0,1),  main ="", axes=F, ylab="spatial location", xlab="Time [month]", cex.lab=1.80, cex.main=2.5)
     abline(h=4.5, col="black", lty=2)
     #custom Y-axis
     axis(2, at=seq(1, 4, length.out=4), labels=c("u2", "u4", "u6", "u8"), col = "red", col.axis="red", lwd.ticks = 1, las = 1, lwd=0, cex.axis = 1.8, cex.lab=1.8)
@@ -1116,31 +1140,43 @@ perstrainOutbreakfigures<- function(Truth_array, matrix_array, Outbreaktype=""){
     # Overlay truth as colored dots at cell centers
     points(out$y[outbreakcell],   # time axis
            out$x[outbreakcell],   # location axis
-           pch = 16, cex = 1.5, col = "magenta")
+           pch = 16, cex = 2.0, col = "magenta")
+    legendary::labelFig(LETTERS[i], adj = c(-0.14, 0.05), font=2, cex=2.0)
   }
-  add_legend("topright", legend=substitute(paste(bold("Truth"))),
-             pch=16, col="magenta",
-             horiz=TRUE, bty='n', cex=1.8)
+  par(mar = c(5, 18, 5, 17))
+  #c(bottom, left, top, right) ==> specification order
 
-  add_legend(0.50, -0.4, legend=substitute(paste(bold(Outbreaktype))),
-             col="black",
-             horiz=TRUE, bty='n', cex=3.0)
+  zseq <- seq(0, 1, length.out = 101)
+  xseq <- c(0, 1)
+  zmat <- matrix(zseq[-1], nrow = 1)
+
+  image(x = xseq, y = zseq, z = zmat,
+        axes = FALSE, xlab = "", ylab = "", main = "")
+
+  axis(4, at = seq(0, 1, 0.2), labels = seq(0, 1, 0.2), las = 1, cex.axis=2.0)
+  mtext("Posterior probability of outbreak", side = 4, line = 5.0, cex = 1.7)
+  box()
+  add_legend(0.30, 1.11, legend=c("Truth", "Small cities", "Large cities"), lty=c(NA, 1, 1),
+             pch=c(16, NA, NA), col=c("magenta", "blue", "red"),
+             horiz=TRUE, bty='n', cex=2.0)
+
+#  add_legend(0.50, -0.4, legend=substitute(paste(bold(Outbreaktype))),
+#             col="black",
+#             horiz=TRUE, bty='n', cex=3.0)
 
   dev.off()
 }
 
 
 
-RecoverInfAllRS.plot<- function(allinf.object, alltrue_r, alltrue_s){
+RecoverInfAllRS.plot<- function(allinf.object, true_r, true_s){
 
   allobject<- length(allinf.object)
-  par(mfrow=c(2,4))
-  Modeltype<- c("Model 0", "Model 1", "Model 2", "Model 5")
+  par(mfrow=c(3,4))
+  Modeltype<- c("No outbreak", "Independent 1", "Independent 2", "Copula-dependent 1", "Copula-dependent 2", "General-dependent")
 
 for(a in 1:allobject){
   inf.object<- allinf.object[[a]]
-  true_r<- alltrue_r[[a]]
-  true_s<- alltrue_s[[a]]
 
   if(is.data.frame(inf.object)){
     rPosterior<- inf.object[, startsWith(colnames(inf.object), "r")]
@@ -1160,23 +1196,23 @@ for(a in 1:allobject){
     lCI.s<- posterior_interval_custom(as.matrix.data.frame(inf.object$draws(variables = "s")[,1,]))[,1]
   }
 
-  plot(0, type = "n", xlim = c(1,length(inf.r)), ylim = c(-0.5, 0.5), ylab = "Trend component", xlab = "Time [Month]", main = Modeltype[[a]])
+  plot(0, type = "n", xlim = c(1,length(inf.r)), ylim = c(-0.5, 0.5), ylab = "Trend component", xlab = "Time [Month]", main = Modeltype[[a]], cex.main=2.0, cex.lab=1.5)
   polygon(c(1:length(inf.r), rev(1:length(inf.r))), c(lCI.r, rev(uCI.r)),
           col = "pink", border = NA)
   lines(1:length(inf.r), inf.r, col="red")
   points(1:length(inf.r), true_r, pch = 19)
   grid()
 
-  plot(0, type = "n", xlim = c(1,length(inf.s)), ylim = c(-1.6, 1.6), ylab = "Seasonal component", xlab = "Season [Month]", main = Modeltype[[a]])
+  plot(0, type = "n", xlim = c(1,length(inf.s)), ylim = c(-1.6, 1.6), ylab = "Seasonal component", xlab = "Season [Month]", main = Modeltype[[a]], cex.main=2.0, cex.lab=1.5)
   polygon(c(1:length(inf.s), rev(1:length(inf.s))), c(lCI.s, rev(uCI.s)),
           col = "pink", border = NA)
   lines(1:length(inf.s), inf.s, col="red")
   points(1:length(inf.s), true_s, pch = 19)
   grid()
   }
-  add_legend(0.46, 1.15, legend=c("Truth", "Posterior means"), lty=c(NA, 1),
+  add_legend(0.29, 1.185, legend=c("Truth", "Posterior means"), lty=c(NA, 1),
              pch=c(19, NA), col=c("black", "red"),
-             horiz=TRUE, bty='n', cex=1.5)
+             horiz=TRUE, bty='n', cex=1.8)
   }
 
 
