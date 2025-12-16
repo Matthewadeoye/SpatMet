@@ -264,6 +264,50 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// one_factor_copula_cdf_rcpp
+double one_factor_copula_cdf_rcpp(const arma::vec& u, const arma::vec& Lambdas, const arma::vec& gh_x, const arma::vec& gh_w);
+RcppExport SEXP _SpatMet_one_factor_copula_cdf_rcpp(SEXP uSEXP, SEXP LambdasSEXP, SEXP gh_xSEXP, SEXP gh_wSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::vec& >::type u(uSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type Lambdas(LambdasSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type gh_x(gh_xSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type gh_w(gh_wSEXP);
+    rcpp_result_gen = Rcpp::wrap(one_factor_copula_cdf_rcpp(u, Lambdas, gh_x, gh_w));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ParallelGaussianJointTransitionMatrix_copula_cpp
+arma::mat ParallelGaussianJointTransitionMatrix_copula_cpp(const arma::mat& gamma, int K, const arma::vec& Lambdas, const arma::vec& gh_x, const arma::vec& gh_w);
+RcppExport SEXP _SpatMet_ParallelGaussianJointTransitionMatrix_copula_cpp(SEXP gammaSEXP, SEXP KSEXP, SEXP LambdasSEXP, SEXP gh_xSEXP, SEXP gh_wSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type gamma(gammaSEXP);
+    Rcpp::traits::input_parameter< int >::type K(KSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type Lambdas(LambdasSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type gh_x(gh_xSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type gh_w(gh_wSEXP);
+    rcpp_result_gen = Rcpp::wrap(ParallelGaussianJointTransitionMatrix_copula_cpp(gamma, K, Lambdas, gh_x, gh_w));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ParallelGaussianJointTransitionMatrix_copula_per_strain_cpp
+arma::mat ParallelGaussianJointTransitionMatrix_copula_per_strain_cpp(List gamma_list, int K, const arma::vec& Lambdas, const arma::vec& gh_x, const arma::vec& gh_w);
+RcppExport SEXP _SpatMet_ParallelGaussianJointTransitionMatrix_copula_per_strain_cpp(SEXP gamma_listSEXP, SEXP KSEXP, SEXP LambdasSEXP, SEXP gh_xSEXP, SEXP gh_wSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< List >::type gamma_list(gamma_listSEXP);
+    Rcpp::traits::input_parameter< int >::type K(KSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type Lambdas(LambdasSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type gh_x(gh_xSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type gh_w(gh_wSEXP);
+    rcpp_result_gen = Rcpp::wrap(ParallelGaussianJointTransitionMatrix_copula_per_strain_cpp(gamma_list, K, Lambdas, gh_x, gh_w));
+    return rcpp_result_gen;
+END_RCPP
+}
 // logSumExp_cpp
 double logSumExp_cpp(NumericVector x);
 RcppExport SEXP _SpatMet_logSumExp_cpp(SEXP xSEXP) {
@@ -981,6 +1025,9 @@ static const R_CallMethodDef CallEntries[] = {
     {"_SpatMet_ParallelFrankJointTransitionMatrix_copula_cpp", (DL_FUNC) &_SpatMet_ParallelFrankJointTransitionMatrix_copula_cpp, 3},
     {"_SpatMet_ParallelFrankJointTransitionMatrix_copula_perstrain_cpp", (DL_FUNC) &_SpatMet_ParallelFrankJointTransitionMatrix_copula_perstrain_cpp, 3},
     {"_SpatMet_Multipurpose_JointTransitionMatrix_cpp2", (DL_FUNC) &_SpatMet_Multipurpose_JointTransitionMatrix_cpp2, 4},
+    {"_SpatMet_one_factor_copula_cdf_rcpp", (DL_FUNC) &_SpatMet_one_factor_copula_cdf_rcpp, 4},
+    {"_SpatMet_ParallelGaussianJointTransitionMatrix_copula_cpp", (DL_FUNC) &_SpatMet_ParallelGaussianJointTransitionMatrix_copula_cpp, 5},
+    {"_SpatMet_ParallelGaussianJointTransitionMatrix_copula_per_strain_cpp", (DL_FUNC) &_SpatMet_ParallelGaussianJointTransitionMatrix_copula_per_strain_cpp, 5},
     {"_SpatMet_logSumExp_cpp", (DL_FUNC) &_SpatMet_logSumExp_cpp, 1},
     {"_SpatMet_logSumExp_cpp2", (DL_FUNC) &_SpatMet_logSumExp_cpp2, 1},
     {"_SpatMet_intPower", (DL_FUNC) &_SpatMet_intPower, 2},

@@ -1987,13 +1987,14 @@ FinalCPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_it
 }
 
 #Riemann Manifold Langevin updates -- Sampling
-FFBS_INFERENCE<- function(y, e_it, Modeltype, adjmat, step_sizes, num_iteration = 15000, sdBs=0.03, sdGs=0.05){
+FFBS_INFERENCE<- function(y, e_it, Modeltype, adjmat, step_sizes, num_iteration = 15000, sdBs=0.03, sdGs=0.05, sdLambdas=0.03){
   start_time <- Sys.time()
   ndept <- nrow(e_it)
   time <- ncol(e_it)
   nstrain<- dim(y)[3]
   nstate<- 2^nstrain
   Bits<- encodeBits(nstrain)
+  gh <- statmod::gauss.quad(30, kind = "hermite")
 
   R<- -1 * adjmat
   diag(R)<- -rowSums(R, na.rm = T)
@@ -2042,23 +2043,20 @@ FFBS_INFERENCE<- function(y, e_it, Modeltype, adjmat, step_sizes, num_iteration 
   initstateD<- stationarydist(initGs)[ncol(initGs)]
 
   Model<- ifelse(Modeltype>0,1,0)
-  n_copParams<- ifelse(Modeltype %in% c(0,1,2,5),0,nstrain * (nstrain-1)/2)
+  n_copParams<- ifelse(Modeltype %in% c(0,1,2,5),0,nstrain)
 
   if(Modeltype %in% c(0,1,3)){
     num_Gammas<- 2
     MC_chain<- matrix(NA, nrow=num_iteration, ncol=num_Gammas+3+time+12+ndept+nstrain+nstrain+n_copParams)
     MC_chain[1,]<- c(runif(num_Gammas), 1/var(crudeR), 1/var(crudeS), 1/var(crudeU), crudeR, crudeS[crudeblock-12], crudeU, rep(0, nstrain), rep(mean(crudeResults[[1]]), nstrain), rep(0, n_copParams))
-    zigDim<- 2+nstrain*(nstrain-1)/2
   }else if(Modeltype %in% c(2,4)){
     num_Gammas<- 2 * nstrain
     MC_chain<- matrix(NA, nrow=num_iteration, ncol=num_Gammas+3+time+12+ndept+nstrain+nstrain+n_copParams)
     MC_chain[1,]<- c(runif(num_Gammas), 1/var(crudeR), 1/var(crudeS), 1/var(crudeU), crudeR, crudeS[crudeblock-12], crudeU, rep(0, nstrain), rep(mean(crudeResults[[1]]), nstrain), rep(0, n_copParams))
-    zigDim<- 2*nstrain+nstrain*(nstrain-1)/2
   }else if(Modeltype==5){
     num_Gammas<- nstate * nstate
     MC_chain<- matrix(NA, nrow=num_iteration, ncol=num_Gammas+3+time+12+ndept+nstrain+nstrain+n_copParams)
     MC_chain[1,]<- c(as.numeric(t(initGs)), 1/var(crudeR), 1/var(crudeS), 1/var(crudeU), crudeR, crudeS[crudeblock-12], crudeU, rep(0, nstrain), rep(mean(crudeResults[[1]]), nstrain), rep(0, n_copParams))
-    zigDim<- 0
   }
 
   Q_r<- MC_chain[1,num_Gammas + 1] * RW2PrecMat
@@ -2067,9 +2065,9 @@ FFBS_INFERENCE<- function(y, e_it, Modeltype, adjmat, step_sizes, num_iteration 
 
   #Compute gradients
   if(Modeltype %in% c(1,2)){
-    JointTPM<- Multipurpose_JointTransitionMatrix_cpp(MC_chain[1,1:num_Gammas], nstrain, MC_chain[1,num_Gammas+3+time+12+ndept+nstrain+nstrain], Modeltype)
+    JointTPM<- Multipurpose_JointTransitionMatrix(MC_chain[1,1:num_Gammas], nstrain, MC_chain[1,num_Gammas+3+time+12+ndept+nstrain+nstrain], Modeltype, gh)
   }else if(Modeltype %in% c(3,4)){
-    JointTPM<- Multipurpose_JointTransitionMatrix(MC_chain[1,1:num_Gammas], nstrain, MC_chain[1,num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:n_copParams)], Modeltype)
+    JointTPM<- Multipurpose_JointTransitionMatrix(MC_chain[1,1:num_Gammas], nstrain, MC_chain[1,num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:nstrain)], Modeltype, gh)
     JointTPM<- ifelse(JointTPM<=0,1e-6,JointTPM)
     JointTPM<- ifelse(JointTPM>=1,1-1e-6,JointTPM)
     if(any(!is.finite(JointTPM))) JointTPM<- initGs
@@ -2088,10 +2086,6 @@ FFBS_INFERENCE<- function(y, e_it, Modeltype, adjmat, step_sizes, num_iteration 
   grad_current <- list(grad_r=as.numeric(Allquantities$grad_r), grad_s=as.numeric(Allquantities$grad_s), grad_u=as.numeric(Allquantities$grad_u), cov_r=Allquantities$cov_r, cov_s=Allquantities$cov_s)
 
   deltaP<- 1
-
-  zigmaGammaCopula<- diag(rep(0.1, zigDim), nrow=zigDim, ncol=zigDim)
-  optconstantGammaCopula<- 2.38^2/zigDim
-  lambdaGammaCopula<- 1
 
   for (i in 2:num_iteration) {
 
@@ -2224,8 +2218,8 @@ FFBS_INFERENCE<- function(y, e_it, Modeltype, adjmat, step_sizes, num_iteration 
       priorcurrentGs<- sum(dbeta(MC_chain[i-1,1:num_Gammas], shape1 = rep(2,num_Gammas), shape2 = rep(2,num_Gammas), log=TRUE))
       priorproposedGs<- sum(dbeta(proposedGs, shape1 = rep(2,num_Gammas), shape2 = rep(2,num_Gammas), log=TRUE))
 
-      proposedcopPs<- rep(0, num_Gammas)
-      JointTPM1<- Multipurpose_JointTransitionMatrix_cpp(proposedGs, nstrain, proposedcopPs, Modeltype)
+      proposedLambdas<- rep(0, nstrain)
+      JointTPM1<- Multipurpose_JointTransitionMatrix(proposedGs, nstrain, proposedLambdas, Modeltype, gh)
       JointTPM1<- ifelse(JointTPM1<=0,1e-6,JointTPM1)
       JointTPM1<- ifelse(JointTPM1>=1,1-1e-6,JointTPM1)
 
@@ -2249,32 +2243,19 @@ FFBS_INFERENCE<- function(y, e_it, Modeltype, adjmat, step_sizes, num_iteration 
           MC_chain[i, 1:num_Gammas]<- MC_chain[i-1,1:num_Gammas]
         }
     }else if(Modeltype %in% c(3,4)){
-      ##############################################################################################
-
-      proposedGammaCopula<- mvnfast::rmvn(1, mu = c(MC_chain[i-1,1:num_Gammas],MC_chain[i-1, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:n_copParams)]), sigma = zigmaGammaCopula)
-
-      proposalproposedGammaCopula<- mvnfast::dmvn(c(proposedGammaCopula[1:num_Gammas],proposedGammaCopula[num_Gammas+(1:n_copParams)]),
-                                                  mu = c(MC_chain[i-1,1:num_Gammas],MC_chain[i-1, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:n_copParams)]),
-                                                  sigma = zigmaGammaCopula, log = TRUE)
-      proposalcurrentGammaCopula<- mvnfast::dmvn(c(MC_chain[i-1,1:num_Gammas],MC_chain[i-1, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:n_copParams)]),
-                                                 mu = c(proposedGammaCopula[1:num_Gammas],proposedGammaCopula[num_Gammas+(1:n_copParams)]),
-                                                 sigma = zigmaGammaCopula, log = TRUE)
+      #Transition probabilities update
+      proposedGs<- abs(rnorm(num_Gammas,mean=MC_chain[i-1,1:num_Gammas], sd=rep(sdGs, num_Gammas)))
+      proposedGs<- ifelse(proposedGs<1, proposedGs, 2-proposedGs)
 
       priorcurrentGs<- sum(dbeta(MC_chain[i-1,1:num_Gammas], shape1 = rep(2,num_Gammas), shape2 = rep(2,num_Gammas), log=TRUE))
-      priorproposedGs<- sum(dbeta(proposedGammaCopula[1:num_Gammas], shape1 = rep(2,num_Gammas), shape2 = rep(2,num_Gammas), log=TRUE))
+      priorproposedGs<- sum(dbeta(proposedGs, shape1 = rep(2,num_Gammas), shape2 = rep(2,num_Gammas), log=TRUE))
 
-      priorcurrentCops<- sum(dunif(MC_chain[i-1, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:n_copParams)], min = rep(-1, n_copParams), max = rep(1, n_copParams), log=TRUE))
-      priorproposedCops<- sum(dunif(proposedGammaCopula[num_Gammas+(1:n_copParams)], min = rep(-1, n_copParams), max = rep(1, n_copParams), log=TRUE))
-
-      ##############################################################################################
-
-      JointTPM1<- Multipurpose_JointTransitionMatrix(proposedGammaCopula[1:num_Gammas], nstrain, proposedGammaCopula[num_Gammas+(1:n_copParams)], Modeltype)
+      JointTPM1<- Multipurpose_JointTransitionMatrix(proposedGs, nstrain, MC_chain[i-1, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:nstrain)], Modeltype, gh)
 
       JointTPM1<- ifelse(JointTPM1<=0,1e-6,JointTPM1)
       JointTPM1<- ifelse(JointTPM1>=1,1-1e-6,JointTPM1)
 
       if(any(!is.finite(JointTPM1))){
-        MC_chain[i, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:n_copParams)]<- MC_chain[i-1, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:n_copParams)]
         MC_chain[i, 1:num_Gammas]<- MC_chain[i-1,1:num_Gammas]
       }else{
 
@@ -2283,38 +2264,57 @@ FFBS_INFERENCE<- function(y, e_it, Modeltype, adjmat, step_sizes, num_iteration 
 
         likelihoodproposed<- Allquantities$loglike
 
-        mh.ratioGC<- exp(likelihoodproposed + priorproposedGs + proposalcurrentGammaCopula + priorproposedCops
-                         - likelihoodcurrent - priorcurrentGs - proposalproposedGammaCopula - priorcurrentCops)
+        mh.ratioGC<- exp(likelihoodproposed + priorproposedGs
+                         - likelihoodcurrent - priorcurrentGs)
 
         #print(mh.ratioGC)
 
         if(!is.na(mh.ratioGC) && runif(1) < mh.ratioGC){
-          MC_chain[i, 1:num_Gammas]<- proposedGammaCopula[1:num_Gammas]
-          MC_chain[i, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:n_copParams)]<- proposedGammaCopula[num_Gammas+(1:n_copParams)]
+          MC_chain[i, 1:num_Gammas]<- proposedGs
           likelihoodcurrent<- likelihoodproposed
           grad_current<- grad_proposed
           JointTPM<- JointTPM1
         }
         else{
           MC_chain[i, 1:num_Gammas]<- MC_chain[i-1,1:num_Gammas]
-          MC_chain[i, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:n_copParams)]<- MC_chain[i-1, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:n_copParams)]
         }
       }
-      #Adapting zigmaGammaCopula
-      if(i==5){
-        epsilonGC<- 0.007
-        XnGC<- cbind(MC_chain[1:i, 1:num_Gammas], MC_chain[1:i, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:n_copParams)])
-        XnbarGC <- colMeans(XnGC)
-        zigmaGammaCopula <- cov(XnGC) + epsilonGC*diag(zigDim)
-        zigmaGammaCopula<- optconstantGammaCopula * zigmaGammaCopula
-      } else if (i > 5){
-        XnbarPrevGC <- XnbarGC
-        currentGC<- c(MC_chain[i, 1:num_Gammas], MC_chain[i, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:n_copParams)])
-        XnbarGC <- (i*XnbarGC + currentGC)/(i+1)
-        zigmaGammaCopula <- ((i-1)*zigmaGammaCopula + tcrossprod(currentGC) + i*tcrossprod(XnbarPrevGC) - (i+1)*tcrossprod(XnbarGC) + epsilonGC*diag(zigDim))/i
-        #Robbins Munro tuning
-        lambdaGammaCopula<- lambdaGammaCopula * exp((2/max(1, i-5)) * (min(mh.ratioGC, 1) - 0.234))
-        zigmaGammaCopula<- lambdaGammaCopula* optconstantGammaCopula * zigmaGammaCopula
+
+      #Factor loadings update
+      proposedLambdas<- rnorm(nstrain,mean=MC_chain[i-1,num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:nstrain)], sd=rep(sdLambdas, nstrain))
+      proposedLambdas<- ifelse(proposedLambdas<1, proposedLambdas, 2-proposedLambdas)
+
+      priorcurrentLambdas<- sum(dunif(MC_chain[i-1, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:nstrain)], min = rep(-1, nstrain), max = rep(1, nstrain), log=TRUE))
+      priorproposedLambdas<- sum(dunif(proposedLambdas, min = rep(-1, nstrain), max = rep(1, nstrain), log=TRUE))
+
+      JointTPM1<- Multipurpose_JointTransitionMatrix(MC_chain[i, 1:num_Gammas], nstrain, proposedLambdas, Modeltype, gh)
+
+      JointTPM1<- ifelse(JointTPM1<=0,1e-6,JointTPM1)
+      JointTPM1<- ifelse(JointTPM1>=1,1-1e-6,JointTPM1)
+
+      if(any(!is.finite(JointTPM1))){
+        MC_chain[i, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:nstrain)]<- MC_chain[i-1, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:nstrain)]
+      }else{
+
+        Allquantities<- FFBSgradmultstrainLoglikelihood_cpp(y=y, e_it=e_it, nstrain=nstrain,  r=MC_chain[i, num_Gammas+3+(1:time)], s=MC_chain[i, num_Gammas+3+time+(1:12)], u=MC_chain[i, num_Gammas+3+time+12+(1:ndept)], jointTPM=JointTPM1, B=MC_chain[i, num_Gammas+3+time+12+ndept+(1:nstrain)], Bits=Bits, a_k=MC_chain[i-1, num_Gammas+3+time+12+ndept+nstrain+(1:nstrain)], Model=Model,Q_r=Q_r,Q_s = Q_s,Q_u=Q_u,gradients=1)
+        grad_proposed <- list(grad_r=as.numeric(Allquantities$grad_r), grad_s=as.numeric(Allquantities$grad_s), grad_u=as.numeric(Allquantities$grad_u), cov_r=Allquantities$cov_r, cov_s=Allquantities$cov_s)
+
+        likelihoodproposed<- Allquantities$loglike
+
+        mh.ratioGC<- exp(likelihoodproposed + priorproposedLambdas
+                         - likelihoodcurrent - priorcurrentLambdas)
+
+        #print(mh.ratioGC)
+
+        if(!is.na(mh.ratioGC) && runif(1) < mh.ratioGC){
+          MC_chain[i, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:nstrain)]<- proposedLambdas
+          likelihoodcurrent<- likelihoodproposed
+          grad_current<- grad_proposed
+          JointTPM<- JointTPM1
+        }
+        else{
+          MC_chain[i, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:nstrain)]<- MC_chain[i-1, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:nstrain)]
+        }
       }
     }else if(Modeltype==5){
 
@@ -2370,9 +2370,9 @@ FFBS_INFERENCE<- function(y, e_it, Modeltype, adjmat, step_sizes, num_iteration 
   }else if(Modeltype == 2){
     colnames(MC_chain) <- paste(c(paste0(rep(c("G12", "G21"), nstrain), "Strain", rep(1:nstrain,each=2)), "kappa_r", "kappa_s", "kappa_u", paste("r", 1:time, sep=""), paste("s", 1:12, sep=""), paste("u", 1:ndept, sep=""), paste("B", 1:nstrain, sep=""), paste("a_k", 1:nstrain, sep="")))
   }else if(Modeltype == 3){
-    colnames(MC_chain) <- paste(c("G12", "G21", "kappa_r", "kappa_s", "kappa_u", paste("r", 1:time, sep=""), paste("s", 1:12, sep=""), paste("u", 1:ndept, sep=""), paste("B", 1:nstrain, sep=""), paste("a_k", 1:nstrain, sep=""), paste("copulaParam", 1:n_copParams, sep ="")))
+    colnames(MC_chain) <- paste(c("G12", "G21", "kappa_r", "kappa_s", "kappa_u", paste("r", 1:time, sep=""), paste("s", 1:12, sep=""), paste("u", 1:ndept, sep=""), paste("B", 1:nstrain, sep=""), paste("a_k", 1:nstrain, sep=""), paste("factorLoad", 1:nstrain, sep ="")))
   }else if(Modeltype == 4){
-    colnames(MC_chain) <- paste(c(paste0(rep(c("G12", "G21"), nstrain), "Strain", rep(1:nstrain,each=2)), "kappa_r", "kappa_s", "kappa_u", paste("r", 1:time, sep=""), paste("s", 1:12, sep=""), paste("u", 1:ndept, sep=""), paste("B", 1:nstrain, sep=""), paste("a_k", 1:nstrain, sep=""), paste("copulaParam", 1:n_copParams, sep ="")))
+    colnames(MC_chain) <- paste(c(paste0(rep(c("G12", "G21"), nstrain), "Strain", rep(1:nstrain,each=2)), "kappa_r", "kappa_s", "kappa_u", paste("r", 1:time, sep=""), paste("s", 1:12, sep=""), paste("u", 1:ndept, sep=""), paste("B", 1:nstrain, sep=""), paste("a_k", 1:nstrain, sep=""), paste("FactorLoad", 1:nstrain, sep ="")))
   }else if(Modeltype == 5){
     colnames(MC_chain) <- paste(c(paste0(rep("G_", nstate*nstate), rep(1:nstate, each=nstate), ",", 1:nstate), "kappa_r", "kappa_s", "kappa_u", paste("r", 1:time, sep=""), paste("s", 1:12, sep=""), paste("u", 1:ndept, sep=""), paste("B", 1:nstrain, sep=""), paste("a_k", 1:nstrain, sep="")))
   }

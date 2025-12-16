@@ -964,7 +964,7 @@ VectorizedJointTransitionMatrix_copula_per_strain<- function(gamma_list, K, copu
   return(Gamma)
 }
 
-Multipurpose_JointTransitionMatrix<- function(gammas, K, copParams, Modeltype){
+Multipurpose_JointTransitionMatrix<- function(gammas, K, Lambdas, Modeltype, gh){
   nstate<- 2^K
   if(Modeltype==1){
     JointTPM<- JointTransitionMatrix_arma_cpp2(G(gammas[1], gammas[2]), K)
@@ -972,13 +972,79 @@ Multipurpose_JointTransitionMatrix<- function(gammas, K, copParams, Modeltype){
     Glist<- BuildGamma_list_cpp(gammas)
     JointTPM<- JointTransitionMatrix_per_strain_cpp2(Glist, K)
   }else if(Modeltype==3){
-    JointTPM<- VectorizedJointTransitionMatrix_copula(G(gammas[1], gammas[2]), K, copParams)
+    JointTPM<- ParallelGaussianJointTransitionMatrix_copula_cpp(G(gammas[1], gammas[2]), K, Lambdas, gh$nodes, gh$weights)
   }else if(Modeltype==4){
     Glist<- BuildGamma_list_cpp(gammas)
-    JointTPM<- VectorizedJointTransitionMatrix_copula_per_strain(Glist, K, copParams)
+    JointTPM<- ParallelGaussianJointTransitionMatrix_copula_per_strain_cpp(Glist, K, Lambdas, gh$nodes, gh$weights)
   }
   return(JointTPM)
 }
+
+
+one_factor_copula_cdf <- function(u, lambda) {
+  eps <- 1e-12
+  q <- qnorm(pmin(pmax(u, eps), 1 - eps))
+
+  integrand <- function(z) {
+    out <- numeric(length(z))
+    for (i in seq_along(z)) {
+      out[i] <- prod(
+        pnorm((q - lambda * z[i]) / sqrt(1 - lambda^2))
+      )
+    }
+    out * dnorm(z)
+  }
+
+  integrate(integrand, -Inf, Inf, subdivisions = 200L)$value
+}
+
+one_factor_copula_cdf2<- function(u, lambda) {
+  gh <- statmod::gauss.quad(30, kind = "hermite")
+  one_factor_copula_cdf_rcpp(u, lambda, gh$nodes, gh$weights)
+}
+
+#Dependence modelling with copula, assuming the same TPM for all strains
+FactorJointTransitionMatrix_copula<- function(gamma, K, copulaParams){
+
+  S <- 2^K
+  gamma[1, ] <- gamma[1, ][2:1]
+
+  Gamma <- matrix(0, S, S)
+
+  for(a in 0:(S-1)) {
+    for(b in 0:(S-1)) {
+      Indices <- integer(0)
+      IndicesComplement <- integer(0)
+      prob <- numeric(K)
+
+      for(k in 1:K){
+        from_k <- (a %/% 2^(k-1)) %% 2
+        to_k   <- (b %/% 2^(k-1)) %% 2
+
+        if(from_k == 1) Indices <- c(Indices,k)
+        else IndicesComplement <- c(IndicesComplement,k)
+
+        prob[k] <- gamma[from_k+1, to_k+1]
+      }
+
+      subsets <- sets::set_power(sets::as.set(IndicesComplement))
+      subsets <- lapply(subsets, function(g) unlist(as.vector(g)))
+
+      total <- 0
+      for(Tset in subsets){
+        sign <- (-1)^length(Tset)
+        idx <- c(Indices, Tset)
+        u <- rep(1, K)
+        if(length(idx)>0) u[idx] <- prob[idx]
+        total <- total + sign * one_factor_copula_cdf2(u, copulaParams)
+      }
+      Gamma[a+1, b+1] <- total
+    }
+  }
+  Gamma <- Gamma / rowSums(Gamma)
+  Gamma
+}
+
 
 frank_cdf <- function(u, theta) {
   if (theta == 0) {
@@ -1151,7 +1217,7 @@ ParallelJointTransitionMatrix_copula<- function(gamma, K, copulaParams){
 }
 
 #Dependence modelling with copula, assuming the same TPM for all strains - Vine
-JointTransitionMatrix_copula_vine <- function(gamma, K, copulaParams){
+GaussianJointTransitionMatrix_copula_vine <- function(gamma, K, copulaParams){
   S <- 2^K
   corrMat <- diag(K)
   uppertriang <- copulaParams
@@ -1198,7 +1264,7 @@ JointTransitionMatrix_copula_vine <- function(gamma, K, copulaParams){
         idx  <- c(Indices, Tset)
         u <- rep(1, K)
         if(length(idx) > 0) u[idx] <- prob[idx]
-        total <- total + sign * rvinecopulib::pvinecop(u, vcop, n_mc = 10^4, cores = 4)
+        total <- total + sign * rvinecopulib::pvinecop(u, vcop, n_mc = 10^4, cores = 7)
       }
       Gamma[a + 1, b + 1] <- total
     }
@@ -1207,6 +1273,62 @@ JointTransitionMatrix_copula_vine <- function(gamma, K, copulaParams){
   return(Gamma)
 }
 
+#Dependence modelling with copula, assuming the same TPM for all strains - Vine
+FrankJointTransitionMatrix_copula_vine <- function(gamma, K, copulaParams){
+  S <- 2^K
+  corrMat <- diag(K)
+  uppertriang <- copulaParams
+  gdata::upperTriangle(corrMat, byrow = TRUE) <- uppertriang
+  gdata::lowerTriangle(corrMat, byrow = FALSE) <- uppertriang
+
+  struct <- rvinecopulib::cvine_structure(K)
+  pclist <- vector("list", K-1)
+  for(t in 1:(K-1)) {
+    n_edges <- K - t
+    pclist[[t]] <- lapply(1:n_edges, function(i){
+      rho <- corrMat[t, t+i]
+      rvinecopulib::bicop_dist('frank', parameters = rho)
+    })
+  }
+  vcop <- rvinecopulib::vinecop_dist(pclist, struct)
+
+  gamma[1,] <- gamma[1,][2:1]
+
+  Gamma <- matrix(0, nrow = S, ncol = S)
+  for(a in 0:(S - 1)) {
+    for(b in 0:(S - 1)){
+
+      Indices <- c()
+      IndicesComplement <- c()
+      prob <- numeric(K)
+      for(k in 1:K){
+        from_k <- (a %/% 2^(k - 1)) %% 2
+        to_k   <- (b %/% 2^(k - 1)) %% 2
+        if(from_k == 1) {
+          Indices <- c(Indices, k)
+        } else {
+          IndicesComplement <- c(IndicesComplement, k)
+        }
+        prob[k] <- gamma[from_k + 1, to_k + 1]
+      }
+      # inclusion-exclusion subsets
+      subsets <- sets::set_power(sets::as.set(IndicesComplement))
+      subsets <- lapply(subsets, function(g) unlist(as.vector(g)))
+
+      total <- 0
+      for(Tset in subsets) {
+        sign <- (-1)^length(Tset)
+        idx  <- c(Indices, Tset)
+        u <- rep(1, K)
+        if(length(idx) > 0) u[idx] <- prob[idx]
+        total <- total + sign * rvinecopulib::pvinecop(u, vcop, n_mc = 10^4, cores = 7)
+      }
+      Gamma[a + 1, b + 1] <- total
+    }
+  }
+  Gamma <- Gamma / rowSums(Gamma)
+  return(Gamma)
+}
 
 #Dependence modelling with copula, assuming each strain has its unique TPM
 JointTransitionMatrix_copula_per_strain<- function(gamma_list, copulaParam){

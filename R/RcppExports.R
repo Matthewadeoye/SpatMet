@@ -81,6 +81,18 @@ Multipurpose_JointTransitionMatrix_cpp2 <- function(gammas, K, copParam, Modelty
     .Call(`_SpatMet_Multipurpose_JointTransitionMatrix_cpp2`, gammas, K, copParam, Modeltype)
 }
 
+one_factor_copula_cdf_rcpp <- function(u, Lambdas, gh_x, gh_w) {
+    .Call(`_SpatMet_one_factor_copula_cdf_rcpp`, u, Lambdas, gh_x, gh_w)
+}
+
+ParallelGaussianJointTransitionMatrix_copula_cpp <- function(gamma, K, Lambdas, gh_x, gh_w) {
+    .Call(`_SpatMet_ParallelGaussianJointTransitionMatrix_copula_cpp`, gamma, K, Lambdas, gh_x, gh_w)
+}
+
+ParallelGaussianJointTransitionMatrix_copula_per_strain_cpp <- function(gamma_list, K, Lambdas, gh_x, gh_w) {
+    .Call(`_SpatMet_ParallelGaussianJointTransitionMatrix_copula_per_strain_cpp`, gamma_list, K, Lambdas, gh_x, gh_w)
+}
+
 logSumExp_cpp <- function(x) {
     .Call(`_SpatMet_logSumExp_cpp`, x)
 }

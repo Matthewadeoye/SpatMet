@@ -692,3 +692,166 @@ arma::mat Multipurpose_JointTransitionMatrix_cpp2(const arma::vec& gammas,
   return JointTPM;
 }
 
+// [[Rcpp::export]]
+double one_factor_copula_cdf_rcpp(const arma::vec& u,
+                                  const arma::vec& Lambdas,
+                                  const arma::vec& gh_x,
+                                  const arma::vec& gh_w) {
+
+  int K = u.size();
+  int M = gh_x.size();
+
+  const double eps = 1e-12;
+  arma::vec q(K, arma::fill::zeros);
+
+  // Compute qnorm(u)
+  for (int k = 0; k < K; ++k) {
+    double uk = std::min(std::max(u[k], eps), 1.0 - eps);
+    q[k] = R::qnorm(uk, 0.0, 1.0, 1, 0);
+  }
+
+  double result = 0.0;
+
+  for (int j = 0; j < M; ++j) {
+    double z = std::sqrt(2.0) * gh_x[j];
+    double prod_term = 1.0;
+
+    for (int k = 0; k < K; ++k) {
+      double denom = std::sqrt(1.0 - Lambdas[k] * Lambdas[k]);
+      double arg = (q[k] - Lambdas[k] * z) / denom;
+      prod_term *= R::pnorm(arg, 0.0, 1.0, 1, 0);
+    }
+
+    result += gh_w[j] * prod_term;
+  }
+
+  return result / std::sqrt(M_PI);
+}
+
+// [[Rcpp::export]]
+arma::mat ParallelGaussianJointTransitionMatrix_copula_cpp(const arma::mat& gamma,
+                                                           int K,
+                                                           const arma::vec& Lambdas,
+                                                           const arma::vec& gh_x,
+                                                           const arma::vec& gh_w){
+  int S = intPower2(2, K);
+  arma::mat GammaMat(S, S, arma::fill::zeros);
+
+  arma::mat gamma2 = gamma;
+  gamma2(0,0) = gamma(0, 1);
+  gamma2(0,1) = gamma(0, 0);
+
+  // parallelize
+#pragma omp parallel for schedule(dynamic)
+  for (int a = 0; a < S; a++) {
+    for (int b = 0; b < S; b++) {
+
+      std::vector<int> Ones;
+      std::vector<int> Zeros;
+      arma::vec prob(K);
+
+      for (int k = 0; k < K; k++) {
+        int from_k = (a >> k) & 1;
+        int to_k   = (b >> k) & 1;
+
+        if (from_k == 1)
+          Ones.push_back(k);
+        else
+          Zeros.push_back(k);
+
+        prob(k) = gamma2(from_k, to_k);
+      }
+
+      // power set of zeros
+      std::vector<std::vector<int>> subsets;
+      std::vector<int> cur;
+      generate_subsets(Zeros, 0, cur, subsets);
+
+      double total = 0.0;
+
+      for (auto& Tset : subsets) {
+        int sign = (Tset.size() % 2 == 0 ? 1 : -1);
+
+        arma::vec u(K, arma::fill::ones);
+        for (int idx : Ones) u(idx) = prob(idx);
+        for (int idx : Tset) u(idx) = prob(idx);
+
+        total += sign * one_factor_copula_cdf_rcpp(u, Lambdas, gh_x, gh_w);
+      }
+
+      GammaMat(a, b) = total;
+    }
+  }
+
+  for (int i = 0; i < S; i++) {
+    double s = arma::accu(GammaMat.row(i));
+    GammaMat.row(i) /= s;
+  }
+  return GammaMat;
+}
+
+// [[Rcpp::export]]
+arma::mat ParallelGaussianJointTransitionMatrix_copula_per_strain_cpp(List gamma_list,
+                                                           int K,
+                                                           const arma::vec& Lambdas,
+                                                           const arma::vec& gh_x,
+                                                           const arma::vec& gh_w){
+  int S = intPower2(2, K);
+  arma::mat GammaMat(S, S, arma::fill::zeros);
+
+  std::vector<arma::mat> gamma_cpp(K);
+  for (int k = 0; k < K; k++)
+    gamma_cpp[k] = as<arma::mat>(gamma_list[k]);
+
+  // parallelize
+#pragma omp parallel for schedule(dynamic)
+  for (int a = 0; a < S; a++) {
+    for (int b = 0; b < S; b++) {
+
+      std::vector<int> Ones;
+      std::vector<int> Zeros;
+      arma::vec prob(K);
+
+      for (int k = 0; k < K; k++) {
+        arma::mat gamma = gamma_cpp[k];
+        arma::mat gamma2 = gamma;
+        gamma2(0,0) = gamma(0, 1);
+        gamma2(0,1) = gamma(0, 0);
+        int from_k = (a >> k) & 1;
+        int to_k   = (b >> k) & 1;
+
+        if (from_k == 1)
+          Ones.push_back(k);
+        else
+          Zeros.push_back(k);
+
+        prob(k) = gamma2(from_k, to_k);
+      }
+
+      // power set of zeros
+      std::vector<std::vector<int>> subsets;
+      std::vector<int> cur;
+      generate_subsets(Zeros, 0, cur, subsets);
+
+      double total = 0.0;
+
+      for (auto& Tset : subsets) {
+        int sign = (Tset.size() % 2 == 0 ? 1 : -1);
+
+        arma::vec u(K, arma::fill::ones);
+        for (int idx : Ones) u(idx) = prob(idx);
+        for (int idx : Tset) u(idx) = prob(idx);
+
+        total += sign * one_factor_copula_cdf_rcpp(u, Lambdas, gh_x, gh_w);
+      }
+
+      GammaMat(a, b) = total;
+    }
+  }
+
+  for (int i = 0; i < S; i++) {
+    double s = arma::accu(GammaMat.row(i));
+    GammaMat.row(i) /= s;
+  }
+  return GammaMat;
+}
