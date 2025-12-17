@@ -861,8 +861,10 @@ fullCPPmultMMALAInference<- function(y, e_it, Model, adjmat, step_sizes, num_ite
 
 #Independent_1_decodedOutbreakMatrix<- Posteriormultstrain.Decoding(y=multmod1nstrain5[["y"]], e_it=multmod1nstrain5[["e_it"]], inf.object=MMALAResultscorrectmodel, Modeltype=1, thinningL=1000)
 #Independent_2_decodedOutbreakMatrix<- Posteriormultstrain.Decoding(y=perstrainmultmod1nstrain5[["y"]], e_it=perstrainmultmod1nstrain5[["e_it"]], inf.object=perstrainMMALAResults5strainGibbs[-(1:20000),], Modeltype = 2, thinningL=1000)
-#copula_1_decodedOutbreakMatrix<- Posteriormultstrain.Decoding(y=FrankcopulaSameTPMmultmod1nstrain5[["y"]], e_it=FrankcopulaSameTPMmultmod1nstrain5[["e_it"]], inf.object=FrankcopulaSameTPMmultmodnstrain50000[-(1:20000),], Modeltype = 3, thinningL=1000)
-#copula_2_decodedOutbreakMatrix<- Posteriormultstrain.Decoding(y=FrankcopulaPerStrainTPMmultmod1nstrain5[["y"]], e_it=FrankcopulaPerStrainTPMmultmod1nstrain5[["e_it"]], inf.object=FrankcopulaPerStrainTPMmultmod1nstrain5Fit50000[-(1:20000),], Modeltype = 4, thinningL=1000)
+#Gaussiancopula_1_decodedOutbreakMatrix<- Posteriormultstrain.Decoding(y=copulaSameTPMmultmod1nstrain5[["y"]], e_it=copulaSameTPMmultmod1nstrain5[["e_it"]], inf.object=copulaSameTPMmultmodnstrain50000[-(1:20000),], Modeltype = 3, thinningL=1000)
+#Gaussiancopula_2_decodedOutbreakMatrix<- Posteriormultstrain.Decoding(y=copulaPerStrainTPMmultmod1nstrain5[["y"]], e_it=copulaPerStrainTPMmultmod1nstrain5[["e_it"]], inf.object=copulaPerStrainTPMmultmod1nstrain5Fit50000[-(1:20000),], Modeltype = 4, thinningL=1000)
+#Frankcopula_1_decodedOutbreakMatrix<- Posteriormultstrain.Decoding(y=FrankcopulaSameTPMmultmod1nstrain5[["y"]], e_it=FrankcopulaSameTPMmultmod1nstrain5[["e_it"]], inf.object=FrankcopulaSameTPMmultmodnstrain50000[-(1:20000),], Modeltype = 5, thinningL=1000)
+#Frankcopula_2_decodedOutbreakMatrix<- Posteriormultstrain.Decoding(y=FrankcopulaPerStrainTPMmultmod1nstrain5[["y"]], e_it=FrankcopulaPerStrainTPMmultmod1nstrain5[["e_it"]], inf.object=FrankcopulaPerStrainTPMmultmod1nstrain5Fit50000[-(1:20000),], Modeltype = 6, thinningL=1000)
 #General_dependent_decodedOutbreakMatrix<- Posteriormultstrain.Decoding(y=dependentmultmod1nstrain5[["y"]], e_it=dependentmultmod1nstrain5[["e_it"]], inf.object=dependentMMALAResults5strainGibbs[-(1:20000),], Modeltype = 5, thinningL=1000)
 
 #Outbreakfigures(matrix_list = decodedOutbreakMatrix, BitsMatrix = Bits, labelLetter = "B")
@@ -2043,20 +2045,21 @@ FFBS_INFERENCE<- function(y, e_it, Modeltype, adjmat, step_sizes, num_iteration 
   initstateD<- stationarydist(initGs)[ncol(initGs)]
 
   Model<- ifelse(Modeltype>0,1,0)
-  n_copParams<- ifelse(Modeltype %in% c(0,1,2,5),0,nstrain)
+  n_copParams<- ifelse(Modeltype %in% c(0,1,2,5),0,(nstrain*(nstrain-1))/2)
+  n_factloadings<- ifelse(Modeltype %in% c(0,1,2,5),0,nstrain)
 
   if(Modeltype %in% c(0,1,3)){
     num_Gammas<- 2
-    MC_chain<- matrix(NA, nrow=num_iteration, ncol=num_Gammas+3+time+12+ndept+nstrain+nstrain+n_copParams)
-    MC_chain[1,]<- c(runif(num_Gammas), 1/var(crudeR), 1/var(crudeS), 1/var(crudeU), crudeR, crudeS[crudeblock-12], crudeU, rep(0, nstrain), rep(mean(crudeResults[[1]]), nstrain), rep(0, n_copParams))
+    MC_chain<- matrix(NA, nrow=num_iteration, ncol=num_Gammas+3+time+12+ndept+nstrain+nstrain+n_factloadings+n_copParams)
+    MC_chain[1,]<- c(runif(num_Gammas), 1/var(crudeR), 1/var(crudeS), 1/var(crudeU), crudeR, crudeS[crudeblock-12], crudeU, rep(0, nstrain), rep(mean(crudeResults[[1]]), nstrain), rep(0, n_factloadings), rep(0, n_copParams))
   }else if(Modeltype %in% c(2,4)){
     num_Gammas<- 2 * nstrain
-    MC_chain<- matrix(NA, nrow=num_iteration, ncol=num_Gammas+3+time+12+ndept+nstrain+nstrain+n_copParams)
-    MC_chain[1,]<- c(runif(num_Gammas), 1/var(crudeR), 1/var(crudeS), 1/var(crudeU), crudeR, crudeS[crudeblock-12], crudeU, rep(0, nstrain), rep(mean(crudeResults[[1]]), nstrain), rep(0, n_copParams))
+    MC_chain<- matrix(NA, nrow=num_iteration, ncol=num_Gammas+3+time+12+ndept+nstrain+nstrain+n_factloadings+n_copParams)
+    MC_chain[1,]<- c(runif(num_Gammas), 1/var(crudeR), 1/var(crudeS), 1/var(crudeU), crudeR, crudeS[crudeblock-12], crudeU, rep(0, nstrain), rep(mean(crudeResults[[1]]), nstrain), rep(0, n_factloadings), rep(0, n_copParams))
   }else if(Modeltype==5){
     num_Gammas<- nstate * nstate
-    MC_chain<- matrix(NA, nrow=num_iteration, ncol=num_Gammas+3+time+12+ndept+nstrain+nstrain+n_copParams)
-    MC_chain[1,]<- c(as.numeric(t(initGs)), 1/var(crudeR), 1/var(crudeS), 1/var(crudeU), crudeR, crudeS[crudeblock-12], crudeU, rep(0, nstrain), rep(mean(crudeResults[[1]]), nstrain), rep(0, n_copParams))
+    MC_chain<- matrix(NA, nrow=num_iteration, ncol=num_Gammas+3+time+12+ndept+nstrain+nstrain+n_factloadings+n_copParams)
+    MC_chain[1,]<- c(as.numeric(t(initGs)), 1/var(crudeR), 1/var(crudeS), 1/var(crudeU), crudeR, crudeS[crudeblock-12], crudeU, rep(0, nstrain), rep(mean(crudeResults[[1]]), nstrain), rep(0, n_factloadings), rep(0, n_copParams))
   }
 
   Q_r<- MC_chain[1,num_Gammas + 1] * RW2PrecMat
@@ -2067,7 +2070,7 @@ FFBS_INFERENCE<- function(y, e_it, Modeltype, adjmat, step_sizes, num_iteration 
   if(Modeltype %in% c(1,2)){
     JointTPM<- Multipurpose_JointTransitionMatrix(MC_chain[1,1:num_Gammas], nstrain, MC_chain[1,num_Gammas+3+time+12+ndept+nstrain+nstrain], Modeltype, gh)
   }else if(Modeltype %in% c(3,4)){
-    JointTPM<- Multipurpose_JointTransitionMatrix(MC_chain[1,1:num_Gammas], nstrain, MC_chain[1,num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:nstrain)], Modeltype, gh)
+    JointTPM<- Multipurpose_JointTransitionMatrix(MC_chain[1,1:num_Gammas], nstrain, MC_chain[1,num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:n_factloadings)], Modeltype, gh)
     JointTPM<- ifelse(JointTPM<=0,1e-6,JointTPM)
     JointTPM<- ifelse(JointTPM>=1,1-1e-6,JointTPM)
     if(any(!is.finite(JointTPM))) JointTPM<- initGs
@@ -2281,11 +2284,11 @@ FFBS_INFERENCE<- function(y, e_it, Modeltype, adjmat, step_sizes, num_iteration 
       }
 
       #Factor loadings update
-      proposedLambdas<- rnorm(nstrain,mean=MC_chain[i-1,num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:nstrain)], sd=rep(sdLambdas, nstrain))
+      proposedLambdas<- rnorm(nstrain,mean=MC_chain[i-1,num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:n_factloadings)], sd=rep(sdLambdas, nstrain))
       proposedLambdas<- ifelse(proposedLambdas<1, proposedLambdas, 2-proposedLambdas)
 
-      priorcurrentLambdas<- sum(dunif(MC_chain[i-1, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:nstrain)], min = rep(-1, nstrain), max = rep(1, nstrain), log=TRUE))
-      priorproposedLambdas<- sum(dunif(proposedLambdas, min = rep(-1, nstrain), max = rep(1, nstrain), log=TRUE))
+      priorcurrentLambdas<- sum(dunif(MC_chain[i-1, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:n_factloadings)], min = rep(-1, n_factloadings), max = rep(1, n_factloadings), log=TRUE))
+      priorproposedLambdas<- sum(dunif(proposedLambdas, min = rep(-1, n_factloadings), max = rep(1, n_factloadings), log=TRUE))
 
       JointTPM1<- Multipurpose_JointTransitionMatrix(MC_chain[i, 1:num_Gammas], nstrain, proposedLambdas, Modeltype, gh)
 
@@ -2293,7 +2296,7 @@ FFBS_INFERENCE<- function(y, e_it, Modeltype, adjmat, step_sizes, num_iteration 
       JointTPM1<- ifelse(JointTPM1>=1,1-1e-6,JointTPM1)
 
       if(any(!is.finite(JointTPM1))){
-        MC_chain[i, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:nstrain)]<- MC_chain[i-1, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:nstrain)]
+        MC_chain[i, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:n_factloadings)]<- MC_chain[i-1, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:n_factloadings)]
       }else{
 
         Allquantities<- FFBSgradmultstrainLoglikelihood_cpp(y=y, e_it=e_it, nstrain=nstrain,  r=MC_chain[i, num_Gammas+3+(1:time)], s=MC_chain[i, num_Gammas+3+time+(1:12)], u=MC_chain[i, num_Gammas+3+time+12+(1:ndept)], jointTPM=JointTPM1, B=MC_chain[i, num_Gammas+3+time+12+ndept+(1:nstrain)], Bits=Bits, a_k=MC_chain[i-1, num_Gammas+3+time+12+ndept+nstrain+(1:nstrain)], Model=Model,Q_r=Q_r,Q_s = Q_s,Q_u=Q_u,gradients=1)
@@ -2307,13 +2310,13 @@ FFBS_INFERENCE<- function(y, e_it, Modeltype, adjmat, step_sizes, num_iteration 
         #print(mh.ratioGC)
 
         if(!is.na(mh.ratioGC) && runif(1) < mh.ratioGC){
-          MC_chain[i, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:nstrain)]<- proposedLambdas
+          MC_chain[i, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:n_factloadings)]<- proposedLambdas
           likelihoodcurrent<- likelihoodproposed
           grad_current<- grad_proposed
           JointTPM<- JointTPM1
         }
         else{
-          MC_chain[i, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:nstrain)]<- MC_chain[i-1, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:nstrain)]
+          MC_chain[i, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:n_factloadings)]<- MC_chain[i-1, num_Gammas+3+time+12+ndept+nstrain+nstrain+(1:n_factloadings)]
         }
       }
     }else if(Modeltype==5){
@@ -2365,14 +2368,22 @@ FFBS_INFERENCE<- function(y, e_it, Modeltype, adjmat, step_sizes, num_iteration 
 
     if(i %% 1000 == 0) cat("Iteration:", i, "\n")
   }
+  #Derive pair-correlations from factor-loadings
+  copInd<- 1
+  for(w in 1:(n_factloadings - 1)){
+    for (z in (w + 1):n_factloadings){
+      MC_chain[, num_Gammas+3+time+12+ndept+nstrain+nstrain+n_factloadings+copInd] <- MC_chain[, num_Gammas+3+time+12+ndept+nstrain+nstrain+w] * MC_chain[, num_Gammas+3+time+12+ndept+nstrain+nstrain+z]
+      copInd <- copInd + 1
+    }
+  }
   if(Modeltype %in% c(0, 1)){
     colnames(MC_chain) <- paste(c("G12", "G21", "kappa_r", "kappa_s", "kappa_u", paste("r", 1:time, sep=""), paste("s", 1:12, sep=""), paste("u", 1:ndept, sep=""), paste("B", 1:nstrain, sep=""), paste("a_k", 1:nstrain, sep="")))
   }else if(Modeltype == 2){
     colnames(MC_chain) <- paste(c(paste0(rep(c("G12", "G21"), nstrain), "Strain", rep(1:nstrain,each=2)), "kappa_r", "kappa_s", "kappa_u", paste("r", 1:time, sep=""), paste("s", 1:12, sep=""), paste("u", 1:ndept, sep=""), paste("B", 1:nstrain, sep=""), paste("a_k", 1:nstrain, sep="")))
   }else if(Modeltype == 3){
-    colnames(MC_chain) <- paste(c("G12", "G21", "kappa_r", "kappa_s", "kappa_u", paste("r", 1:time, sep=""), paste("s", 1:12, sep=""), paste("u", 1:ndept, sep=""), paste("B", 1:nstrain, sep=""), paste("a_k", 1:nstrain, sep=""), paste("factorLoad", 1:nstrain, sep ="")))
+    colnames(MC_chain) <- paste(c("G12", "G21", "kappa_r", "kappa_s", "kappa_u", paste("r", 1:time, sep=""), paste("s", 1:12, sep=""), paste("u", 1:ndept, sep=""), paste("B", 1:nstrain, sep=""), paste("a_k", 1:nstrain, sep=""), paste("FactorLoading", 1:nstrain, sep =""), paste("copulaParam", 1:n_copParams, sep="")))
   }else if(Modeltype == 4){
-    colnames(MC_chain) <- paste(c(paste0(rep(c("G12", "G21"), nstrain), "Strain", rep(1:nstrain,each=2)), "kappa_r", "kappa_s", "kappa_u", paste("r", 1:time, sep=""), paste("s", 1:12, sep=""), paste("u", 1:ndept, sep=""), paste("B", 1:nstrain, sep=""), paste("a_k", 1:nstrain, sep=""), paste("FactorLoad", 1:nstrain, sep ="")))
+    colnames(MC_chain) <- paste(c(paste0(rep(c("G12", "G21"), nstrain), "Strain", rep(1:nstrain,each=2)), "kappa_r", "kappa_s", "kappa_u", paste("r", 1:time, sep=""), paste("s", 1:12, sep=""), paste("u", 1:ndept, sep=""), paste("B", 1:nstrain, sep=""), paste("a_k", 1:nstrain, sep=""), paste("FactorLoading", 1:nstrain, sep =""),paste("copulaParam", 1:n_copParams, sep="")))
   }else if(Modeltype == 5){
     colnames(MC_chain) <- paste(c(paste0(rep("G_", nstate*nstate), rep(1:nstate, each=nstate), ",", 1:nstate), "kappa_r", "kappa_s", "kappa_u", paste("r", 1:time, sep=""), paste("s", 1:12, sep=""), paste("u", 1:ndept, sep=""), paste("B", 1:nstrain, sep=""), paste("a_k", 1:nstrain, sep="")))
   }

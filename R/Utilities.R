@@ -1144,15 +1144,19 @@ FrankJointTransitionMatrix_copula_per_strain<- function(gammalist, K, copulaPara
 }
 
 Multipurpose_JointTransitionMatrix2<- function(gammas, K, copParams, Modeltype){
-  nstate<- 2^K
   if(Modeltype==1){
     JointTPM<- JointTransitionMatrix_arma_cpp2(G(gammas[1], gammas[2]), K)
   }else if(Modeltype==2){
     Glist<- BuildGamma_list_cpp(gammas)
     JointTPM<- JointTransitionMatrix_per_strain_cpp2(Glist, K)
-  }else if(Modeltype==3){
+  }else if(Modeltype == 3){
+    JointTPM<- JointTransitionMatrix_copula_cpp(G(gammas[1], gammas[2]), K, copParams)
+  }else if(Modeltype == 4){
+    Glist<- BuildGamma_list_cpp(gammas)
+    JointTPM<- JointTransitionMatrix_copula_perstrain_cpp(Glist, K, copParams)
+  }else if(Modeltype==5){
     JointTPM<- FrankJointTransitionMatrix_copula(G(gammas[1], gammas[2]), K, copParams)
-  }else if(Modeltype==4){
+  }else if(Modeltype==6){
     Glist<- BuildGamma_list_cpp(gammas)
     JointTPM<- FrankJointTransitionMatrix_copula_per_strain(Glist, K, copParams)
   }
@@ -1458,25 +1462,29 @@ Multstrain.simulate<- function(Model, time, nstrain=2, adj.matrix, Modeltype=1, 
   if(Modeltype == 1){
     copulaParam<- 0
     T.prob<- c(T.prob[1,2],T.prob[2,1])
-    JointTPM<- Multipurpose_JointTransitionMatrix_cpp(T.prob, nstrain, copulaParam, Modeltype)
+    JointTPM<- Multipurpose_JointTransitionMatrix2(T.prob, nstrain, copulaParam, Modeltype)
   }else if(Modeltype == 2){
     copulaParam<- 0
     T.prob<- runif(2*nstrain, min = 0.1, max = 0.2)
-    JointTPM<- Multipurpose_JointTransitionMatrix_cpp(T.prob, nstrain, copulaParam, Modeltype)
+    JointTPM<- Multipurpose_JointTransitionMatrix2(T.prob, nstrain, copulaParam, Modeltype)
   }else if(Modeltype == 3){
     T.prob<- c(T.prob[1,2],T.prob[2,1])
-    JointTPM<- Multipurpose_JointTransitionMatrix_cpp2(T.prob, nstrain, copulaParam, Modeltype)
-    #JointTPM<- Multipurpose_JointTransitionMatrix_cpp(T.prob, nstrain, copulaParam, Modeltype)
+    JointTPM<- Multipurpose_JointTransitionMatrix2(T.prob, nstrain, copulaParam, Modeltype)
+  }else if(Modeltype == 4){
+    T.prob<- runif(2*nstrain, min = 0.1, max = 0.2)
+    JointTPM<- Multipurpose_JointTransitionMatrix2(T.prob, nstrain, copulaParam, Modeltype)
+  }else if(Modeltype == 5){
+    T.prob<- c(T.prob[1,2],T.prob[2,1])
+    JointTPM<- Multipurpose_JointTransitionMatrix2(T.prob, nstrain, copulaParam, Modeltype)
     #JointTPM<- ParallelJointTransitionMatrix_copula(G(0.1,0.2), K=5, c(0.8,-0.85,0.9,-0.8,-0.86,0.87,-0.85,-0.8,0.8,-0.87))
     JointTPM<- ifelse(JointTPM<=0,1e-6,JointTPM)
     JointTPM<- ifelse(JointTPM>=1,1-1e-6,JointTPM)
-  }else if(Modeltype == 4){
+  }else if(Modeltype == 6){
     T.prob<- runif(2*nstrain, min = 0.1, max = 0.2)
-    JointTPM<- Multipurpose_JointTransitionMatrix_cpp2(T.prob, nstrain, copulaParam, Modeltype)
-    #JointTPM<- Multipurpose_JointTransitionMatrix_cpp(T.prob, nstrain, copulaParam, Modeltype)
+    JointTPM<- Multipurpose_JointTransitionMatrix2(T.prob, nstrain, copulaParam, Modeltype)
     JointTPM<- ifelse(JointTPM<=0,1e-6,JointTPM)
     JointTPM<- ifelse(JointTPM>=1,1-1e-6,JointTPM)
-  }else if(Modeltype == 5){
+  }else if(Modeltype == 7){
     JointTPM<- matrix(NA, nrow = Jointstates, ncol = Jointstates)
     T.prob<- 0
     JointTPM<- gtools::rdirichlet(Jointstates, sample(2:7, size = Jointstates, replace = T))
@@ -1615,14 +1623,26 @@ multstrain.Decoding <- function(y, e_it, nstrain, r, s, u, Gamma, copParam, B, B
   time <- length(r)
   nstate<- 2^nstrain
   if(Modeltype == 1){
-    JointTPM<- Multipurpose_JointTransitionMatrix_cpp2(Gamma, nstrain, copParam, Modeltype)
+    JointTPM<- Multipurpose_JointTransitionMatrix2(Gamma, nstrain, copParam, Modeltype)
   }else if(Modeltype == 2){
-    JointTPM<- Multipurpose_JointTransitionMatrix_cpp2(Gamma, nstrain, copParam, Modeltype)
+    JointTPM<- Multipurpose_JointTransitionMatrix2(Gamma, nstrain, copParam, Modeltype)
   }else if(Modeltype == 3){
-    JointTPM<- Multipurpose_JointTransitionMatrix_cpp2(Gamma, nstrain, copParam, Modeltype)
+    JointTPM<- Multipurpose_JointTransitionMatrix2(Gamma, nstrain, copParam, Modeltype)
+    JointTPM<- ifelse(JointTPM<=0,1e-6,JointTPM)
+    JointTPM<- ifelse(JointTPM>=1,1-1e-6,JointTPM)
   }else if(Modeltype == 4){
-    JointTPM<- Multipurpose_JointTransitionMatrix_cpp2(Gamma, nstrain, copParam, Modeltype)
+    JointTPM<- Multipurpose_JointTransitionMatrix2(Gamma, nstrain, copParam, Modeltype)
+    JointTPM<- ifelse(JointTPM<=0,1e-6,JointTPM)
+    JointTPM<- ifelse(JointTPM>=1,1-1e-6,JointTPM)
   }else if(Modeltype == 5){
+    JointTPM<- Multipurpose_JointTransitionMatrix2(Gamma, nstrain, copParam, Modeltype)
+    JointTPM<- ifelse(JointTPM<=0,1e-6,JointTPM)
+    JointTPM<- ifelse(JointTPM>=1,1-1e-6,JointTPM)
+  }else if(Modeltype == 6){
+    JointTPM<- Multipurpose_JointTransitionMatrix2(Gamma, nstrain, copParam, Modeltype)
+    JointTPM<- ifelse(JointTPM<=0,1e-6,JointTPM)
+    JointTPM<- ifelse(JointTPM>=1,1-1e-6,JointTPM)
+  }else if(Modeltype == 7){
     JointTPM<- matrix(Gamma, nrow = nstate, byrow = TRUE)
   }
     Allforwardprobs<- multstrain.forwardfilter(y, e_it, nstrain, r, s, u, JointTPM, B, Bits, a_k)
@@ -1666,7 +1686,7 @@ Posteriormultstrain.Decoding<- function(y, e_it, inf.object, Modeltype, thinning
     fullu.draws<- inf.object[-(1:burn.in), startsWith(colnames(inf.object), "u")]
     fullB.draws<- inf.object[-(1:burn.in), startsWith(colnames(inf.object), "B")]
     fulla_k.draws<- inf.object[-(1:burn.in), startsWith(colnames(inf.object), "a")]
-    if(Modeltype %in% c(3,4)) fullcop.draws<- inf.object[-(1:burn.in), startsWith(colnames(inf.object), "c")]
+    if(Modeltype %in% c(3,4,5,6)) fullcop.draws<- inf.object[-(1:burn.in), startsWith(colnames(inf.object), "c")]
   }
 
   thinning<- numeric(floor(nrow(fullr.draws)/thinningL))
@@ -1681,7 +1701,11 @@ Posteriormultstrain.Decoding<- function(y, e_it, inf.object, Modeltype, thinning
   u.draws<- fullu.draws[thinning, ]
   B.draws<- fullB.draws[thinning, ]
   a_k.draws<- fulla_k.draws[thinning, ]
-  if(Modeltype %in% c(3,4)) cop.draws<- fullcop.draws[thinning]
+  if(Modeltype %in% c(3,4)){
+    cop.draws<- fullcop.draws[thinning, ]
+  }else if(Modeltype %in% c(5,6)){
+    cop.draws<- fullcop.draws[thinning]
+  }
 
   decodedOutbreakMatrix<- list()
   for(n in 1:nstate){
@@ -1694,7 +1718,13 @@ Posteriormultstrain.Decoding<- function(y, e_it, inf.object, Modeltype, thinning
       u<- as.numeric(u.draws[index,])
       B<- as.numeric(B.draws[index,])
       a_k<- as.numeric(a_k.draws[index,])
-      cop<- ifelse(Modeltype %in% c(3,4), cop.draws[index], 0)
+      if(Modeltype %in% c(3,4)){
+        cop<- as.numeric(cop.draws[index, ])
+      }else if(Modeltype %in% c(5,6)){
+        cop<- cop.draws[index]
+      }else{
+        cop<- 0
+      }
       Ex_Xit <- multstrain.Decoding(y = y, e_it = e_it, nstrain=nstrain, r = r, s = s, u = u, Gamma = Gs, copParam=cop, Bits = Bits, B = B, a_k = a_k, state = n, Modeltype = Modeltype)
       sum_Xit<- sum_Xit + Ex_Xit
     }
