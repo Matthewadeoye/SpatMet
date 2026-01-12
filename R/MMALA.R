@@ -178,10 +178,10 @@ gradmultstrainLoglikelihood2<- function(y, e_it, nstrain, r, s, u, Gamma, B, Bit
       poisMean<- poisMean + e_it * exp(log_risk + a_k[k])
       allPoisMean[,,k]<- e_it * exp(log_risk + a_k[k])
     }
-    loglike<- sum(dpois(y, lambda = allPoisMean, log = T))
+    loglike<- sum(dpois(y, lambda = allPoisMean, log = T), na.rm = T)
 
     # Temporal trend r
-    grad_r <- colSums(delta) - as.numeric(Q_r %*% r)
+    grad_r <- colSums(delta, na.rm = T) - as.numeric(Q_r %*% r)
     cov_r<- solve(diag(colSums(poisMean)) + Q_r + diag(1e-8, time))
 
     # Seasonal s
@@ -189,14 +189,14 @@ gradmultstrainLoglikelihood2<- function(y, e_it, nstrain, r, s, u, Gamma, B, Bit
     grad_s <- numeric(12)
     for (month_index in 1:12) {
       t_idx <- which(((1:time - 1) %% 12 + 1) == month_index)
-      grad_s[month_index] <- sum(delta[, t_idx])
+      grad_s[month_index] <- sum(delta[, t_idx], na.rm = T)
       fishervec_s[month_index]<- sum(poisMean[, t_idx])
     }
     grad_s <- grad_s - as.numeric(Q_s %*% s)
     cov_s<- solve(diag(fishervec_s) + Q_s)
 
     # Spatial u
-    grad_u <- rowSums(delta) - as.numeric(Q_u %*% u)
+    grad_u <- rowSums(delta, na.rm = T) - as.numeric(Q_u %*% u)
 
     poisMean4GibbsUpdate<- sum(e_it * exp(log_risk))
 
@@ -227,7 +227,7 @@ gradmultstrainLoglikelihood2<- function(y, e_it, nstrain, r, s, u, Gamma, B, Bit
             lambda_array[t,n,k] <- e_it[i,t] * exp(a_k[k] + r[t] + s[month_index] + u[i] + as.numeric(newB %*% Bits[n, ]))
             lambda_array2[t,n,k] <- e_it[i,t] * exp(r[t] + s[month_index] + u[i] + as.numeric(newB %*% Bits[n, ]))  #for Gibbs update of a_k's
           }
-          logEmissions[t,n] <- sum(dpois(y[i,t,], lambda = lambda_array[t,n,], log = TRUE))
+          logEmissions[t,n] <- sum(dpois(y[i,t,], lambda = lambda_array[t,n,], log = TRUE), na.rm = T)
         }
       }
 
@@ -277,7 +277,7 @@ gradmultstrainLoglikelihood2<- function(y, e_it, nstrain, r, s, u, Gamma, B, Bit
     }
 
     # Temporal trend r
-    grad_r <- colSums(delta) - as.numeric(Q_r %*% r)
+    grad_r <- colSums(delta, na.rm = T) - as.numeric(Q_r %*% r)
     cov_r<- solve(diag(colSums(poisMean)) + Q_r + diag(1e-8, time))
 
     # Seasonal s
@@ -285,14 +285,14 @@ gradmultstrainLoglikelihood2<- function(y, e_it, nstrain, r, s, u, Gamma, B, Bit
     grad_s <- numeric(12)
     for (month_index in 1:12) {
       t_idx <- which(((1:time - 1) %% 12 + 1) == month_index)
-      grad_s[month_index] <- sum(delta[, t_idx])
+      grad_s[month_index] <- sum(delta[, t_idx], na.rm = T)
       fishervec_s[month_index]<- sum(poisMean[, t_idx])
     }
     grad_s <- grad_s - as.numeric(Q_s %*% s)
     cov_s<- solve(diag(fishervec_s) + Q_s)
 
     # Spatial u
-    grad_u <- rowSums(delta) - as.numeric(Q_u %*% u)
+    grad_u <- rowSums(delta, na.rm = T) - as.numeric(Q_u %*% u)
 
     return(list(loglike = loglike_total, grad_r = grad_r, grad_s = grad_s, grad_u = grad_u, cov_r=cov_r, cov_s=cov_s, poisMean4GibbsUpdate=poisMean4GibbsUpdate, newcov_r=cov_r))
   }
@@ -2023,11 +2023,11 @@ FFBS_INFERENCE<- function(y, e_it, Modeltype, adjmat, step_sizes, num_iteration 
   }
 
   SumYk_vec<- numeric(nstrain)
-  SumYk_vec[1]<- sum(y[,,1])
-  sumY<- y[,,1]
+  SumYk_vec[1]<- sum(y[,,1], na.rm = T)
+  sumY<- ifelse(is.na(y[,,1]),0,y[,,1])
   for(k in 2:nstrain){
-    sumY<- sumY + y[,,k]
-    SumYk_vec[k]<- sum(y[,,k])
+    sumY<- sumY + ifelse(is.na(y[,,k]),0,y[,,k])
+    SumYk_vec[k]<- sum(y[,,k], na.rm = T)
   }
 
   crudeResults<- DetectOutbreaks:::crudeEst(sumY, e_it)
@@ -2039,7 +2039,7 @@ FFBS_INFERENCE<- function(y, e_it, Modeltype, adjmat, step_sizes, num_iteration 
   crudeblock<- ((crudeblock*12)-11):(crudeblock*12)
 
   #flag missing data for inference
-  y<- ifelse(is.na(y), -1, y)
+  #y<- ifelse(is.na(y), -1, y)
 
   initGs<- gtools::rdirichlet(nstate, rep(1, nstate))
   initstateD<- stationarydist(initGs)[ncol(initGs)]
@@ -2368,21 +2368,30 @@ FFBS_INFERENCE<- function(y, e_it, Modeltype, adjmat, step_sizes, num_iteration 
 
     if(i %% 1000 == 0) cat("Iteration:", i, "\n")
   }
-  #Derive pair-correlations from factor-loadings
-  copInd<- 1
-  for(w in 1:(n_factloadings - 1)){
-    for (z in (w + 1):n_factloadings){
-      MC_chain[, num_Gammas+3+time+12+ndept+nstrain+nstrain+n_factloadings+copInd] <- MC_chain[, num_Gammas+3+time+12+ndept+nstrain+nstrain+w] * MC_chain[, num_Gammas+3+time+12+ndept+nstrain+nstrain+z]
-      copInd <- copInd + 1
-    }
-  }
+
   if(Modeltype %in% c(0, 1)){
     colnames(MC_chain) <- paste(c("G12", "G21", "kappa_r", "kappa_s", "kappa_u", paste("r", 1:time, sep=""), paste("s", 1:12, sep=""), paste("u", 1:ndept, sep=""), paste("B", 1:nstrain, sep=""), paste("a_k", 1:nstrain, sep="")))
   }else if(Modeltype == 2){
     colnames(MC_chain) <- paste(c(paste0(rep(c("G12", "G21"), nstrain), "Strain", rep(1:nstrain,each=2)), "kappa_r", "kappa_s", "kappa_u", paste("r", 1:time, sep=""), paste("s", 1:12, sep=""), paste("u", 1:ndept, sep=""), paste("B", 1:nstrain, sep=""), paste("a_k", 1:nstrain, sep="")))
   }else if(Modeltype == 3){
+    #Derive pair-correlations from factor-loadings
+    copInd<- 1
+    for(w in 1:(n_factloadings - 1)){
+      for (z in (w + 1):n_factloadings){
+        MC_chain[, num_Gammas+3+time+12+ndept+nstrain+nstrain+n_factloadings+copInd] <- MC_chain[, num_Gammas+3+time+12+ndept+nstrain+nstrain+w] * MC_chain[, num_Gammas+3+time+12+ndept+nstrain+nstrain+z]
+        copInd <- copInd + 1
+      }
+    }
     colnames(MC_chain) <- paste(c("G12", "G21", "kappa_r", "kappa_s", "kappa_u", paste("r", 1:time, sep=""), paste("s", 1:12, sep=""), paste("u", 1:ndept, sep=""), paste("B", 1:nstrain, sep=""), paste("a_k", 1:nstrain, sep=""), paste("FactorLoading", 1:nstrain, sep =""), paste("copulaParam", 1:n_copParams, sep="")))
   }else if(Modeltype == 4){
+    #Derive pair-correlations from factor-loadings
+    copInd<- 1
+    for(w in 1:(n_factloadings - 1)){
+      for (z in (w + 1):n_factloadings){
+        MC_chain[, num_Gammas+3+time+12+ndept+nstrain+nstrain+n_factloadings+copInd] <- MC_chain[, num_Gammas+3+time+12+ndept+nstrain+nstrain+w] * MC_chain[, num_Gammas+3+time+12+ndept+nstrain+nstrain+z]
+        copInd <- copInd + 1
+      }
+    }
     colnames(MC_chain) <- paste(c(paste0(rep(c("G12", "G21"), nstrain), "Strain", rep(1:nstrain,each=2)), "kappa_r", "kappa_s", "kappa_u", paste("r", 1:time, sep=""), paste("s", 1:12, sep=""), paste("u", 1:ndept, sep=""), paste("B", 1:nstrain, sep=""), paste("a_k", 1:nstrain, sep=""), paste("FactorLoading", 1:nstrain, sep =""),paste("copulaParam", 1:n_copParams, sep="")))
   }else if(Modeltype == 5){
     colnames(MC_chain) <- paste(c(paste0(rep("G_", nstate*nstate), rep(1:nstate, each=nstate), ",", 1:nstate), "kappa_r", "kappa_s", "kappa_u", paste("r", 1:time, sep=""), paste("s", 1:12, sep=""), paste("u", 1:ndept, sep=""), paste("B", 1:nstrain, sep=""), paste("a_k", 1:nstrain, sep="")))

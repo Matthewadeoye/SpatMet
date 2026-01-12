@@ -575,7 +575,7 @@ RecoverInfUA.plot <- function(inf.object, true_u, true_a_k,
                aes(x = x, y = y),
                size = 2, shape = 19, inherit.aes = FALSE) +
     ylim(-0.40, 0.40) +
-    labs(x = "Location", y = "Value", fill = "") +
+    labs(x = "Spatial comp.", y = "Value", fill = "") +
     theme_minimal() +
     scale_fill_manual(values = rep(c("blue", "red"), length.out = n_u)) +
     scale_x_discrete(labels = u_labels) +   # <-- add dynamic labels here
@@ -600,7 +600,7 @@ RecoverInfUA.plot <- function(inf.object, true_u, true_a_k,
                aes(x = x, y = y),
                size = 2, shape = 19, inherit.aes = FALSE) +
     ylim(-14.5, -12) +
-    labs(x = "Intercepts", y = "Value", fill = "") +
+    labs(x = "Intercept", y = "Value", fill = "") +
     theme_minimal() +
     scale_fill_manual(values = rep("purple", n_ak)) +
     scale_x_discrete(labels = ak_labels) +   # <-- add dynamic labels here
@@ -611,15 +611,15 @@ RecoverInfUA.plot <- function(inf.object, true_u, true_a_k,
   # ---- combine plots ----
   plotlists <- list(rfigs_u, rfigs_ak)
   print(cowplot::plot_grid(plotlist = plotlists, ncol = 2,
-                           labels = c("A", "B"),
-                           rel_widths = c(1.25, 1), label_size = 17))
+                           labels = c("A", ""),
+                           rel_widths = c(1.25, 1), label_size = 25))
 
   # Legends
-  add_legend(0.85, 1.15, legend = "Truth",
-             pch = 19, col = "black",
-             horiz = TRUE, bty = 'n', cex = 1.8)
-  add_legend("topleft", legend = substitute(paste(bold(Modeltype))),
-             horiz = TRUE, bty = 'n', cex = 1.5)
+#  add_legend(0.85, 1.15, legend = "Truth",
+#             pch = 19, col = "black",
+#             horiz = TRUE, bty = 'n', cex = 1.8)
+#  add_legend("topleft", legend = substitute(paste(bold(Modeltype))),
+#             horiz = TRUE, bty = 'n', cex = 1.5)
 }
 
 
@@ -667,7 +667,7 @@ RecoverInfUAB.plot <- function(inf.object, true_u, true_a_k, true_B,
                aes(x = x, y = y),
                size = 2, shape = 19, inherit.aes = FALSE) +
     ylim(-0.40, 0.40) +
-    labs(x = "Location", y = "Value", fill = "") +
+    labs(x = "Spatial comp.", y = "Value", fill = "") +
     theme_minimal() +
     scale_fill_manual(values = rep(c("blue", "red"), length.out = n_u)) +
     scale_x_discrete(labels = u_labels) +   # <-- add dynamic labels here
@@ -692,7 +692,7 @@ RecoverInfUAB.plot <- function(inf.object, true_u, true_a_k, true_B,
                aes(x = x, y = y),
                size = 2, shape = 19, inherit.aes = FALSE) +
     ylim(-14.5, -12) +
-    labs(x = "Intercepts", y = "Value", fill = "") +
+    labs(x = "Intercept", y = "Value", fill = "") +
     theme_minimal() +
     scale_fill_manual(values = rep("purple", n_ak)) +
     scale_x_discrete(labels = ak_labels) +   # <-- add dynamic labels here
@@ -728,17 +728,166 @@ RecoverInfUAB.plot <- function(inf.object, true_u, true_a_k, true_B,
   # ---- combine plots ----
   plotlists <- list(rfigs_u, rfigs_ak, rfigs_B)
   print(cowplot::plot_grid(plotlist = plotlists, ncol = 3,
-                           labels = c("A", "B", "C"),
-                           rel_widths = c(1.25, 1, 1), label_size = 17))
+#                           labels = c("A", "B", "C"),
+                           labels = c("H", "", ""),
+                           rel_widths = c(1.25, 1, 1), label_size = 25))
+
+  # Legends
+#  add_legend(0.85, 1.15, legend = "Truth",
+#             pch = 19, col = "black",
+#             horiz = TRUE, bty = 'n', cex = 1.8)
+#  add_legend("topleft", legend = substitute(paste(bold(Modeltype))),
+#             horiz = TRUE, bty = 'n', cex = 1.5)
+}
+
+RecoverInfUABG.plot<- function(inf.object, true_u, true_a_k, true_B, true_G,
+                                        Modeltype = "", burn.in = 100){
+  library(ggplot2)
+  library(cowplot)
+
+  # parameter dimensions
+  n_u  <- length(true_u)
+  n_ak <- length(true_a_k)
+  n_B  <- length(true_B)
+  n_G  <- length(true_G)
+
+  # Extract posterior draws
+  if (!is.data.frame(inf.object)) {
+    fullu.draws <- as.data.frame(inf.object$draws(variables = "uconstrained")[, 1, ])
+    fullak.draws <- as.data.frame(inf.object$draws(variables = "a_k")[, 1, ])
+    fullB.draws <- as.data.frame(inf.object$draws(variables = "B")[, 1, ])
+    fullG.draws <- as.data.frame(inf.object$draws(variables = paste0("G", 1:n_G))[, 1, ])
+  } else {
+    fullu.draws <- inf.object[-(1:burn.in), startsWith(colnames(inf.object), "u")]
+    fullak.draws <- inf.object[-(1:burn.in), startsWith(colnames(inf.object), "a")]
+    fullB.draws <- inf.object[-(1:burn.in), startsWith(colnames(inf.object), "B")]
+    fullG.draws <- inf.object[-(1:burn.in), startsWith(colnames(inf.object), "G")]
+  }
+
+  # thinning every 10
+  thinning <- seq(10, nrow(fullu.draws), by = 10)
+  u.draws  <- fullu.draws[thinning, , drop = FALSE]
+  ak.draws <- fullak.draws[thinning, , drop = FALSE]
+  B.draws  <- fullB.draws[thinning, , drop = FALSE]
+  G.draws  <- fullG.draws[thinning, , drop = FALSE]
+
+  # ---- U violin plot ----
+  u_labels <- do.call(expression, lapply(1:n_u, function(i) {
+    bquote(u[.(i)])
+  }))
+
+  spatcomp_u <- data.frame(
+    value = as.vector(as.matrix(u.draws)),
+    group = factor(rep(paste0("u", 1:n_u), each = nrow(u.draws)))
+  )
+
+  rfigs_u <- ggplot(spatcomp_u, aes(x = group, y = value, fill = group)) +
+    geom_violin(trim = FALSE, alpha = 0.7) +
+    geom_point(data = data.frame(x = factor(paste0("u", 1:n_u), levels = levels(spatcomp_u$group)),
+                                 y = true_u),
+               aes(x = x, y = y),
+               size = 2, shape = 19, inherit.aes = FALSE) +
+    ylim(-0.40, 0.40) +
+    labs(x = "Spatial comp.", y = "Value", fill = "") +
+    theme_minimal() +
+    scale_fill_manual(values = rep(c("blue", "red"), length.out = n_u)) +
+    scale_x_discrete(labels = u_labels) +   #labels here
+    theme(axis.title = element_text(size = 17),
+          axis.text = element_text(size = 16),
+          legend.position = "none")
+
+  # ---- a_k violin plot ----
+  ak_labels <- do.call(expression, lapply(1:n_ak, function(i) {
+    bquote(a[.(i)])
+  }))
+
+  comp_ak <- data.frame(
+    value = as.vector(as.matrix(ak.draws)),
+    group = factor(rep(paste0("a", 1:n_ak), each = nrow(ak.draws)))
+  )
+
+  rfigs_ak <- ggplot(comp_ak, aes(x = group, y = value, fill = group)) +
+    geom_violin(trim = FALSE, alpha = 0.7) +
+    geom_point(data = data.frame(x = factor(paste0("a", 1:n_ak), levels = levels(comp_ak$group)),
+                                 y = true_a_k),
+               aes(x = x, y = y),
+               size = 2, shape = 19, inherit.aes = FALSE) +
+    ylim(-14.5, -12) +
+    labs(x = "Intercept", y = "Value", fill = "") +
+    theme_minimal() +
+    scale_fill_manual(values = rep("purple", n_ak)) +
+    scale_x_discrete(labels = ak_labels) +   #labels here
+    theme(axis.title = element_text(size = 17),
+          axis.text = element_text(size = 16),
+          legend.position = "none")
+
+  # ---- B violin plot ----
+  B_labels <- do.call(expression, lapply(1:n_B, function(i) {
+    bquote(beta[.(i)])
+  }))
+
+  comp_B <- data.frame(
+    value = as.vector(as.matrix(B.draws)),
+    group = factor(rep(paste0("B", 1:n_B), each = nrow(B.draws)))
+  )
+
+  rfigs_B <- ggplot(comp_B, aes(x = group, y = value, fill = group)) +
+    geom_violin(trim = FALSE, alpha = 0.7) +
+    geom_point(data = data.frame(x = factor(paste0("B", 1:n_B), levels = levels(comp_B$group)),
+                                 y = true_B),
+               aes(x = x, y = y),
+               size = 2, shape = 19, inherit.aes = FALSE) +
+    ylim(0.5, 2.5) +
+    labs(x = "Regression coeff.", y = "Value", fill = "") +
+    theme_minimal() +
+    scale_fill_manual(values = rep("purple", n_B)) +
+    scale_x_discrete(labels = B_labels) +   #labels here
+    theme(axis.title = element_text(size = 17),
+          axis.text = element_text(size = 16),
+          legend.position = "none")
+
+  # ---- G violin plot ----
+  G_index_pairs <- rep(list(c(0,1), c(1,0)), ncol(G.draws)/2)
+
+  G_labels <- do.call(expression, lapply(G_index_pairs, function(idx) {
+    bquote(gamma[.(idx[1])][.(idx[2])])
+  }))
+
+  comp_G <- data.frame(
+    value = as.vector(as.matrix(G.draws)),
+    group = factor(rep(paste0("G", 1:n_G), each = nrow(G.draws)))
+  )
+
+  rfigs_G <- ggplot(comp_G, aes(x = group, y = value, fill = group)) +
+    geom_violin(trim = FALSE, alpha = 0.7) +
+    geom_point(data = data.frame(x = factor(paste0("G", 1:n_G),
+                                            levels = levels(comp_G$group)),
+                                 y = true_G),
+               aes(x = x, y = y),
+               size = 2, shape = 19, inherit.aes = FALSE) +
+    ylim(0, 1) +
+    labs(x = "Transition prob.", y = "Value", fill = "") +
+    theme_minimal() +
+    scale_fill_manual(values = rep("purple", n_G)) +
+    scale_x_discrete(labels = G_labels) +   #labels here
+    theme(axis.title = element_text(size = 17),
+          axis.text = element_text(size = 16),
+          legend.position = "none")
+
+  # ---- combine plots ----
+  plotlists <- list(rfigs_u, rfigs_ak, rfigs_B, rfigs_G)
+  print(cowplot::plot_grid(plotlist = plotlists, ncol = 4,
+#                           labels = c("A", "B", "C", "D","E"),
+                           labels = c("C", "", "", ""),
+                           rel_widths = c(1.25, 1, 1, 1.25), label_size = 25))
 
   # Legends
   add_legend(0.85, 1.15, legend = "Truth",
              pch = 19, col = "black",
-             horiz = TRUE, bty = 'n', cex = 1.8)
-  add_legend("topleft", legend = substitute(paste(bold(Modeltype))),
-             horiz = TRUE, bty = 'n', cex = 1.5)
+             horiz = TRUE, bty = 'n', cex = 2.0)
+#  add_legend("topleft", legend = substitute(paste(bold(Modeltype))),
+#             horiz = TRUE, bty = 'n', cex = 1.5)
 }
-
 
 RecoverInfUABGcop.plotFrank <- function(inf.object, true_u, true_a_k, true_B, true_G, true_cop,
                                 Modeltype = "", burn.in = 100) {
@@ -790,7 +939,7 @@ RecoverInfUABGcop.plotFrank <- function(inf.object, true_u, true_a_k, true_B, tr
                aes(x = x, y = y),
                size = 2, shape = 19, inherit.aes = FALSE) +
     ylim(-0.40, 0.40) +
-    labs(x = "Location", y = "Value", fill = "") +
+    labs(x = "Spatial comp.", y = "Value", fill = "") +
     theme_minimal() +
     scale_fill_manual(values = rep(c("blue", "red"), length.out = n_u)) +
     scale_x_discrete(labels = u_labels) +   #labels here
@@ -815,7 +964,7 @@ RecoverInfUABGcop.plotFrank <- function(inf.object, true_u, true_a_k, true_B, tr
                aes(x = x, y = y),
                size = 2, shape = 19, inherit.aes = FALSE) +
     ylim(-14.5, -12) +
-    labs(x = "Intercepts", y = "Value", fill = "") +
+    labs(x = "Intercept", y = "Value", fill = "") +
     theme_minimal() +
     scale_fill_manual(values = rep("purple", n_ak)) +
     scale_x_discrete(labels = ak_labels) +   #labels here
@@ -899,15 +1048,16 @@ RecoverInfUABGcop.plotFrank <- function(inf.object, true_u, true_a_k, true_B, tr
   # ---- combine plots ----
   plotlists <- list(rfigs_u, rfigs_ak, rfigs_B, rfigs_G, rfigs_cop)
   print(cowplot::plot_grid(plotlist = plotlists, ncol = 5,
-                           labels = c("A", "B", "C", "D","E"),
-                           rel_widths = c(1.25, 1, 1, 1.5, 0.7), label_size = 17))
+#                           labels = c("A", "B", "C", "D","E"),
+                           labels = c("G", "", "", "",""),
+                           rel_widths = c(1.25, 1, 1, 1.5, 0.7), label_size = 25))
 
   # Legends
-  add_legend(0.85, 1.15, legend = "Truth",
-             pch = 19, col = "black",
-             horiz = TRUE, bty = 'n', cex = 1.8)
-  add_legend("topleft", legend = substitute(paste(bold(Modeltype))),
-             horiz = TRUE, bty = 'n', cex = 1.5)
+#  add_legend(0.85, 1.15, legend = "Truth",
+#             pch = 19, col = "black",
+#             horiz = TRUE, bty = 'n', cex = 2.0)
+#  add_legend("topleft", legend = substitute(paste(bold(Modeltype))),
+#             horiz = TRUE, bty = 'n', cex = 1.5)
 }
 
 RecoverInfUABGcop.plotGauss <- function(inf.object, true_u, true_a_k, true_B, true_G, true_cop,
@@ -961,7 +1111,7 @@ RecoverInfUABGcop.plotGauss <- function(inf.object, true_u, true_a_k, true_B, tr
                aes(x = x, y = y),
                size = 2, shape = 19, inherit.aes = FALSE) +
     ylim(-0.40, 0.40) +
-    labs(x = "Location", y = "Value", fill = "") +
+    labs(x = "Spatial comp.", y = "Value", fill = "") +
     theme_minimal() +
     scale_fill_manual(values = rep(c("blue", "red"), length.out = n_u)) +
     scale_x_discrete(labels = u_labels) +   #labels here
@@ -986,7 +1136,7 @@ RecoverInfUABGcop.plotGauss <- function(inf.object, true_u, true_a_k, true_B, tr
                aes(x = x, y = y),
                size = 2, shape = 19, inherit.aes = FALSE) +
     ylim(-14.5, -12) +
-    labs(x = "Intercepts", y = "Value", fill = "") +
+    labs(x = "Intercept", y = "Value", fill = "") +
     theme_minimal() +
     scale_fill_manual(values = rep("purple", n_ak)) +
     scale_x_discrete(labels = ak_labels) +   #labels here
@@ -1069,7 +1219,7 @@ RecoverInfUABGcop.plotGauss <- function(inf.object, true_u, true_a_k, true_B, tr
                aes(x = x, y = y),
                size = 2, shape = 19, inherit.aes = FALSE) +
     ylim(-1.1, 1.1) +
-    labs(x = "Copula params", y = "Value", fill = "") +
+    labs(x = "Copula param.", y = "Value", fill = "") +
     theme_minimal() +
     scale_fill_manual(values = rep("purple", n_c)) +
     scale_x_discrete(labels = c_labels) +
@@ -1080,15 +1230,18 @@ RecoverInfUABGcop.plotGauss <- function(inf.object, true_u, true_a_k, true_B, tr
   # ---- combine plots ----
   plotlists <- list(rfigs_u, rfigs_ak, rfigs_B, rfigs_G, rfigs_c)
   print(cowplot::plot_grid(plotlist = plotlists, ncol = 5,
-                           labels = c("A", "B", "C", "D","E"),
-                           rel_widths = c(1, 1, 1, 0.7, 1.4), label_size = 17))
+#                           labels = c("A", "B", "C", "D","E"),
+                           labels = c("E", "", "", "",""),
+#                           rel_widths = c(1, 1, 1, 0.7, 1.4), label_size = 25)),
+                          rel_widths = c(1, 0.7, 0.7, 1.2, 1.3), label_size = 25))
+
 
   # Legends
-  add_legend(0.85, 1.15, legend = "Truth",
-             pch = 19, col = "black",
-             horiz = TRUE, bty = 'n', cex = 1.8)
-  add_legend("topleft", legend = substitute(paste(bold(Modeltype))),
-             horiz = TRUE, bty = 'n', cex = 1.5)
+#  add_legend(0.85, 1.15, legend = "Truth",
+#             pch = 19, col = "black",
+#             horiz = TRUE, bty = 'n', cex = 1.8)
+#  add_legend("topleft", legend = substitute(paste(bold(Modeltype))),
+#             horiz = TRUE, bty = 'n', cex = 1.5)
 }
 
 
@@ -1328,26 +1481,29 @@ perstrainOutbreakfigures<- function(Truth_array, matrix_array, Outbreaktype=""){
            pch = 16, cex = 2.0, col = "magenta")
     legendary::labelFig(LETTERS[i], adj = c(-0.14, 0.05), font=2, cex=2.0)
   }
-  par(mar = c(5, 18, 5, 17))
+#  par(mar = c(5, 18, 5, 17))
   #c(bottom, left, top, right) ==> specification order
 
-  zseq <- seq(0, 1, length.out = 101)
-  xseq <- c(0, 1)
-  zmat <- matrix(zseq[-1], nrow = 1)
+#  zseq <- seq(0, 1, length.out = 101)
+#  xseq <- c(0, 1)
+#  zmat <- matrix(zseq[-1], nrow = 1)
 
-  image(x = xseq, y = zseq, z = zmat,
-        axes = FALSE, xlab = "", ylab = "", main = "")
+#  image(x = xseq, y = zseq, z = zmat,
+#        axes = FALSE, xlab = "", ylab = "", main = "")
 
-  axis(4, at = seq(0, 1, 0.2), labels = seq(0, 1, 0.2), las = 1, cex.axis=2.0)
-  mtext("Posterior probability of outbreak", side = 4, line = 5.0, cex = 1.7)
-  box()
-  add_legend(0.30, 1.11, legend=c("Truth", "Small cities", "Large cities"), lty=c(NA, 1, 1),
-             pch=c(16, NA, NA), col=c("magenta", "blue", "red"),
-             horiz=TRUE, bty='n', cex=2.0)
+#  axis(4, at = seq(0, 1, 0.2), labels = seq(0, 1, 0.2), las = 1, cex.axis=2.0)
+#  mtext("Posterior probability of outbreak", side = 4, line = 5.0, cex = 1.7)
+#  box()
+#  add_legend(0.30, 1.11, legend=c("Truth", "Small cities", "Large cities"), lty=c(NA, 1, 1),
+#             pch=c(16, NA, NA), col=c("magenta", "blue", "red"),
+#             horiz=TRUE, bty='n', cex=2.0)
 
 #  add_legend(0.50, -0.4, legend=substitute(paste(bold(Outbreaktype))),
 #             col="black",
 #             horiz=TRUE, bty='n', cex=3.0)
+  add_legend(0.58, -0.30, legend=substitute(paste(bold(Outbreaktype))),
+             col="black",
+             horiz=TRUE, bty='n', cex=5.0)
 
   dev.off()
 }
